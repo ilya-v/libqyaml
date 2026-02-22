@@ -465,33 +465,41 @@ static void test_writer_utf16_4byte_roundtrip(void) {
     ASSERT(found_scalar, "4byte roundtrip: found scalar");
 }
 
-/* Test emitter output buffer overflow */
+/* Test emitter output buffer overflow -- triggers yaml_string_write_handler overflow path */
 static void test_writer_output_buffer_overflow(void) {
     yaml_emitter_t emitter;
     yaml_event_t event;
-    unsigned char output[32]; /* tiny buffer */
+    unsigned char output[16]; /* tiny buffer to force overflow */
     size_t written = 0;
+    int failed = 0;
 
     ASSERT(yaml_emitter_initialize(&emitter), "overflow init");
     yaml_emitter_set_output_string(&emitter, output, sizeof(output), &written);
     yaml_emitter_set_encoding(&emitter, YAML_UTF8_ENCODING);
 
     yaml_stream_start_event_initialize(&event, YAML_UTF8_ENCODING);
-    if (!yaml_emitter_emit(&emitter, &event)) goto done;
+    if (!yaml_emitter_emit(&emitter, &event)) { failed = 1; goto done; }
 
     yaml_document_start_event_initialize(&event, NULL, NULL, NULL, 0);
-    if (!yaml_emitter_emit(&emitter, &event)) goto done;
+    if (!yaml_emitter_emit(&emitter, &event)) { failed = 1; goto done; }
 
-    /* Large scalar will overflow 32-byte output */
+    /* Large scalar to force buffer flush that exceeds 16-byte output */
     {
-        char big[256];
+        char big[32768];
         memset(big, 'z', sizeof(big));
         yaml_scalar_event_initialize(&event, NULL, (const yaml_char_t *)YAML_STR_TAG,
             (const yaml_char_t *)big, sizeof(big), 1, 1, YAML_PLAIN_SCALAR_STYLE);
-        if (!yaml_emitter_emit(&emitter, &event)) goto done;
+        if (!yaml_emitter_emit(&emitter, &event)) { failed = 1; goto done; }
     }
 
+    yaml_document_end_event_initialize(&event, 1);
+    if (!yaml_emitter_emit(&emitter, &event)) { failed = 1; goto done; }
+
+    yaml_stream_end_event_initialize(&event);
+    if (!yaml_emitter_emit(&emitter, &event)) { failed = 1; goto done; }
+
 done:
+    ASSERT(failed, "tiny buffer should cause write failure");
     /* written should be capped at sizeof(output) */
     ASSERT(written <= sizeof(output), "written <= buffer size");
     yaml_emitter_delete(&emitter);

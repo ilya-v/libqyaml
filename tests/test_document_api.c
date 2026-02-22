@@ -967,6 +967,24 @@ static void test_document_delete_complex(void) {
     ASSERT(1, "delete complex: no crash");
 }
 
+/* Test add_scalar with length=-1 (auto-detect) -- api.c:1219 */
+static void test_add_scalar_auto_length(void) {
+    yaml_document_t doc;
+    ASSERT(yaml_document_initialize(&doc, NULL, NULL, NULL, 1, 1),
+           "auto length doc init");
+
+    int id = yaml_document_add_scalar(&doc, NULL,
+        (const yaml_char_t *)"auto", -1, YAML_PLAIN_SCALAR_STYLE);
+    ASSERT(id > 0, "auto length: add scalar");
+
+    yaml_node_t *node = yaml_document_get_node(&doc, id);
+    ASSERT_NOT_NULL(node, "auto length: get node");
+    ASSERT_EQ_INT((int)node->data.scalar.length, 4, "auto length: len=4");
+    ASSERT_EQ_STR(node->data.scalar.value, "auto", "auto length: value");
+
+    yaml_document_delete(&doc);
+}
+
 int main(void) {
     TEST_SUITE_BEGIN("Document API");
 
@@ -1022,6 +1040,9 @@ int main(void) {
     test_sequence_many_items();
     test_mapping_many_pairs();
     test_document_delete_complex();
+
+    /* Coverage-targeted */
+    test_add_scalar_auto_length();
 
     TEST_SUITE_END();
 }
