@@ -300,6 +300,300 @@ static void test_long_key(void) {
     ASSERT(parse_string_events(yaml, events, 32, &count), "long key: parse");
 }
 
+/* ==================================================================
+ * Additional edge cases for coverage
+ * ================================================================== */
+
+static void test_empty_flow_collections(void) {
+    yaml_event_type_t events[16];
+    int count;
+
+    ASSERT(parse_string_events("[]", events, 16, &count), "empty flow seq");
+    int seq_start = 0, seq_end = 0;
+    for (int i = 0; i < count; i++) {
+        if (events[i] == YAML_SEQUENCE_START_EVENT) seq_start = 1;
+        if (events[i] == YAML_SEQUENCE_END_EVENT) seq_end = 1;
+    }
+    ASSERT(seq_start && seq_end, "empty flow seq: found start+end");
+
+    ASSERT(parse_string_events("{}", events, 16, &count), "empty flow map");
+    int map_start = 0, map_end = 0;
+    for (int i = 0; i < count; i++) {
+        if (events[i] == YAML_MAPPING_START_EVENT) map_start = 1;
+        if (events[i] == YAML_MAPPING_END_EVENT) map_end = 1;
+    }
+    ASSERT(map_start && map_end, "empty flow map: found start+end");
+}
+
+static void test_nested_empty_collections(void) {
+    yaml_event_type_t events[32];
+    int count;
+    ASSERT(parse_string_events("[[], []]", events, 32, &count), "nested empty seqs");
+    int seq_count = 0;
+    for (int i = 0; i < count; i++)
+        if (events[i] == YAML_SEQUENCE_START_EVENT) seq_count++;
+    ASSERT_EQ_INT(seq_count, 3, "nested empty seqs: 3 seq starts");
+}
+
+static void test_deeply_nested_collections(void) {
+    yaml_event_type_t events[64];
+    int count;
+    ASSERT(parse_string_events("[[[[a]]]]", events, 64, &count), "deep nested seqs");
+    int seq_count = 0;
+    for (int i = 0; i < count; i++)
+        if (events[i] == YAML_SEQUENCE_START_EVENT) seq_count++;
+    ASSERT_EQ_INT(seq_count, 4, "deep nested: 4 seq starts");
+}
+
+static void test_flow_map_nested_seq(void) {
+    yaml_event_type_t events[32];
+    int count;
+    ASSERT(parse_string_events("{a: [1, 2], b: [3, 4]}", events, 32, &count),
+           "flow map nested seq");
+    int scalar_count = 0;
+    for (int i = 0; i < count; i++)
+        if (events[i] == YAML_SCALAR_EVENT) scalar_count++;
+    ASSERT_EQ_INT(scalar_count, 6, "flow map nested seq: 6 scalars");
+}
+
+static void test_flow_seq_nested_map(void) {
+    yaml_event_type_t events[32];
+    int count;
+    ASSERT(parse_string_events("[{a: 1}, {b: 2}]", events, 32, &count),
+           "flow seq nested map");
+    int map_count = 0;
+    for (int i = 0; i < count; i++)
+        if (events[i] == YAML_MAPPING_START_EVENT) map_count++;
+    ASSERT_EQ_INT(map_count, 2, "flow seq nested map: 2 maps");
+}
+
+static void test_multiline_flow_seq(void) {
+    yaml_event_type_t events[32];
+    int count;
+    ASSERT(parse_string_events("[\n  a,\n  b,\n  c\n]", events, 32, &count),
+           "multiline flow seq");
+    int scalar_count = 0;
+    for (int i = 0; i < count; i++)
+        if (events[i] == YAML_SCALAR_EVENT) scalar_count++;
+    ASSERT_EQ_INT(scalar_count, 3, "multiline flow seq: 3 scalars");
+}
+
+static void test_multiline_flow_map(void) {
+    yaml_event_type_t events[32];
+    int count;
+    ASSERT(parse_string_events("{\n  a: 1,\n  b: 2\n}", events, 32, &count),
+           "multiline flow map");
+    int scalar_count = 0;
+    for (int i = 0; i < count; i++)
+        if (events[i] == YAML_SCALAR_EVENT) scalar_count++;
+    ASSERT_EQ_INT(scalar_count, 4, "multiline flow map: 4 scalars");
+}
+
+static void test_trailing_comma_flow(void) {
+    yaml_event_type_t events[32];
+    int count;
+    /* Trailing comma in flow sequence */
+    ASSERT(parse_string_events("[a, b, ]", events, 32, &count), "trailing comma seq");
+}
+
+static void test_block_scalar_empty_lines(void) {
+    yaml_parser_t parser;
+    yaml_event_t event;
+    const char *yaml = "|\n  line1\n\n  line2\n";
+
+    ASSERT(yaml_parser_initialize(&parser), "block empty lines init");
+    yaml_parser_set_input_string(&parser, (const unsigned char *)yaml, strlen(yaml));
+
+    int found = 0;
+    while (1) {
+        if (!yaml_parser_parse(&parser, &event)) break;
+        if (event.type == YAML_SCALAR_EVENT) {
+            found = 1;
+            ASSERT_EQ_STR((const char *)event.data.scalar.value,
+                         "line1\n\nline2\n", "block empty lines: value");
+        }
+        if (event.type == YAML_STREAM_END_EVENT) { yaml_event_delete(&event); break; }
+        yaml_event_delete(&event);
+    }
+    ASSERT(found, "block empty lines: found");
+    yaml_parser_delete(&parser);
+}
+
+static void test_folded_scalar_content(void) {
+    yaml_parser_t parser;
+    yaml_event_t event;
+    const char *yaml = ">\n  word1 word2\n  word3 word4\n";
+
+    ASSERT(yaml_parser_initialize(&parser), "folded content init");
+    yaml_parser_set_input_string(&parser, (const unsigned char *)yaml, strlen(yaml));
+
+    int found = 0;
+    while (1) {
+        if (!yaml_parser_parse(&parser, &event)) break;
+        if (event.type == YAML_SCALAR_EVENT) {
+            found = 1;
+            ASSERT_EQ_STR((const char *)event.data.scalar.value,
+                         "word1 word2 word3 word4\n", "folded content: value");
+        }
+        if (event.type == YAML_STREAM_END_EVENT) { yaml_event_delete(&event); break; }
+        yaml_event_delete(&event);
+    }
+    ASSERT(found, "folded content: found");
+    yaml_parser_delete(&parser);
+}
+
+static void test_multiple_scalars_in_mapping(void) {
+    yaml_parser_t parser;
+    yaml_event_t event;
+    const char *yaml = "a: 1\nb: 2\nc: 3\nd: 4\ne: 5\n";
+
+    ASSERT(yaml_parser_initialize(&parser), "multi scalar map init");
+    yaml_parser_set_input_string(&parser, (const unsigned char *)yaml, strlen(yaml));
+
+    int scalar_count = 0;
+    while (1) {
+        if (!yaml_parser_parse(&parser, &event)) break;
+        if (event.type == YAML_SCALAR_EVENT) scalar_count++;
+        if (event.type == YAML_STREAM_END_EVENT) { yaml_event_delete(&event); break; }
+        yaml_event_delete(&event);
+    }
+    ASSERT_EQ_INT(scalar_count, 10, "multi scalar map: 10 scalars");
+    yaml_parser_delete(&parser);
+}
+
+static void test_parser_reuse(void) {
+    /* Parse, delete, reinitialize, parse again */
+    yaml_parser_t parser;
+    yaml_event_t event;
+
+    ASSERT(yaml_parser_initialize(&parser), "reuse init 1");
+    yaml_parser_set_input_string(&parser, (const unsigned char *)"hello\n", 6);
+    while (1) {
+        if (!yaml_parser_parse(&parser, &event)) break;
+        if (event.type == YAML_STREAM_END_EVENT) { yaml_event_delete(&event); break; }
+        yaml_event_delete(&event);
+    }
+    yaml_parser_delete(&parser);
+
+    ASSERT(yaml_parser_initialize(&parser), "reuse init 2");
+    yaml_parser_set_input_string(&parser, (const unsigned char *)"world\n", 6);
+    int found = 0;
+    while (1) {
+        if (!yaml_parser_parse(&parser, &event)) break;
+        if (event.type == YAML_SCALAR_EVENT) found = 1;
+        if (event.type == YAML_STREAM_END_EVENT) { yaml_event_delete(&event); break; }
+        yaml_event_delete(&event);
+    }
+    ASSERT(found, "reuse: found scalar in second parse");
+    yaml_parser_delete(&parser);
+}
+
+static void test_emitter_reuse(void) {
+    yaml_emitter_t emitter;
+    unsigned char buffer[1024];
+    size_t written;
+
+    /* First use */
+    ASSERT(yaml_emitter_initialize(&emitter), "emitter reuse init 1");
+    yaml_emitter_set_output_string(&emitter, buffer, sizeof(buffer), &written);
+    yaml_emitter_set_canonical(&emitter, 0);
+
+    yaml_event_t event;
+    yaml_stream_start_event_initialize(&event, YAML_UTF8_ENCODING);
+    yaml_emitter_emit(&emitter, &event);
+    yaml_stream_end_event_initialize(&event);
+    yaml_emitter_emit(&emitter, &event);
+    yaml_emitter_delete(&emitter);
+
+    /* Second use */
+    ASSERT(yaml_emitter_initialize(&emitter), "emitter reuse init 2");
+    yaml_emitter_set_output_string(&emitter, buffer, sizeof(buffer), &written);
+    yaml_stream_start_event_initialize(&event, YAML_UTF8_ENCODING);
+    yaml_emitter_emit(&emitter, &event);
+    yaml_stream_end_event_initialize(&event);
+    yaml_emitter_emit(&emitter, &event);
+    yaml_emitter_delete(&emitter);
+
+    ASSERT(1, "emitter reuse: no crash");
+}
+
+static void test_special_yaml_values(void) {
+    /* Various YAML values that have special meaning */
+    yaml_event_type_t events[16];
+    int count;
+
+    ASSERT(parse_string_events("true", events, 16, &count), "value: true");
+    ASSERT(parse_string_events("false", events, 16, &count), "value: false");
+    ASSERT(parse_string_events("null", events, 16, &count), "value: null");
+    ASSERT(parse_string_events("~", events, 16, &count), "value: tilde");
+    ASSERT(parse_string_events(".inf", events, 16, &count), "value: .inf");
+    ASSERT(parse_string_events("-.inf", events, 16, &count), "value: -.inf");
+    ASSERT(parse_string_events(".nan", events, 16, &count), "value: .nan");
+    ASSERT(parse_string_events("0", events, 16, &count), "value: zero");
+    ASSERT(parse_string_events("0x1A", events, 16, &count), "value: hex");
+    ASSERT(parse_string_events("0o17", events, 16, &count), "value: octal");
+    ASSERT(parse_string_events("1.23e4", events, 16, &count), "value: scientific");
+}
+
+static void test_whitespace_handling(void) {
+    yaml_event_type_t events[32];
+    int count;
+
+    /* Trailing whitespace */
+    ASSERT(parse_string_events("key: value   \n", events, 32, &count),
+           "trailing whitespace");
+    /* Leading blank lines */
+    ASSERT(parse_string_events("\n\n\nkey: value\n", events, 32, &count),
+           "leading blank lines");
+    /* Only whitespace */
+    ASSERT(parse_string_events("   \n   \n", events, 32, &count),
+           "only whitespace");
+}
+
+static void test_unicode_scalars(void) {
+    yaml_event_type_t events[16];
+    int count;
+
+    /* UTF-8 content */
+    ASSERT(parse_string_events("key: \xc3\xa9l\xc3\xa8ve\n", events, 16, &count),
+           "utf8 accented");
+    ASSERT(parse_string_events("key: \xe4\xb8\xad\xe6\x96\x87\n", events, 16, &count),
+           "utf8 chinese");
+    ASSERT(parse_string_events("key: \xf0\x9f\x98\x80\n", events, 16, &count),
+           "utf8 emoji");
+}
+
+static void test_large_sequence(void) {
+    /* Build a YAML sequence with 50 items */
+    char yaml[4096];
+    int pos = 0;
+    for (int i = 0; i < 50; i++) {
+        pos += snprintf(yaml + pos, sizeof(yaml) - pos, "- item%d\n", i);
+    }
+    yaml_event_type_t events[256];
+    int count;
+    ASSERT(parse_string_events(yaml, events, 256, &count), "large seq");
+    int seq_count = 0;
+    for (int i = 0; i < count; i++)
+        if (events[i] == YAML_SCALAR_EVENT) seq_count++;
+    ASSERT_EQ_INT(seq_count, 50, "large seq: 50 items");
+}
+
+static void test_large_mapping(void) {
+    char yaml[4096];
+    int pos = 0;
+    for (int i = 0; i < 30; i++) {
+        pos += snprintf(yaml + pos, sizeof(yaml) - pos, "key%d: val%d\n", i, i);
+    }
+    yaml_event_type_t events[256];
+    int count;
+    ASSERT(parse_string_events(yaml, events, 256, &count), "large map");
+    int scalar_count = 0;
+    for (int i = 0; i < count; i++)
+        if (events[i] == YAML_SCALAR_EVENT) scalar_count++;
+    ASSERT_EQ_INT(scalar_count, 60, "large map: 60 scalars");
+}
+
 int main(void) {
     TEST_SUITE_BEGIN("Edge Cases");
 
@@ -321,6 +615,26 @@ int main(void) {
     test_indentless_sequence();
     test_tabs_handling();
     test_long_key();
+
+    /* Extended edge cases */
+    test_empty_flow_collections();
+    test_nested_empty_collections();
+    test_deeply_nested_collections();
+    test_flow_map_nested_seq();
+    test_flow_seq_nested_map();
+    test_multiline_flow_seq();
+    test_multiline_flow_map();
+    test_trailing_comma_flow();
+    test_block_scalar_empty_lines();
+    test_folded_scalar_content();
+    test_multiple_scalars_in_mapping();
+    test_parser_reuse();
+    test_emitter_reuse();
+    test_special_yaml_values();
+    test_whitespace_handling();
+    test_unicode_scalars();
+    test_large_sequence();
+    test_large_mapping();
 
     TEST_SUITE_END();
 }

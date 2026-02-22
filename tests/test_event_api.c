@@ -215,6 +215,174 @@ static void test_scalar_styles(void) {
     }
 }
 
+/* ==================================================================
+ * Extended event API tests
+ * ================================================================== */
+
+static void test_scalar_empty_value(void) {
+    yaml_event_t event;
+    /* API requires non-NULL value (assert enforced), use empty string */
+    ASSERT(yaml_scalar_event_initialize(&event, NULL, NULL,
+           (const yaml_char_t *)"", 0, 1, 0, YAML_PLAIN_SCALAR_STYLE),
+           "empty value init");
+    ASSERT_EQ_INT((int)event.data.scalar.length, 0, "empty value: length=0");
+    yaml_event_delete(&event);
+}
+
+static void test_scalar_binary_content(void) {
+    yaml_event_t event;
+    const unsigned char binary[] = {0x01, 0x02, 0x03, 0x00, 0x04};
+    ASSERT(yaml_scalar_event_initialize(&event, NULL, NULL,
+           binary, 5, 0, 0, YAML_DOUBLE_QUOTED_SCALAR_STYLE),
+           "binary content init");
+    ASSERT_EQ_INT((int)event.data.scalar.length, 5, "binary: length=5");
+    yaml_event_delete(&event);
+}
+
+static void test_document_start_all_params(void) {
+    yaml_event_t event;
+    yaml_version_directive_t version = {1, 2};
+    yaml_tag_directive_t tags[] = {
+        {(yaml_char_t *)"!", (yaml_char_t *)"!"},
+        {(yaml_char_t *)"!!", (yaml_char_t *)"tag:yaml.org,2002:"},
+        {(yaml_char_t *)"!e!", (yaml_char_t *)"tag:example.com,2000:"}
+    };
+    ASSERT(yaml_document_start_event_initialize(&event, &version, tags, tags + 3, 0),
+           "doc start all params");
+    ASSERT_NOT_NULL(event.data.document_start.version_directive, "all: version");
+    ASSERT_EQ_INT(event.data.document_start.version_directive->major, 1, "all: major");
+    ASSERT_EQ_INT(event.data.document_start.version_directive->minor, 2, "all: minor");
+    ASSERT(!event.data.document_start.implicit, "all: explicit");
+    yaml_event_delete(&event);
+}
+
+static void test_sequence_all_styles(void) {
+    yaml_event_t event;
+    yaml_sequence_style_t styles[] = {
+        YAML_ANY_SEQUENCE_STYLE,
+        YAML_BLOCK_SEQUENCE_STYLE,
+        YAML_FLOW_SEQUENCE_STYLE
+    };
+    for (int i = 0; i < 3; i++) {
+        ASSERT(yaml_sequence_start_event_initialize(&event, NULL, NULL, 1, styles[i]),
+               "seq style init");
+        ASSERT_EQ_INT(event.data.sequence_start.style, styles[i], "seq style match");
+        yaml_event_delete(&event);
+    }
+}
+
+static void test_mapping_all_styles(void) {
+    yaml_event_t event;
+    yaml_mapping_style_t styles[] = {
+        YAML_ANY_MAPPING_STYLE,
+        YAML_BLOCK_MAPPING_STYLE,
+        YAML_FLOW_MAPPING_STYLE
+    };
+    for (int i = 0; i < 3; i++) {
+        ASSERT(yaml_mapping_start_event_initialize(&event, NULL, NULL, 1, styles[i]),
+               "map style init");
+        ASSERT_EQ_INT(event.data.mapping_start.style, styles[i], "map style match");
+        yaml_event_delete(&event);
+    }
+}
+
+static void test_scalar_long_value(void) {
+    yaml_event_t event;
+    char value[1024];
+    memset(value, 'x', sizeof(value) - 1);
+    value[sizeof(value) - 1] = '\0';
+    ASSERT(yaml_scalar_event_initialize(&event, NULL, NULL,
+           (const yaml_char_t *)value, sizeof(value) - 1, 1, 0,
+           YAML_PLAIN_SCALAR_STYLE), "long scalar init");
+    ASSERT_EQ_INT((int)event.data.scalar.length, 1023, "long scalar: length");
+    yaml_event_delete(&event);
+}
+
+static void test_event_delete_all_types(void) {
+    yaml_event_t event;
+
+    /* Stream start + delete */
+    yaml_stream_start_event_initialize(&event, YAML_UTF8_ENCODING);
+    yaml_event_delete(&event);
+
+    /* Stream end + delete */
+    yaml_stream_end_event_initialize(&event);
+    yaml_event_delete(&event);
+
+    /* Document start + delete */
+    yaml_document_start_event_initialize(&event, NULL, NULL, NULL, 1);
+    yaml_event_delete(&event);
+
+    /* Document end + delete */
+    yaml_document_end_event_initialize(&event, 1);
+    yaml_event_delete(&event);
+
+    /* Scalar + delete */
+    yaml_scalar_event_initialize(&event, NULL, NULL,
+        (const yaml_char_t *)"test", 4, 1, 0, YAML_PLAIN_SCALAR_STYLE);
+    yaml_event_delete(&event);
+
+    /* Alias + delete */
+    yaml_alias_event_initialize(&event, (const yaml_char_t *)"anchor");
+    yaml_event_delete(&event);
+
+    /* Sequence start + delete */
+    yaml_sequence_start_event_initialize(&event, NULL, NULL, 1,
+        YAML_BLOCK_SEQUENCE_STYLE);
+    yaml_event_delete(&event);
+
+    /* Sequence end + delete */
+    yaml_sequence_end_event_initialize(&event);
+    yaml_event_delete(&event);
+
+    /* Mapping start + delete */
+    yaml_mapping_start_event_initialize(&event, NULL, NULL, 1,
+        YAML_BLOCK_MAPPING_STYLE);
+    yaml_event_delete(&event);
+
+    /* Mapping end + delete */
+    yaml_mapping_end_event_initialize(&event);
+    yaml_event_delete(&event);
+
+    ASSERT(1, "event delete all types: no crash");
+}
+
+static void test_scalar_with_all_anchortag_combos(void) {
+    yaml_event_t event;
+
+    /* No anchor, no tag */
+    ASSERT(yaml_scalar_event_initialize(&event, NULL, NULL,
+           (const yaml_char_t *)"a", 1, 1, 0, YAML_PLAIN_SCALAR_STYLE), "combo 1");
+    ASSERT_NULL(event.data.scalar.anchor, "combo 1: no anchor");
+    ASSERT_NULL(event.data.scalar.tag, "combo 1: no tag");
+    yaml_event_delete(&event);
+
+    /* Anchor, no tag */
+    ASSERT(yaml_scalar_event_initialize(&event,
+           (const yaml_char_t *)"anc", NULL,
+           (const yaml_char_t *)"b", 1, 0, 0, YAML_PLAIN_SCALAR_STYLE), "combo 2");
+    ASSERT_NOT_NULL(event.data.scalar.anchor, "combo 2: has anchor");
+    ASSERT_NULL(event.data.scalar.tag, "combo 2: no tag");
+    yaml_event_delete(&event);
+
+    /* No anchor, tag */
+    ASSERT(yaml_scalar_event_initialize(&event, NULL,
+           (const yaml_char_t *)"!!str",
+           (const yaml_char_t *)"c", 1, 0, 0, YAML_PLAIN_SCALAR_STYLE), "combo 3");
+    ASSERT_NULL(event.data.scalar.anchor, "combo 3: no anchor");
+    ASSERT_NOT_NULL(event.data.scalar.tag, "combo 3: has tag");
+    yaml_event_delete(&event);
+
+    /* Both anchor and tag */
+    ASSERT(yaml_scalar_event_initialize(&event,
+           (const yaml_char_t *)"anc2",
+           (const yaml_char_t *)"!!int",
+           (const yaml_char_t *)"d", 1, 0, 0, YAML_PLAIN_SCALAR_STYLE), "combo 4");
+    ASSERT_NOT_NULL(event.data.scalar.anchor, "combo 4: has anchor");
+    ASSERT_NOT_NULL(event.data.scalar.tag, "combo 4: has tag");
+    yaml_event_delete(&event);
+}
+
 int main(void) {
     TEST_SUITE_BEGIN("Event API");
 
@@ -226,6 +394,16 @@ int main(void) {
     test_mapping_events();
     test_encodings();
     test_scalar_styles();
+
+    /* Extended */
+    test_scalar_empty_value();
+    test_scalar_binary_content();
+    test_document_start_all_params();
+    test_sequence_all_styles();
+    test_mapping_all_styles();
+    test_scalar_long_value();
+    test_event_delete_all_types();
+    test_scalar_with_all_anchortag_combos();
 
     TEST_SUITE_END();
 }

@@ -323,6 +323,237 @@ static void test_long_scalars(void) {
     ASSERT_EQ_INT((int)strlen(buf), 4000, "long: quoted length 4000");
 }
 
+/* ==================================================================
+ * Extended scalar tests
+ * ================================================================== */
+
+static void test_escape_sequences_comprehensive(void) {
+    char buf[256];
+
+    /* All single-char escapes */
+    ASSERT(extract_scalar("\"\\0\"", buf, sizeof(buf), NULL), "esc: null");
+    ASSERT_EQ_INT((unsigned char)buf[0], 0, "esc: null value");
+
+    ASSERT(extract_scalar("\"\\a\"", buf, sizeof(buf), NULL), "esc: bell");
+    ASSERT_EQ_INT(buf[0], '\a', "esc: bell value");
+
+    ASSERT(extract_scalar("\"\\b\"", buf, sizeof(buf), NULL), "esc: backspace");
+    ASSERT_EQ_INT(buf[0], '\b', "esc: backspace value");
+
+    ASSERT(extract_scalar("\"\\t\"", buf, sizeof(buf), NULL), "esc: tab");
+    ASSERT_EQ_INT(buf[0], '\t', "esc: tab value");
+
+    ASSERT(extract_scalar("\"\\n\"", buf, sizeof(buf), NULL), "esc: newline");
+    ASSERT_EQ_INT(buf[0], '\n', "esc: newline value");
+
+    ASSERT(extract_scalar("\"\\v\"", buf, sizeof(buf), NULL), "esc: vtab");
+    ASSERT_EQ_INT(buf[0], '\v', "esc: vtab value");
+
+    ASSERT(extract_scalar("\"\\f\"", buf, sizeof(buf), NULL), "esc: formfeed");
+    ASSERT_EQ_INT(buf[0], '\f', "esc: formfeed value");
+
+    ASSERT(extract_scalar("\"\\r\"", buf, sizeof(buf), NULL), "esc: cr");
+    ASSERT_EQ_INT(buf[0], '\r', "esc: cr value");
+
+    ASSERT(extract_scalar("\"\\e\"", buf, sizeof(buf), NULL), "esc: escape");
+    ASSERT_EQ_INT(buf[0], 0x1B, "esc: escape value");
+
+    ASSERT(extract_scalar("\"\\\\\"", buf, sizeof(buf), NULL), "esc: backslash");
+    ASSERT_EQ_INT(buf[0], '\\', "esc: backslash value");
+
+    ASSERT(extract_scalar("\"\\\"\"", buf, sizeof(buf), NULL), "esc: dquote");
+    ASSERT_EQ_INT(buf[0], '"', "esc: dquote value");
+
+    ASSERT(extract_scalar("\"\\/\"", buf, sizeof(buf), NULL), "esc: slash");
+    ASSERT_EQ_INT(buf[0], '/', "esc: slash value");
+
+    ASSERT(extract_scalar("\" \"", buf, sizeof(buf), NULL), "esc: space");
+    ASSERT_EQ_INT(buf[0], ' ', "esc: space value");
+}
+
+static void test_hex_unicode_escapes(void) {
+    char buf[256];
+
+    /* \\xNN */
+    ASSERT(extract_scalar("\"\\x41\"", buf, sizeof(buf), NULL), "hex: 41");
+    ASSERT_EQ_STR(buf, "A", "hex: A");
+
+    ASSERT(extract_scalar("\"\\x61\"", buf, sizeof(buf), NULL), "hex: 61");
+    ASSERT_EQ_STR(buf, "a", "hex: a");
+
+    /* \\uNNNN */
+    ASSERT(extract_scalar("\"\\u0041\"", buf, sizeof(buf), NULL), "u4: 0041");
+    ASSERT_EQ_STR(buf, "A", "u4: A");
+
+    ASSERT(extract_scalar("\"\\u00E9\"", buf, sizeof(buf), NULL), "u4: 00E9");
+    ASSERT_EQ_STR(buf, "\xc3\xa9", "u4: e-acute");
+
+    /* \\UNNNNNNNN */
+    ASSERT(extract_scalar("\"\\U00000041\"", buf, sizeof(buf), NULL), "u8: 41");
+    ASSERT_EQ_STR(buf, "A", "u8: A");
+
+    ASSERT(extract_scalar("\"\\U0001F600\"", buf, sizeof(buf), NULL), "u8: emoji");
+    ASSERT_EQ_STR(buf, "\xf0\x9f\x98\x80", "u8: emoji");
+}
+
+static void test_multiline_plain_scalar(void) {
+    char buf[256];
+    ASSERT(extract_mapping_value("data: hello\n  world\n", buf, sizeof(buf), NULL),
+           "ml plain");
+    ASSERT_EQ_STR(buf, "hello world", "ml plain: value");
+}
+
+static void test_literal_block_empty_lines(void) {
+    char buf[1024];
+    ASSERT(extract_mapping_value("data: |\n  line1\n\n  line2\n", buf, sizeof(buf), NULL),
+           "literal empty line");
+    ASSERT_EQ_STR(buf, "line1\n\nline2\n", "literal empty line: value");
+}
+
+static void test_folded_block_paragraphs(void) {
+    char buf[1024];
+    ASSERT(extract_mapping_value("data: >\n  para1\n\n  para2\n", buf, sizeof(buf), NULL),
+           "folded paragraphs");
+    ASSERT_EQ_STR(buf, "para1\npara2\n", "folded paragraphs: value");
+}
+
+static void test_literal_block_indent_indicator(void) {
+    char buf[1024];
+    /* Indent indicator 4 */
+    ASSERT(extract_mapping_value("data: |4\n    text\n    more\n", buf, sizeof(buf), NULL),
+           "literal indent 4");
+    ASSERT_EQ_STR(buf, "text\nmore\n", "literal indent 4: value");
+}
+
+static void test_folded_block_strip(void) {
+    char buf[1024];
+    ASSERT(extract_mapping_value("data: >-\n  text\n\n", buf, sizeof(buf), NULL),
+           "folded strip");
+    ASSERT_EQ_STR(buf, "text", "folded strip: value");
+}
+
+static void test_folded_block_keep(void) {
+    char buf[1024];
+    ASSERT(extract_mapping_value("data: >+\n  text\n\n", buf, sizeof(buf), NULL),
+           "folded keep");
+    ASSERT_EQ_STR(buf, "text\n\n", "folded keep: value");
+}
+
+static void test_single_quoted_edge_cases(void) {
+    char buf[256];
+
+    /* Single quote at start */
+    ASSERT(extract_scalar("''''", buf, sizeof(buf), NULL), "sq: only quote");
+    ASSERT_EQ_STR(buf, "'", "sq: only quote value");
+
+    /* Multiple escaped quotes */
+    ASSERT(extract_scalar("'a''b''c'", buf, sizeof(buf), NULL), "sq: multi escape");
+    ASSERT_EQ_STR(buf, "a'b'c", "sq: multi escape value");
+
+    /* Spaces in single quoted */
+    ASSERT(extract_scalar("'  spaces  '", buf, sizeof(buf), NULL), "sq: spaces");
+    ASSERT_EQ_STR(buf, "  spaces  ", "sq: spaces value");
+}
+
+static void test_double_quoted_edge_cases(void) {
+    char buf[256];
+
+    /* Multiple escapes in sequence */
+    ASSERT(extract_scalar("\"\\n\\t\\r\"", buf, sizeof(buf), NULL), "dq: multi esc");
+    ASSERT_EQ_INT(buf[0], '\n', "dq: multi esc 0");
+    ASSERT_EQ_INT(buf[1], '\t', "dq: multi esc 1");
+    ASSERT_EQ_INT(buf[2], '\r', "dq: multi esc 2");
+
+    /* Mixed content and escapes */
+    ASSERT(extract_scalar("\"hello\\nworld\"", buf, sizeof(buf), NULL), "dq: mixed");
+    ASSERT_EQ_STR(buf, "hello\nworld", "dq: mixed value");
+
+    /* Spaces in double quoted */
+    ASSERT(extract_scalar("\"  spaces  \"", buf, sizeof(buf), NULL), "dq: spaces");
+    ASSERT_EQ_STR(buf, "  spaces  ", "dq: spaces value");
+}
+
+static void test_scalar_as_seq_item(void) {
+    char buf[256];
+    /* Extract first scalar from sequence context */
+    yaml_parser_t parser;
+    yaml_event_t event;
+    const char *yaml = "- plain\n- 'single'\n- \"double\"\n";
+
+    ASSERT(yaml_parser_initialize(&parser), "seq item init");
+    yaml_parser_set_input_string(&parser, (const unsigned char *)yaml, strlen(yaml));
+
+    int count = 0;
+    yaml_scalar_style_t styles[3];
+    while (1) {
+        if (!yaml_parser_parse(&parser, &event)) break;
+        if (event.type == YAML_SCALAR_EVENT && count < 3) {
+            styles[count] = event.data.scalar.style;
+            count++;
+        }
+        if (event.type == YAML_STREAM_END_EVENT) { yaml_event_delete(&event); break; }
+        yaml_event_delete(&event);
+    }
+    ASSERT_EQ_INT(count, 3, "seq item: 3 scalars");
+    ASSERT_EQ_INT(styles[0], YAML_PLAIN_SCALAR_STYLE, "seq item: plain");
+    ASSERT_EQ_INT(styles[1], YAML_SINGLE_QUOTED_SCALAR_STYLE, "seq item: single");
+    ASSERT_EQ_INT(styles[2], YAML_DOUBLE_QUOTED_SCALAR_STYLE, "seq item: double");
+    yaml_parser_delete(&parser);
+}
+
+static void test_scalar_types_in_mapping(void) {
+    yaml_parser_t parser;
+    yaml_event_t event;
+    const char *yaml = "plain: value\n'single': 'value'\n\"double\": \"value\"\n";
+
+    ASSERT(yaml_parser_initialize(&parser), "map styles init");
+    yaml_parser_set_input_string(&parser, (const unsigned char *)yaml, strlen(yaml));
+
+    int scalar_count = 0;
+    while (1) {
+        if (!yaml_parser_parse(&parser, &event)) break;
+        if (event.type == YAML_SCALAR_EVENT) scalar_count++;
+        if (event.type == YAML_STREAM_END_EVENT) { yaml_event_delete(&event); break; }
+        yaml_event_delete(&event);
+    }
+    ASSERT_EQ_INT(scalar_count, 6, "map styles: 6 scalars");
+    yaml_parser_delete(&parser);
+}
+
+static void test_empty_scalars(void) {
+    char buf[256];
+
+    /* Empty plain scalar (mapping value) */
+    ASSERT(extract_mapping_value("key:\n", buf, sizeof(buf), NULL), "empty: plain");
+    ASSERT_EQ_STR(buf, "", "empty: plain value");
+
+    /* Empty single quoted */
+    ASSERT(extract_scalar("''", buf, sizeof(buf), NULL), "empty: sq");
+    ASSERT_EQ_STR(buf, "", "empty: sq value");
+
+    /* Empty double quoted */
+    ASSERT(extract_scalar("\"\"", buf, sizeof(buf), NULL), "empty: dq");
+    ASSERT_EQ_STR(buf, "", "empty: dq value");
+}
+
+static void test_scalar_with_colons(void) {
+    char buf[256];
+    ASSERT(extract_scalar("'a:b:c'", buf, sizeof(buf), NULL), "colons: sq");
+    ASSERT_EQ_STR(buf, "a:b:c", "colons: sq value");
+
+    ASSERT(extract_scalar("\"a:b:c\"", buf, sizeof(buf), NULL), "colons: dq");
+    ASSERT_EQ_STR(buf, "a:b:c", "colons: dq value");
+}
+
+static void test_scalar_with_hashes(void) {
+    char buf[256];
+    ASSERT(extract_scalar("'a # b'", buf, sizeof(buf), NULL), "hash: sq");
+    ASSERT_EQ_STR(buf, "a # b", "hash: sq value");
+
+    ASSERT(extract_scalar("\"a # b\"", buf, sizeof(buf), NULL), "hash: dq");
+    ASSERT_EQ_STR(buf, "a # b", "hash: dq value");
+}
+
 int main(void) {
     TEST_SUITE_BEGIN("Scalars");
 
@@ -336,6 +567,23 @@ int main(void) {
     test_whitespace_handling();
     test_utf8_scalars();
     test_long_scalars();
+
+    /* Extended */
+    test_escape_sequences_comprehensive();
+    test_hex_unicode_escapes();
+    test_multiline_plain_scalar();
+    test_literal_block_empty_lines();
+    test_folded_block_paragraphs();
+    test_literal_block_indent_indicator();
+    test_folded_block_strip();
+    test_folded_block_keep();
+    test_single_quoted_edge_cases();
+    test_double_quoted_edge_cases();
+    test_scalar_as_seq_item();
+    test_scalar_types_in_mapping();
+    test_empty_scalars();
+    test_scalar_with_colons();
+    test_scalar_with_hashes();
 
     TEST_SUITE_END();
 }

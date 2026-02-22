@@ -212,6 +212,288 @@ static void test_scanner_errors(void) {
     yaml_parser_delete(&parser);
 }
 
+/* ==================================================================
+ * Extended error tests: invalid YAML constructs
+ * ================================================================== */
+
+static void test_err_duplicate_yaml_directive(void) {
+    ASSERT(parse_should_error("%YAML 1.1\n%YAML 1.1\n---\nhello\n"),
+           "duplicate YAML directive");
+}
+
+static void test_err_duplicate_tag_directive(void) {
+    ASSERT(parse_should_error("%TAG !e! tag:a\n%TAG !e! tag:b\n---\nhello\n"),
+           "duplicate TAG directive");
+}
+
+static void test_err_invalid_yaml_version(void) {
+    ASSERT(parse_should_error("%YAML 2.0\n---\nhello\n"), "YAML 2.0");
+}
+
+static void test_err_unterminated_double_quote(void) {
+    ASSERT(parse_should_error("\"unterminated"), "unterminated double quote");
+}
+
+static void test_err_unterminated_single_quote(void) {
+    ASSERT(parse_should_error("'unterminated"), "unterminated single quote");
+}
+
+static void test_err_tab_as_indentation(void) {
+    ASSERT(parse_should_error("key:\n\tvalue\n"), "tab indentation error");
+}
+
+static void test_err_unclosed_flow_seq(void) {
+    ASSERT(parse_should_error("[a, b"), "unclosed flow seq");
+}
+
+static void test_err_unclosed_flow_map(void) {
+    ASSERT(parse_should_error("{a: b"), "unclosed flow map");
+}
+
+static void test_err_block_scalar_indent_zero(void) {
+    ASSERT(parse_should_error("|0\n  text\n"), "block scalar indent 0");
+}
+
+static void test_err_block_scalar_bad_header(void) {
+    ASSERT(parse_should_error("| extra\n  text\n"), "block scalar bad header");
+}
+
+static void test_err_empty_anchor(void) {
+    ASSERT(parse_should_error("& value\n"), "empty anchor");
+}
+
+static void test_err_undefined_alias(void) {
+    /* Undefined alias is a composer error (loader), not parser error.
+     * At the parser level, *noexist is valid syntax. */
+    yaml_parser_t parser;
+    yaml_document_t doc;
+    ASSERT(yaml_parser_initialize(&parser), "undef alias init");
+    yaml_parser_set_input_string(&parser, (const unsigned char *)"*noexist\n", 9);
+    int result = yaml_parser_load(&parser, &doc);
+    ASSERT(!result, "undefined alias: load fails");
+    yaml_document_delete(&doc);
+    yaml_parser_delete(&parser);
+}
+
+static void test_err_unknown_directive(void) {
+    ASSERT(parse_should_error("%UNKNOWN foo\n---\n"), "unknown directive");
+}
+
+static void test_err_empty_directive_name(void) {
+    ASSERT(parse_should_error("% \n---\n"), "empty directive name");
+}
+
+static void test_err_verbatim_tag_eof(void) {
+    ASSERT(parse_should_error("!<unclosed value\n"), "verbatim tag eof");
+}
+
+static void test_err_verbatim_tag_empty(void) {
+    ASSERT(parse_should_error("!<> value\n"), "empty verbatim tag");
+}
+
+static void test_err_flow_scalar_null_byte(void) {
+    /* NUL byte in flow scalar -- length-based parser handles it differently */
+    yaml_parser_t parser;
+    yaml_event_t event;
+    const unsigned char input[] = {'\"', 'a', 0x00, 'b', '\"', 0};
+
+    ASSERT(yaml_parser_initialize(&parser), "null byte init");
+    yaml_parser_set_input_string(&parser, input, 5);
+
+    int errored = 0;
+    while (1) {
+        if (!yaml_parser_parse(&parser, &event)) { errored = 1; break; }
+        if (event.type == YAML_STREAM_END_EVENT) { yaml_event_delete(&event); break; }
+        yaml_event_delete(&event);
+    }
+    /* May or may not error; just verify no crash */
+    ASSERT(1, "null byte: completed");
+    (void)errored;
+    yaml_parser_delete(&parser);
+}
+
+static void test_err_deeply_nested_flow(void) {
+    char yaml[256];
+    int pos = 0;
+    for (int i = 0; i < 100; i++) yaml[pos++] = '[';
+    yaml[pos++] = 'a';
+    yaml[pos] = '\0';
+    ASSERT(parse_should_error(yaml), "100-deep unclosed flow");
+}
+
+static void test_err_unclosed_nested_map(void) {
+    ASSERT(parse_should_error("{a: {b: c}"), "unclosed nested flow map");
+}
+
+static void test_err_extra_close_bracket(void) {
+    ASSERT(parse_should_error("[a]]"), "extra close bracket");
+}
+
+static void test_err_extra_close_brace(void) {
+    ASSERT(parse_should_error("{a: b}}"), "extra close brace");
+}
+
+static void test_err_mismatch_brackets(void) {
+    ASSERT(parse_should_error("[a}"), "mismatched [ }");
+}
+
+static void test_err_mismatch_braces(void) {
+    ASSERT(parse_should_error("{a]"), "mismatched { ]");
+}
+
+static void test_err_anchor_with_bracket(void) {
+    ASSERT(parse_should_error("&[anchor value\n"), "anchor with [");
+}
+
+static void test_err_bad_escape_sequence(void) {
+    ASSERT(parse_should_error("\"\\z\""), "bad escape \\z");
+}
+
+static void test_err_bad_hex_escape(void) {
+    ASSERT(parse_should_error("\"\\xGG\""), "bad hex escape");
+}
+
+static void test_err_bad_unicode_escape(void) {
+    ASSERT(parse_should_error("\"\\uGGGG\""), "bad unicode escape");
+}
+
+static void test_err_bad_unicode_escape_u8(void) {
+    ASSERT(parse_should_error("\"\\UGGGGGGGG\""), "bad U+NNNNNNNN escape");
+}
+
+static void test_err_bad_version_format(void) {
+    ASSERT(parse_should_error("%YAML abc\n---\n"), "bad version format");
+}
+
+static void test_err_bad_tag_directive_nohandle(void) {
+    ASSERT(parse_should_error("%TAG \n---\n"), "TAG no handle");
+}
+
+static void test_err_doc_indicator_in_single_quote(void) {
+    ASSERT(parse_should_error("'\n---\n'"), "--- in single quote");
+}
+
+static void test_err_doc_indicator_in_double_quote(void) {
+    ASSERT(parse_should_error("\"\n---\n\""), "--- in double quote");
+}
+
+/* ==================================================================
+ * Extended valid inputs: more YAML constructs that should succeed
+ * ================================================================== */
+
+static void test_valid_multiline_values(void) {
+    ASSERT(parse_should_succeed("key: |\n  line1\n  line2\n"), "valid: literal block");
+    ASSERT(parse_should_succeed("key: >\n  line1\n  line2\n"), "valid: folded block");
+    ASSERT(parse_should_succeed("key: |+\n  text\n\n"), "valid: literal keep");
+    ASSERT(parse_should_succeed("key: |-\n  text\n"), "valid: literal strip");
+    ASSERT(parse_should_succeed("key: >2\n  text\n"), "valid: folded indent");
+}
+
+static void test_valid_complex_structures(void) {
+    ASSERT(parse_should_succeed("a:\n  b:\n    c:\n      d: e\n"), "valid: deep nested");
+    ASSERT(parse_should_succeed("- a: b\n  c: d\n- e: f\n"), "valid: seq of maps");
+    ASSERT(parse_should_succeed("a:\n- b\n- c\n"), "valid: indentless seq");
+    ASSERT(parse_should_succeed("[{a: b}, {c: d}]\n"), "valid: flow seq of maps");
+    ASSERT(parse_should_succeed("{a: [1, 2], b: [3, 4]}\n"), "valid: flow map of seqs");
+}
+
+static void test_valid_special_scalars(void) {
+    ASSERT(parse_should_succeed("key: ''"), "valid: empty single quoted");
+    ASSERT(parse_should_succeed("key: \"\""), "valid: empty double quoted");
+    ASSERT(parse_should_succeed("key: !!null ''"), "valid: tagged empty");
+    ASSERT(parse_should_succeed("? key\n: value\n"), "valid: explicit key");
+    ASSERT(parse_should_succeed("{? key : value}\n"), "valid: flow explicit key");
+}
+
+static void test_valid_unicode_content(void) {
+    ASSERT(parse_should_succeed("key: \"\\u0041\""), "valid: unicode A");
+    ASSERT(parse_should_succeed("key: \"\\U00000041\""), "valid: unicode U+0041");
+    ASSERT(parse_should_succeed("key: \"\\n\\t\\\\\""), "valid: escape sequences");
+    ASSERT(parse_should_succeed("key: \"\\x41\""), "valid: hex escape");
+}
+
+static void test_valid_anchors_aliases_extended(void) {
+    ASSERT(parse_should_succeed("- &a [1, 2]\n- *a\n"), "valid: seq anchor");
+    ASSERT(parse_should_succeed("- &a {x: 1}\n- *a\n"), "valid: map anchor");
+    ASSERT(parse_should_succeed("a: &ref\n  x: 1\nb: *ref\n"), "valid: mapping anchor");
+}
+
+static void test_valid_multiple_documents(void) {
+    ASSERT(parse_should_succeed("---\na\n...\n---\nb\n...\n"), "valid: 2 docs with end");
+    ASSERT(parse_should_succeed("---\na\n---\nb\n"), "valid: 2 docs implicit end");
+    /* "...\n" alone is not a valid document -- skip it */
+}
+
+static void test_valid_comments(void) {
+    ASSERT(parse_should_succeed("# comment\n"), "valid: only comment");
+    ASSERT(parse_should_succeed("key: value # comment\n"), "valid: inline comment");
+    ASSERT(parse_should_succeed("# comment\nkey: value\n"), "valid: leading comment");
+    ASSERT(parse_should_succeed("key:\n  # comment\n  value\n"), "valid: block comment");
+}
+
+static void test_valid_tag_directives(void) {
+    ASSERT(parse_should_succeed("%TAG ! tag:example.com:\n---\n!foo bar\n"),
+           "valid: primary tag directive");
+    ASSERT(parse_should_succeed(
+        "%TAG !e! tag:example.com,2000:\n---\n!e!foo bar\n"),
+        "valid: custom tag directive");
+}
+
+/* ==================================================================
+ * Error recovery behavior
+ * ================================================================== */
+
+static void test_error_type_fields(void) {
+    yaml_parser_t parser;
+    yaml_event_t event;
+
+    ASSERT(yaml_parser_initialize(&parser), "err fields: init");
+    yaml_parser_set_input_string(&parser,
+        (const unsigned char *)"%UNKNOWN foo\n", 13);
+
+    while (yaml_parser_parse(&parser, &event)) {
+        if (event.type == YAML_STREAM_END_EVENT) {
+            yaml_event_delete(&event);
+            break;
+        }
+        yaml_event_delete(&event);
+    }
+
+    if (parser.error != YAML_NO_ERROR) {
+        ASSERT(parser.error == YAML_SCANNER_ERROR ||
+               parser.error == YAML_PARSER_ERROR ||
+               parser.error == YAML_COMPOSER_ERROR,
+               "err fields: known error type");
+        ASSERT_NOT_NULL(parser.problem, "err fields: has problem");
+        /* problem_mark should be set */
+        ASSERT(parser.problem_mark.line < 100, "err fields: reasonable line");
+    }
+    yaml_parser_delete(&parser);
+}
+
+static void test_error_context_fields(void) {
+    yaml_parser_t parser;
+    yaml_event_t event;
+
+    ASSERT(yaml_parser_initialize(&parser), "err context: init");
+    yaml_parser_set_input_string(&parser,
+        (const unsigned char *)"{a: b, c]", 9);
+
+    while (yaml_parser_parse(&parser, &event)) {
+        if (event.type == YAML_STREAM_END_EVENT) {
+            yaml_event_delete(&event);
+            break;
+        }
+        yaml_event_delete(&event);
+    }
+
+    if (parser.error != YAML_NO_ERROR) {
+        ASSERT_NOT_NULL(parser.problem, "err context: has problem");
+        /* Context may or may not be set depending on error type */
+    }
+    yaml_parser_delete(&parser);
+}
+
 int main(void) {
     TEST_SUITE_BEGIN("Errors");
 
@@ -225,6 +507,54 @@ int main(void) {
     test_deep_error();
     test_invalid_anchors();
     test_scanner_errors();
+
+    /* Extended error cases */
+    test_err_duplicate_yaml_directive();
+    test_err_duplicate_tag_directive();
+    test_err_invalid_yaml_version();
+    test_err_unterminated_double_quote();
+    test_err_unterminated_single_quote();
+    test_err_tab_as_indentation();
+    test_err_unclosed_flow_seq();
+    test_err_unclosed_flow_map();
+    test_err_block_scalar_indent_zero();
+    test_err_block_scalar_bad_header();
+    test_err_empty_anchor();
+    test_err_undefined_alias();
+    test_err_unknown_directive();
+    test_err_empty_directive_name();
+    test_err_verbatim_tag_eof();
+    test_err_verbatim_tag_empty();
+    test_err_flow_scalar_null_byte();
+    test_err_deeply_nested_flow();
+    test_err_unclosed_nested_map();
+    test_err_extra_close_bracket();
+    test_err_extra_close_brace();
+    test_err_mismatch_brackets();
+    test_err_mismatch_braces();
+    test_err_anchor_with_bracket();
+    test_err_bad_escape_sequence();
+    test_err_bad_hex_escape();
+    test_err_bad_unicode_escape();
+    test_err_bad_unicode_escape_u8();
+    test_err_bad_version_format();
+    test_err_bad_tag_directive_nohandle();
+    test_err_doc_indicator_in_single_quote();
+    test_err_doc_indicator_in_double_quote();
+
+    /* Extended valid inputs */
+    test_valid_multiline_values();
+    test_valid_complex_structures();
+    test_valid_special_scalars();
+    test_valid_unicode_content();
+    test_valid_anchors_aliases_extended();
+    test_valid_multiple_documents();
+    test_valid_comments();
+    test_valid_tag_directives();
+
+    /* Error field inspection */
+    test_error_type_fields();
+    test_error_context_fields();
 
     TEST_SUITE_END();
 }

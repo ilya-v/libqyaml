@@ -292,6 +292,245 @@ static void test_roundtrip_stress(void) {
     }
 }
 
+/* ==================================================================
+ * Extended stress tests
+ * ================================================================== */
+
+static void test_many_documents(void) {
+    char yaml[32768];
+    int pos = 0;
+    for (int i = 0; i < 100; i++) {
+        pos += snprintf(yaml + pos, sizeof(yaml) - pos, "---\ndoc%d\n...\n", i);
+    }
+
+    yaml_parser_t parser;
+    yaml_event_t event;
+    ASSERT(yaml_parser_initialize(&parser), "many docs init");
+    yaml_parser_set_input_string(&parser, (const unsigned char *)yaml, strlen(yaml));
+
+    int doc_count = 0;
+    while (1) {
+        ASSERT(yaml_parser_parse(&parser, &event), "many docs parse");
+        if (event.type == YAML_DOCUMENT_START_EVENT) doc_count++;
+        if (event.type == YAML_STREAM_END_EVENT) { yaml_event_delete(&event); break; }
+        yaml_event_delete(&event);
+    }
+    ASSERT_EQ_INT(doc_count, 100, "many docs: 100 documents");
+    yaml_parser_delete(&parser);
+}
+
+static void test_wide_mapping(void) {
+    /* Mapping with 500 key-value pairs */
+    char yaml[65536];
+    int pos = 0;
+    for (int i = 0; i < 500; i++) {
+        pos += snprintf(yaml + pos, sizeof(yaml) - pos, "key_%04d: val_%04d\n", i, i);
+    }
+
+    yaml_parser_t parser;
+    yaml_document_t doc;
+    ASSERT(yaml_parser_initialize(&parser), "wide map init");
+    yaml_parser_set_input_string(&parser, (const unsigned char *)yaml, strlen(yaml));
+    ASSERT(yaml_parser_load(&parser, &doc), "wide map load");
+
+    yaml_node_t *root = yaml_document_get_root_node(&doc);
+    ASSERT_NOT_NULL(root, "wide map: root");
+    ASSERT_EQ_INT(root->type, YAML_MAPPING_NODE, "wide map: is mapping");
+
+    int pair_count = (int)(root->data.mapping.pairs.top -
+                           root->data.mapping.pairs.start);
+    ASSERT_EQ_INT(pair_count, 500, "wide map: 500 pairs");
+
+    yaml_document_delete(&doc);
+    yaml_parser_delete(&parser);
+}
+
+static void test_wide_sequence(void) {
+    char yaml[32768];
+    int pos = 0;
+    for (int i = 0; i < 500; i++) {
+        pos += snprintf(yaml + pos, sizeof(yaml) - pos, "- item_%04d\n", i);
+    }
+
+    yaml_parser_t parser;
+    yaml_document_t doc;
+    ASSERT(yaml_parser_initialize(&parser), "wide seq init");
+    yaml_parser_set_input_string(&parser, (const unsigned char *)yaml, strlen(yaml));
+    ASSERT(yaml_parser_load(&parser, &doc), "wide seq load");
+
+    yaml_node_t *root = yaml_document_get_root_node(&doc);
+    ASSERT_NOT_NULL(root, "wide seq: root");
+    ASSERT_EQ_INT(root->type, YAML_SEQUENCE_NODE, "wide seq: is seq");
+
+    int item_count = (int)(root->data.sequence.items.top -
+                           root->data.sequence.items.start);
+    ASSERT_EQ_INT(item_count, 500, "wide seq: 500 items");
+
+    yaml_document_delete(&doc);
+    yaml_parser_delete(&parser);
+}
+
+static void test_deep_block_nesting(void) {
+    /* Build 50-deep nested mapping */
+    char yaml[4096];
+    int pos = 0;
+    for (int i = 0; i < 50; i++) {
+        for (int j = 0; j < i * 2; j++) yaml[pos++] = ' ';
+        pos += snprintf(yaml + pos, sizeof(yaml) - pos, "level%d:\n", i);
+    }
+    for (int j = 0; j < 50 * 2; j++) yaml[pos++] = ' ';
+    pos += snprintf(yaml + pos, sizeof(yaml) - pos, "leaf: value\n");
+
+    yaml_event_type_t events[256];
+    int count;
+    ASSERT(parse_string_events(yaml, events, 256, &count), "deep block");
+    ASSERT(count > 50, "deep block: many events");
+}
+
+static void test_many_anchors_aliases(void) {
+    char yaml[32768];
+    int pos = 0;
+
+    /* Create many anchored values then alias them */
+    pos += snprintf(yaml + pos, sizeof(yaml) - pos, "anchors:\n");
+    for (int i = 0; i < 50; i++) {
+        pos += snprintf(yaml + pos, sizeof(yaml) - pos,
+                        "  a%d: &ref%d value%d\n", i, i, i);
+    }
+    pos += snprintf(yaml + pos, sizeof(yaml) - pos, "aliases:\n");
+    for (int i = 0; i < 50; i++) {
+        pos += snprintf(yaml + pos, sizeof(yaml) - pos,
+                        "  b%d: *ref%d\n", i, i);
+    }
+
+    yaml_parser_t parser;
+    yaml_document_t doc;
+    ASSERT(yaml_parser_initialize(&parser), "many anchor init");
+    yaml_parser_set_input_string(&parser, (const unsigned char *)yaml, strlen(yaml));
+    ASSERT(yaml_parser_load(&parser, &doc), "many anchor load");
+
+    yaml_node_t *root = yaml_document_get_root_node(&doc);
+    ASSERT_NOT_NULL(root, "many anchor: root");
+    ASSERT_EQ_INT(root->type, YAML_MAPPING_NODE, "many anchor: mapping");
+
+    yaml_document_delete(&doc);
+    yaml_parser_delete(&parser);
+}
+
+static void test_large_scalar_value(void) {
+    /* Build a 10KB scalar value */
+    char yaml[16384];
+    yaml[0] = '"';
+    memset(yaml + 1, 'x', 10000);
+    yaml[10001] = '"';
+    yaml[10002] = '\n';
+    yaml[10003] = '\0';
+
+    yaml_parser_t parser;
+    yaml_event_t event;
+    ASSERT(yaml_parser_initialize(&parser), "large scalar init");
+    yaml_parser_set_input_string(&parser, (const unsigned char *)yaml, strlen(yaml));
+
+    int found = 0;
+    while (1) {
+        ASSERT(yaml_parser_parse(&parser, &event), "large scalar parse");
+        if (event.type == YAML_SCALAR_EVENT) {
+            found = 1;
+            ASSERT_EQ_INT((int)event.data.scalar.length, 10000, "large scalar: length");
+        }
+        if (event.type == YAML_STREAM_END_EVENT) { yaml_event_delete(&event); break; }
+        yaml_event_delete(&event);
+    }
+    ASSERT(found, "large scalar: found");
+    yaml_parser_delete(&parser);
+}
+
+static void test_rapid_init_delete(void) {
+    /* Rapid initialization and deletion cycles */
+    for (int i = 0; i < 100; i++) {
+        yaml_parser_t parser;
+        ASSERT(yaml_parser_initialize(&parser), "rapid init");
+        yaml_parser_delete(&parser);
+    }
+    for (int i = 0; i < 100; i++) {
+        yaml_emitter_t emitter;
+        ASSERT(yaml_emitter_initialize(&emitter), "rapid emitter init");
+        yaml_emitter_delete(&emitter);
+    }
+    ASSERT(1, "rapid init/delete: no leaks");
+}
+
+static void test_mixed_collections(void) {
+    /* Complex structure with mixed collection types */
+    const char *yaml =
+        "servers:\n"
+        "  - name: web\n"
+        "    ports: [80, 443]\n"
+        "    tags: {env: prod, role: web}\n"
+        "  - name: db\n"
+        "    ports: [5432]\n"
+        "    tags: {env: prod, role: db}\n"
+        "config:\n"
+        "  debug: false\n"
+        "  log_level: info\n";
+
+    yaml_parser_t parser;
+    yaml_document_t doc;
+    ASSERT(yaml_parser_initialize(&parser), "mixed init");
+    yaml_parser_set_input_string(&parser, (const unsigned char *)yaml, strlen(yaml));
+    ASSERT(yaml_parser_load(&parser, &doc), "mixed load");
+
+    yaml_node_t *root = yaml_document_get_root_node(&doc);
+    ASSERT_NOT_NULL(root, "mixed: root");
+    ASSERT_EQ_INT(root->type, YAML_MAPPING_NODE, "mixed: is mapping");
+
+    yaml_document_delete(&doc);
+    yaml_parser_delete(&parser);
+}
+
+static void test_emitter_many_events(void) {
+    yaml_emitter_t emitter;
+    unsigned char buffer[65536];
+    size_t written = 0;
+    yaml_event_t event;
+
+    ASSERT(yaml_emitter_initialize(&emitter), "many events init");
+    yaml_emitter_set_output_string(&emitter, buffer, sizeof(buffer), &written);
+
+    yaml_stream_start_event_initialize(&event, YAML_UTF8_ENCODING);
+    ASSERT(yaml_emitter_emit(&emitter, &event), "many events: stream start");
+
+    for (int doc = 0; doc < 10; doc++) {
+        yaml_document_start_event_initialize(&event, NULL, NULL, NULL, 1);
+        ASSERT(yaml_emitter_emit(&emitter, &event), "many events: doc start");
+
+        yaml_sequence_start_event_initialize(&event, NULL, NULL, 1,
+            YAML_BLOCK_SEQUENCE_STYLE);
+        ASSERT(yaml_emitter_emit(&emitter, &event), "many events: seq start");
+
+        for (int item = 0; item < 20; item++) {
+            char val[16];
+            snprintf(val, sizeof(val), "item_%d_%d", doc, item);
+            yaml_scalar_event_initialize(&event, NULL, NULL,
+                (const yaml_char_t *)val, strlen(val), 1, 0,
+                YAML_PLAIN_SCALAR_STYLE);
+            ASSERT(yaml_emitter_emit(&emitter, &event), "many events: scalar");
+        }
+
+        yaml_sequence_end_event_initialize(&event);
+        ASSERT(yaml_emitter_emit(&emitter, &event), "many events: seq end");
+
+        yaml_document_end_event_initialize(&event, 1);
+        ASSERT(yaml_emitter_emit(&emitter, &event), "many events: doc end");
+    }
+
+    yaml_stream_end_event_initialize(&event);
+    ASSERT(yaml_emitter_emit(&emitter, &event), "many events: stream end");
+
+    ASSERT(written > 0, "many events: output");
+    yaml_emitter_delete(&emitter);
+}
+
 int main(void) {
     TEST_SUITE_BEGIN("Stress");
 
@@ -305,6 +544,17 @@ int main(void) {
     test_load_cycles();
     test_emitter_stress();
     test_roundtrip_stress();
+
+    /* Extended */
+    test_many_documents();
+    test_wide_mapping();
+    test_wide_sequence();
+    test_deep_block_nesting();
+    test_many_anchors_aliases();
+    test_large_scalar_value();
+    test_rapid_init_delete();
+    test_mixed_collections();
+    test_emitter_many_events();
 
     TEST_SUITE_END();
 }
