@@ -1,0 +1,5 @@
+anchor: &ref value
+alias: *ref
+nested:
+  - &llis{ket_rey: v 2, 3], nef
+sted: {a: b}}

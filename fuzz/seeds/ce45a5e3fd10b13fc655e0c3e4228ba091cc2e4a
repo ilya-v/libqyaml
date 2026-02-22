@@ -1,0 +1,11 @@
+anchor: &ref value
+alias: *ref
+nested:
+  - &lischor: &ref value
+s: *ref
+nested:
+  - &lischor: &ref avlue
+alias: *ref
+nested:
+  - &list_ref [0, 2, 3]
+  - *lisy:_eu value, l}rt_ref [? [c

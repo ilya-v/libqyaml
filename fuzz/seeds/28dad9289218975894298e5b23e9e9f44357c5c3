@@ -1,0 +1,7 @@
+anchor: &ref0.1
+-																													lo world
+single: 'single quote%YAML 0.1
+-																																		lo w [ist: [ef
+nested:
+ value, list: [ist: [1, 2, 3]
+  alias: *ref

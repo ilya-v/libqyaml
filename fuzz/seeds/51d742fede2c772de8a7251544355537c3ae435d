@@ -1,0 +1,28 @@
+%YAML 1.1
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: test
+  namespace: default
+  labels:
+    app: test
+    version: "1.0"
+  annotations:
+    description: |
+      Multi-line annotation
+      wit"le \"quotedted\""
+literal: |
+  line1double \"quo\""
+literal: |
+  line1double \"quoted\""
+literal: |
+  line1
+  linolded
+  text
+  heed\""
+literal: |
+  line1
+ - one
+        - two
+        - three

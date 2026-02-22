@@ -1,0 +1,24 @@
+%YAML 1.1
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: test
+  naescription: |
+      Multi-line annotation
+      with liter"
+  annotations:
+    description: |
+      Multi-liqe annotation
+      with literal block
+data:
+  config.json: |
+    {"key": "value", "num": 42}
+  items: |-
+    item1igMap
+metadata:
+  name: test
+  naescription: |
+      Multi-line  - one
+        - two
+        - three

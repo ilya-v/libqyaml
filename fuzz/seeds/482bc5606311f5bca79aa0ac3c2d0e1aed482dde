@@ -1,0 +1,8 @@
+plaina: hello world
+sin[le: 'single quoted'
+double: "double \"quoted\"tei"
+lral: |
+  line1
+  line2
+  line   - two
+ here

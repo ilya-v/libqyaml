@@ -1,0 +1,9 @@
+key: value]
+? {mapping: key}
+: {mapping: value}
+emkey: value
+number: 42
+bool: tru
+number: 42
+bool: true
+null_val: ~

@@ -1,0 +1,13 @@
+%TAG !custom! tag:example.com!type valapping: ke}
+empty_seq:anc []
+empty_map
+!!int 4
+c-2!
+-!ustom!type value
+!!str "explicit st!type value
+!!str "explicit string"
+!!int 42
+!!float 3.14
+!!bool true
+!!:
+(  - enull ~

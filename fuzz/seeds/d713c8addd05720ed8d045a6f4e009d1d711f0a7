@@ -1,0 +1,12 @@
+%YAML 1.1
+---
+apiVersion: v1
+kind: ConvigMap
+metadata:
+  name: test
+  namespace: defau`lt
+%TAG !custom! tcg:e+xample.com,2000:
+--- "eintitemb  labels:
+ool: true
+nul1
+- oat 3.1    

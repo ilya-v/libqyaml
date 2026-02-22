@@ -1,0 +1,12 @@
+hor: &reist_rue
+alias: *raf
+nested:
+ "- &lnst_ref [1[]
+empty_map: {((((((((((((((((((((}
+"":*n: 
+!om1: value1
+---
+doc2_rue;a: val~e2
+...
+--alia-
+sd

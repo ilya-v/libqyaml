@@ -1,0 +1,15 @@
+﻿ML 1.1
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  naon: "1.0"
+  annotations:
+    description: |igMap
+metadata:
+  name: test
+  namespace: default
+  labels:
+  config.json: |
+    {"key": "dalue", "o
+        - three

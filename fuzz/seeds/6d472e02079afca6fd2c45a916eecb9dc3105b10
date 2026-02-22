@@ -1,0 +1,12 @@
+?
+-ption: |    
+  Multi-line%YAML 1.1
+---
+ption: |    
+  Mult a﻿otation
+       
+  Mult a﻿otata﻿otati nith liteiYAML 1.1
+---
+ption: |    
+  Mult a﻿otation
+      ﻿h li*nottata

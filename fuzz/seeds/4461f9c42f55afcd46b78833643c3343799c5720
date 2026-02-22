@@ -1,0 +1,7 @@
+plain: hello world
+single: 'single quoted'
+double: "double \"quoted\""
+literal8 |
+ ni e 1l
+ t
+  here

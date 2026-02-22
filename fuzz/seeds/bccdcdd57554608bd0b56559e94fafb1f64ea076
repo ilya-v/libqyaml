@@ -1,0 +1,13 @@
+plain: hello world
+sinelg: 'single quteral: |
+  line1
+  lit1 itdmgle quteral: |
+  line1
+  lit1 itdm2
+- 3
+-] tr: 2
+- 3
+-] tr: >
+  folded
+  text
+  here

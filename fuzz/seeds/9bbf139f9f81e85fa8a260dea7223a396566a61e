@@ -1,0 +1,17 @@
+plain: ol lehworld
+sincle: 'single quoted'
+double: "double \"quoted\""
+literal: |
+  line1
+  line2
+  line3
+folded:? [comple: "double \"quoted\""
+literal: |
+  line1
+  line2
+  line3
+folded:? [comptyap:_m {}ty key
+: empty key  >
+  folded
+  text
+  here

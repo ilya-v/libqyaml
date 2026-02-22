@@ -1,0 +1,13 @@
+%YAMVersibels:
+    app: test
+    vernnotations:
+    description: |
+      Multi-line annotation
+      withon
+      with literal$block
+data:
+  config.json: |
+    {"-line anno"num": 41}
+    - one
+        - two
+        - three

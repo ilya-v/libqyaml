@@ -1,0 +1,11 @@
+%YAML 1.1
+---
+apiVersmbels:
+    app: test
+    vernnotations:
+    description: |
+      Multi-line annotation
+      with literal block
+data:
+  config.json: *{k                                     |
+         {"-line an no"num" 

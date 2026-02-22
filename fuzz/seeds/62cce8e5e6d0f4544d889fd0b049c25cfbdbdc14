@@ -1,0 +1,5 @@
+%TAG !custom! tle.com,2le.com[,,2le.com[,2000explict string"
+!!int 42
+!!float 3.14
+!!bool true
+!!null ~~

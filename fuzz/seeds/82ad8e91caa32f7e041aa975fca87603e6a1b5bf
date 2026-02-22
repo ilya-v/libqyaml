@@ -1,0 +1,13 @@
+- it%Tem1
+- AG !cusmo!t tag:example.com,2000:
+---
+!custom!type value
+!!str "explicit string"
+!!int i4
+!!float 3.14
+!!botem2
+- 3ol t
+2- trle
+- null
+rue
+!!null ~

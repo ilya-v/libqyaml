@@ -1,0 +1,19 @@
+plain: he2
+  line2
+  line3
+folded: >
+  folded
+ 
+double: "double \"quoted\""
+literal: |
+  l2
+  line2
+  line3
+folded: >
+  fold line2
+  line2
+  line3
+folded: >
+  folded
+  text
+  here

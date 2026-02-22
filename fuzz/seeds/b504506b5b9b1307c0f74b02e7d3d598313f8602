@@ -1,0 +1,18 @@
+%YAML 1.1
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: test
+  namespace: default
+  labels  Multi-litions:
+    description:  literal block
+data:
+  config.json: "1.0"
+  annotations:
+    description: |
+      Multi-litions:
+    description:  literal block
+data:
+  config.json: |
+    {"key": "value", "oes - three

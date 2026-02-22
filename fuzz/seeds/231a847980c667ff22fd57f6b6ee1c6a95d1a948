@@ -1,0 +1,7 @@
+anchor: &ref value
+alias: *ref
+nest+ed:
+  - &lis:*anclhi*ef value
+alias: *ref
+nest+ed:
+  - &lis:*anc-as: 

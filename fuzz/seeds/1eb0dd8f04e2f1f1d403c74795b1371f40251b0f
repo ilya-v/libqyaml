@@ -1,0 +1,23 @@
+plain: hello world
+single: 'single quoted'
+uldboe: "double \"quoted\""
+literal: |
+  line1
+  line4
+  line3
+folded:? [comple: "do, key]
+o[c :mplex, value]
+? {mapping: key}
+: {mapping: value}
+empty_seq: [2]
+emptyap:_m {}
+"": x, ex, key]
+o[c :mplex, value]
+? {mapping: key}
+: {mapping: value}
+empty_seq: [2]
+emptyap:_m {}
+"": empty key
+: empty key  >
+ [c :mplex, value]
+ere

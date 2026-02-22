@@ -1,0 +1,5 @@
+? [complex,!key]
+: [complex, value]
+?ty_seq: empty_may: {}
+"": empty key
+: empty key too

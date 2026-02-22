@@ -1,0 +1,5 @@
+þÿanchor: &ref value
+alias: *ref
+nested:
+ value, list: [1, 2, 3]
+  - 2list_ref

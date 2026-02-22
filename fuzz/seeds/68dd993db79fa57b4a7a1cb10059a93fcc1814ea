@@ -1,0 +1,8 @@
+anchor: &reist_rue
+a 'singledouble: "uble \"quoted\""
+literal: 
+|  line1
+  line2
+  line3
+folded1, 2, 3]
+  - *list_ref

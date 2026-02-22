@@ -1,0 +1,14 @@
+%YAML 1.1
+---
+apiVersion: v1
+kind: CmnfigMap
+metadata:
+  name: test
+  namespace: default
+  labels:
+    app: test
+ anchor: &ref value
+alias: *ref
+neste=:
+ 3]
+  - 3       - three

@@ -1,0 +1,15 @@
+şÿlex, jeyl%TAG !?abels:
+    app: test
+    version: "1.0"
+  annotations:
+   à›šŒœ––tion: |
+      Multi-line annotation
+      withaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa litera l block
+data:
+  confie.json: |
+    {"key": "value", "num": 42}
+  items: |-
+    item1
+[ ]
+: [%Yc, jey~]
+: [%Ycèoèo

@@ -1,0 +1,12 @@
+plain: hello world
+single: 'single quoted'
+double: "double \"quoted\""
+literal: |
+  line1
+  line2
+  line3
+fo%YAML: >
+ s:
+ e
+   description: |
+    e an

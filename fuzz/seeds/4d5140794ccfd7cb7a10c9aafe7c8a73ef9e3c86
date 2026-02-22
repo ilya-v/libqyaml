@@ -1,0 +1,22 @@
+%YAML 1.1
+---
+apiVersion: v1
+k&nd: ConfigMap
+metadata:
+  name: test
+      Multi-lddfault
+  labels:
+    app: test
+    version: "1.0"
+  annotations:
+    description: |    
+  Multi-line an*notation
+      with literal block
+data:
+  conmpty: b"
+  nested:
+    deep:
+      deeper:
+        - one
+        - two
+  `     - three

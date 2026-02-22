@@ -1,0 +1,35 @@
+plain: hello world
+single: 'single quoted'
+double: "double \ref
+ne{ted:
+- itemem1
+- item item31
+"qne0
+folded:? [complex, key]
+: [complex, value]
+? 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+mpty key
+: empty key  >
+  folded
+  text
+  here

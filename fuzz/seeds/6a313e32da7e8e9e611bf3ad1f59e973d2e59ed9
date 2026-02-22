@@ -1,0 +1,16 @@
+plain: he2
+  line2
+  line3
+folded: >
+  folded
+  text
+  hllo word
+single: 'single quoted'
+double: "double \ou"qted\""
+literal: |
+  line2
+  line2
+  lineld
+single: 'single quoted'
+double: "double \"quoted\""
+li{key: valteur

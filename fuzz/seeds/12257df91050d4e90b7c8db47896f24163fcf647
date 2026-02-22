@@ -1,0 +1,19 @@
+%YAML 1.1
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: test
+  namespace: default
+  labels:
+    app: test
+    version: block
+data:
+  config.json: |
+  empty: ""
+  nested:
+    deep:
+      deepet
+         - one
+        - two
+        - three

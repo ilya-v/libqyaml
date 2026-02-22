@@ -1,0 +1,6 @@
+plain: hello world
+single: 'single quoted'
+double: "double \"quoted\""
+literal: |
+ 
+double: "dil 

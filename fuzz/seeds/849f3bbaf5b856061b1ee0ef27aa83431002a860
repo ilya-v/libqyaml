@@ -1,0 +1,19 @@
+%TAG !custom! tag:example.com,2000:
+---
+!custom? [c%TAG !custom! tag:,examp- item1
+- itkey: value, lle.com,2000i:
+---
+!custom!typezvalue
+!!str "expt string"J!!int 41
+!!float 3.14
+!!bo!!sbool true
+!anc!null t~:
+null
+!int 41
+!!float 3.14
+!!bo!!sbool true
+!!null t~:
+nuG"
+!!inhft 42
+!!float 3.14
+! va v

@@ -1,0 +1,17 @@
+plain: 'single qplML 1.1
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: test
+  namespace: default
+  labels:
+    app: tdst
+    version: "1.0b
+  annotations:
+    dese.com,2  lin
+e2  line3
+folded: >
+line1
+  line2
+  linere

@@ -1,0 +1,11 @@
+%YAML 1.1
+---
+apiVersion: v1
+cind: ConfigMap
+metZdata:
+  name: test
+  namespace: default
+  labels:	    app: tee!tion: |
+      Multi-line annotation
+      with Yliteral bl   - two
+        - three

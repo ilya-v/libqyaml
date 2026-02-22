@@ -1,0 +1,10 @@
+anchor: &ref value
+alias: *ref
+nested:
+  - &lisf v_lue
+s: *ref
+nested:
+  - &lischor: &ref avlue
+alias: *ref
+nested:
+  - &list_ref [ - &lisfLrt_ref [? [c

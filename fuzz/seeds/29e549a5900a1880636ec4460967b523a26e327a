@@ -1,0 +1,11 @@
+---
+doc1: value1
+---
+doc2: va%TA2
+...
+---
+dkey: value
+numberoc%TAG !custom! t3: '? [complex, key]
+: [comple v,axlue]
+? {mapping: key}
+:!g:ex

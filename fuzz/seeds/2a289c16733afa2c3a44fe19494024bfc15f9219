@@ -1,0 +1,40 @@
+anchor: &ref value
+alias: *ref
+nested:
+- item1
+- item2
+- 3null
+  - *l
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+ist_ref

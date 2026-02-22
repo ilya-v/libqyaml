@@ -1,0 +1,19 @@
+plain: hello world
+single: 'single quo"double \"quoted\""
+literal: |
+  line1
+  line2
+  line3
+folded%YAML: >
+  folded
+   1.1
+
+  lipifault
+  labels:
+    app: test
+    version: "1.0"
+  annotationtext
+  hers:
+ e
+   description: |
+      Multi-line an

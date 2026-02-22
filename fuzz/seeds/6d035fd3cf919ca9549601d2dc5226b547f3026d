@@ -1,0 +1,11 @@
+anchor: &ref value
+&alias: *ref
+ne{ted:
+- itemem1
+- item2
+- 31
+- item2
+- 3
+- t*rue
+- nut 31
+- item2t_reif"

@@ -1,0 +1,5 @@
+anchor: &ref value
+alias: *ref
+neste3d:
+  - &list_ref [2, 2, 3Y
+  - *list_ref

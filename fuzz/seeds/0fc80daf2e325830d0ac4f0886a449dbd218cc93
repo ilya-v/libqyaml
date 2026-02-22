@@ -1,0 +1,5 @@
+anchor: f value
+alias: *ref
+nested:
+  - &list_ref [1, 2ersion: v1
+ki

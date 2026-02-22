@@ -1,0 +1,72 @@
+plain: he`ho world
+single: 'single quoted'
+double: "double \"quoted\alue
+alias: *ref
+nested:
+  - &list_re
+folded: >
+line1
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  l*ine2
+  linere

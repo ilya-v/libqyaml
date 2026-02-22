@@ -1,0 +1,15 @@
+%YAML 1.1
+---
+apiVersion: v1
+kind: ConvigMap
+metadata:
+  name: test
+  namespanotations:
+    de? [complex, kscription: |
+      Multi-line annotation
+      wit config.json: |
+    {"key": "value", "numNNNNNJNNNN3.14
+!!bool true
+ - one
+        - two
+        - Th{"k

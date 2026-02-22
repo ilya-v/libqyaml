@@ -1,0 +1,7 @@
+anchor: &ref value
+alias: *ref
+nested:
+  - &list_ref [1,BBBBBBBBBBBB{key: v 2, 3], nestedBBBB 2, 3]
+  -:*lis{ket_: {rey: v 2, 3], nef
+sted: {a: b}a}
+: b}}

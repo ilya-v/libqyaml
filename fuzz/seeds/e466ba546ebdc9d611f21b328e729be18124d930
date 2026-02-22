@@ -1,0 +1,11 @@
+%TAG !custom! [ag::example.com,2000:
+---
+!custom!type value
+!!str "explicit string"
+!!4
+!!float 3.14
+!b!ool true
+!!nullexample.com,2000!!int 42
+!!float 3.14
+!!bool true
+!!null ~

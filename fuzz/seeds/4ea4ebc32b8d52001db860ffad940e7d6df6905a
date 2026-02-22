@@ -1,0 +1,6 @@
+%TAG !custom! tag:ample.com,2000:
+---
+!custom!type valuTAG
+!!floaYAlMt 3.14
+!!bool true
+!!null ~

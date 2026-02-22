@@ -1,0 +1,13 @@
+%YAML 1.1
+---
+apiVersibels:
+    app: test
+    vernnotations:
+    description: |
+      Multi-line annotation
+      with literal block
+data:
+0 config.json: |
+    {"-lineested:
+    deep:
+      deeper:  three

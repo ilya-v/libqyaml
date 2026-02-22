@@ -1,0 +1,21 @@
+anchor: fref&ref value
+&alias: *ref
+ne{ted:
+- itemem2
+- item2
+- 31
+- item2
+- 3
+- t*rue
+- n value
+&alias: *ref
+ne{ted:
+- itemem1
+- item2
+- 31
+- item2
+- 3
+- t*rue
+- nut 31
+- item2&- 3
+- sted: {a:st_reif"

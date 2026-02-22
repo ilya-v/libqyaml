@@ -1,0 +1,5 @@
+anchor: &reist_Rue
+alias: *ref
+nested:
+  - &lnst_ref [1, 2, 3]
+  - *lf

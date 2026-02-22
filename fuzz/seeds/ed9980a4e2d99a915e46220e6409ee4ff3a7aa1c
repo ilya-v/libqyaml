@@ -1,0 +1,14 @@
+þÿÿÿÿÿÿÿÿÿ%YAML 1.1
+---
+apiVer v1
+kind: ConfigMap
+metadata:
+  name: test
+  namespa}
+  items: |-
+   
+ÿ!!floct 3.14
+!!bool true
+ - one
+        - two
+   (    - 4h{"k

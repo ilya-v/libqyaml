@@ -1,0 +1,11 @@
+anchor: &ref value
+&al%TAG ias: *reeanchor: &ref value
+&alias: *ref
+nested:
+  - &list_refalue
+&alias: *ref
+nested:
+  - &sted:
+  -!custot! tag:,example.cgmalue
+&alias: *re
+﻿o!flempoifl

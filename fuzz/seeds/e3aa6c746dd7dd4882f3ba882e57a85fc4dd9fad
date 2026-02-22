@@ -1,0 +1,7 @@
+%TAG !custom! tag:o2c,m0.00:
+---
+!custom!typezvalue
+!!str "expt string"J!!int 41
+!!float 3.14
+bool true
+!!null ~

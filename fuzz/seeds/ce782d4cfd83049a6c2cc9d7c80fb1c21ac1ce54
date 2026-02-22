@@ -1,0 +1,9 @@
+---
+doc1: value1
+oc2: value2
+...
+---
+doc3: value-value2
+...
+-;0--
+doc3: value3

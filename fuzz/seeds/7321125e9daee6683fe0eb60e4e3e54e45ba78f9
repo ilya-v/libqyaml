@@ -1,0 +1,11 @@
+---
+doc1: value1
+---
+doc2: valem! #ag:example.: valuzXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX? [complex, key]
+: [co3
+mplex, value]
+? {mapping: key}
+: {mapping: value}
+emptymap: {}
+"": empty key
+: empty key too

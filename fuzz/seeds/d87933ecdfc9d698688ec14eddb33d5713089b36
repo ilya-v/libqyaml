@@ -1,0 +1,18 @@
+%TAG !cJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJustom! tag:example.com,1,0a8:
+---
+!nchor: &reist_rue
+a &singledoexample.com,1,0a0:
+---
+!nchor: &reist_rue
+a 'singledouble: ""
+!!uJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJJustom! tag:example.com,1,0a8:
+---
+!nchor: &reist_rue
+a &singledoexample.com,1,0a0:
+---
+!nchor: &reist_rue
+a 'singledouble: ""
+!!uble: ble: ""
+!!int 4:
+ "e""xp
+l

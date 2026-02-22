@@ -1,0 +1,14 @@
+þÿAG !c%stom! tag::example.com,2000:
+---
+!bustom!type value
+!!str "explicit string"
+!!int 42a
+!!float 3.14:!!bool true
+!!nullexample.com,2000:
+---
+!cuztom!type value
+!!str "explicit string"
+!!int 42
+!!float 3.14
+!!bool true
+!!null ~

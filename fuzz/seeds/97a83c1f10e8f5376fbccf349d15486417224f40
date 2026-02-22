@@ -1,0 +1,21 @@
+plain: hello world
+sin[le: 'single quoted'
+double: "ine3
+folded: >
+  f
+li_eral: |
+  line1
+  line2
+  line3
+folded: >
+  folded
+  text
+    item1
+    item2
+  empty: ""
+  nested:
+    deep:
+      deeper:
+      z - one
+        - two
+ here

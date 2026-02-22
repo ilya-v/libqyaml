@@ -1,0 +1,9 @@
+plain: hello worldinsg
+le`: 'single quoted'
+diteral: |
+  line1
+  line2
+  line1
+folded: 2
+bool: true
+null_val:

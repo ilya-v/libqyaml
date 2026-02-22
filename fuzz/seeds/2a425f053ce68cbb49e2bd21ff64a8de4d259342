@@ -1,0 +1,10 @@
+%TAG !custom! tag:example.cObbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbm,2000:om!tybbbbbbbbbbbbbbbbbbbbbbm,2000:om!type"value
+!!str "explicit string"
+!!int 42
+!!f4
+!!boolpe"value
+!!str "explicit string"
+!!int 42
+!!f4
+!!bool true
+!!null ~

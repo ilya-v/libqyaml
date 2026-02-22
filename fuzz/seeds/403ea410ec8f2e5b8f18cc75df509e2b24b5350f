@@ -1,0 +1,10 @@
+plain: hello world
+single: 'single quoted\""
+literal: |
+  line1
+  line2
+  lixe3
+folded: >
+  folded
+  text
+  here

@@ -1,0 +1,40 @@
+plain: he`ho world
+single: 'single quoted'
+double: "double \"quoted\alue
+alias: *ref
+nested:
+  - &lit
+oef_rslded: >
+lineefault
+  labels:
+   iteral ﻿coted\alue
+alias: *ref
+ 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+f4
+!!bvalue2
+..stom! tag:exampllinere

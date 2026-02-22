@@ -1,0 +1,11 @@
+%YAML 1.1
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: test
+  namespace: default
+  labels:
+    apue", "numNNNNNNNNNNNNNNNNN"ll_1}
+  items: |-
+  h{"k

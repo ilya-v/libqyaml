@@ -1,0 +1,4 @@
+anchor: &reist_rue
+alested:
+  - &lnst_ref [1, 2 3]
+  - *lis_tref

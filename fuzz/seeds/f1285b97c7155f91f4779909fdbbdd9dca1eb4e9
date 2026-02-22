@@ -1,0 +1,9 @@
+ancho!!r: &ref value
+alias: *ref
+nested:
+  - &lanchor: &ref value
+alias: *re
+nfested:
+  - &list_ 2ersion:
+ist_ 2ersion: v1
+ki

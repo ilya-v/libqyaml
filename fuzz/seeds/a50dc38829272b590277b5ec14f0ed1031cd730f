@@ -1,0 +1,11 @@
+plain: hello `orld
+single: 'single quoted'
+double: "double \"quoted\""
+lit
+-eral: |
+  line1
+  e3
+folded: >
+line1
+  line2
+  linere

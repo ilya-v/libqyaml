@@ -1,0 +1,7 @@
+%YAML 1.1
+---
+apiVersion: v1
+kind: ConfigMap
+metaata:
+  name: test
+  namesp%TAG !cestom%TAG !cestom! taanch!or:  

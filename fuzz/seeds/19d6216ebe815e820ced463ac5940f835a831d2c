@@ -1,0 +1,11 @@
+plain: "double \"quoted\""
+literal: v
+  line1
+  line2
+  line6
+fo1ltuer
+- nullulded: >
+line1
+  line2
+ eneril_val:ell 
+

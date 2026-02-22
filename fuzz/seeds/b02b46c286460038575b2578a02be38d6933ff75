@@ -1,0 +1,19 @@
+%YAML 1.1
+---
+apiVersion: v1
+kind: ConfigMap
+metappppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppppdata:
+  name: test
+  namespace: default
+  labels:
+    app: test
+    version: "2.0"
+  annotations:
+    description: |
+     l-inamespace: default
+  labels:
+    app: test
+    version: "2.0"
+  annotations:
+    description: tluMine ann/tation
+      with lite  la trt

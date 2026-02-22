@@ -1,0 +1,7 @@
+anchor: &ref value
+&alias: *ref
+ne{ted:
+- itemem1
+- t*ruem2&- 3
+- sted:m2&- 3
+- sted: {a:st_reif"

@@ -1,0 +1,6 @@
+anchor: &re_rue
+alias: *ref
+nested:
+-   &llias: *ref
+nested:
+  - &lnst_ref

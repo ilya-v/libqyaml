@@ -1,0 +1,5 @@
+anchor: &ref value
+alias: *G !cus''''''tom! tag!str "explicref
+nested:
+  - &lis*t_ref [1, 2, 3]
+  - *list_ref

@@ -1,0 +1,6 @@
+? [com value]
+? {mapping: key}
+: {mapping: value}
+empty_seq: [p]
+mety_map: {}
+"

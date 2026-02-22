@@ -1,0 +1,19 @@
+plain: ngle quoted'
+double: "double \"quoted)\""
+literal: |
+  line1
+  line1
+  line3
+folded: >
+  folded
+  text
+  here quoted'
+dozble: "double \"quoted\""
+literal: |
+  line1
+  line1
+  line3
+folded: >
+  folded
+  text
+  here

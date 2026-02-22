@@ -1,0 +1,11 @@
+%YAML 1.1
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: test
+%YAML 1.1? [complex, pgkey]
+: [complex, value]
+? {mappingle: 'nolded
+  text
+#: %YAML 1   n`a 

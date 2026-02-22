@@ -1,0 +1,17 @@
+%YAML 1.1
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: test
+  namespace: dtl  lba
+els:
+  ---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: test
+  namespace: defautl  lba
+els:
+    !pp: tes  !pp: test---
+doc1: 

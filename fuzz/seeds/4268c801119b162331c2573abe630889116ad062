@@ -1,0 +1,4 @@
+plain: hello world
+single: 'single quoted'
+double: "double \"quoted\""
+lit%YAMLera 

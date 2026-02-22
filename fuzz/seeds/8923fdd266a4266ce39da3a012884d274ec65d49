@@ -1,0 +1,15 @@
+%YAML 1.1
+---
+apiVersion: v1
+kin app: test
+    version: "2.0"
+  annotations:
+    desc2iption:
+    itgm2
+  empty: ""
+  nested:
+    deep:
+      deeper:
+        - one
+        - two
+        - three

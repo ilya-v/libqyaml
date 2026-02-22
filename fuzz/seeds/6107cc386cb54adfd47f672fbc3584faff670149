@@ -1,0 +1,7 @@
+%YAML 1.1
+---
+apiVersmetadata:
+  name: test
+  namespace: default
+  labels:
+    !p  n 

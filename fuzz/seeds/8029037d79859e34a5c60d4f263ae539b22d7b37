@@ -1,0 +1,5 @@
+%TAG !custom! tag:example.com,2000:
+---
+!custom!type value
+!!str "explici str
+!!null ~

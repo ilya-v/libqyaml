@@ -1,0 +1,6 @@
+anch: &ref value
+alias: *ref
+nested:
+  - &list_ref [1, 2, 3]
+  - *_ref [1, 2, 3]
+  - *lisu_ref

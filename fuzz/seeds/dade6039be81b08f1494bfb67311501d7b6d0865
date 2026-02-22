@@ -1,0 +1,17 @@
+? [complex, key]
+: [complex, value]
+? {mapping: key}
+: {mapping: value}
+empty_seq: m? [complex, key]
+a: [complex, value]
+? {mapping: key}
+: {mapping: value}
+empty_seq: m? [complex, key]
+apping: value{}
+"": empty : [complex, value]
+? {ma`ping: key}
+: {mkepping: value{}
+"": empty : [complex, value]
+? {ma`ping: key}
+: {mkeag: y
+:k e

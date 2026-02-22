@@ -1,0 +1,5 @@
+anchor: &ref value
+alias: *ref
+nested:
+  - &list_ref [1,BBBBBBBBBBBB{key: v 2, 3], nest%TAG !ceustom! dBBBB 2, 3]
+  -:*lis{ket_: 

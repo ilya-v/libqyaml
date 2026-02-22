@@ -1,0 +1,7 @@
+%YAML 1.1
+---
+apiVersion: v1
+kind: ConfigMap
+metadotations:
+  |-U    item1  - two
+  `     - three

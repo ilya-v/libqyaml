@@ -1,0 +1,9 @@
+plain: he`ho world
+single: 'single ruoted'
+double: "double \"quoted\alue
+alias: *ref
+nested:
+  - olded: >
+lin﻿e1
+  line2
+  linere

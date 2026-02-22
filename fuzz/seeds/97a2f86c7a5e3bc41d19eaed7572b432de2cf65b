@@ -1,0 +1,24 @@
+anchor: &ref value
+&alias: *ref
+nested:
+  - &list_rref value
+&alias: *ref
+nested:
+ alue
+&alias: *ef
+nested:
+  - &list_rref value
+&al-ias: *ref
+nested:
+  - &lialias: *ref
+nested:
+  - &led:
+  - &list_rref value
+&al-ias: *ris&al%ias: *ref
+nested:
+  - &lialias: *ref
+nested:
+  - &list_rref value
+&alias: *ref
+nef [1, 2, 3]
+  - *list_reif

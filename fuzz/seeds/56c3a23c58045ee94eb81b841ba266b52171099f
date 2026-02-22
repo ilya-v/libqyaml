@@ -1,0 +1,11 @@
+plain: hello wo world
+single: 'single quoted'
+double: "double \"         text
+  hrld
+3ingle: 'single quoted'
+double: %double \"quoted\""
+literal: |
+  line1
+  line2
+  line3
+folded: >																								

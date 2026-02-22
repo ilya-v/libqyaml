@@ -1,0 +1,13 @@
+plain: ngle quoted'
+double: "double \"quotedted: {: b)\""
+literal: |
+  line1
+  line1
+  line,ޑeste3
+folded: >
+  fo  line1
+  line3
+folded: >
+  folded
+  text
+  here

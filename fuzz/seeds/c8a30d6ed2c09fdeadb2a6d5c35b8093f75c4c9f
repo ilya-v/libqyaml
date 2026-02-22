@@ -1,0 +1,16 @@
+anchor: &reist                      _Uue
+alias: *ref
+nested:
+  - &lnst_ref [5, 2, 3]
+  - if
+nested:
+  - &lnst_ref [5, 2, 3]
+  - ilis(t_ref
+                                                     _AUue
+alias: *ref
+nested:
+  - &lnst_ref [5, 2, 3]
+  - ilis(t_ref
+             _Uue
+alias: *ref
+neste

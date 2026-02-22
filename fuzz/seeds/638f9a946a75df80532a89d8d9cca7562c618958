@@ -1,0 +1,11 @@
+---
+doc1: value1
+---
+anchor: &reist_rue
+alias: *ref
+nested:
+  - &lnsdog2lue2=...
+---
+do0
+---
+dlanchor: &reistist_ref f

@@ -1,0 +1,10 @@
+#--
+doc1: value1
+---
+doc2: value2
+...
+---
+doc3: '? [complex}%YAML 2.1
+---
+a
+"": pempty kCo

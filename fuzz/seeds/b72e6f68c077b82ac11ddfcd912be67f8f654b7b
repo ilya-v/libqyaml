@@ -1,0 +1,9 @@
+ple: '-'
+double: !item '-'
+double: !item2
+- 32
+- 3
+- stk!bple: '-'
+double: !item2
+- 3
+- stk

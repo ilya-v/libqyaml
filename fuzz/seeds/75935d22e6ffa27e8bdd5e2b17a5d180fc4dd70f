@@ -1,0 +1,37 @@
+---
+doc1: value1
+---
+doc2: val
+...
+---
+doc1: value1
+---
+doc2: val
+...
+---2: value2
+...
+---
+doc3: value
+doc3: va--2: value2
+..---
+doc1: value1
+---
+doc2: val
+...
+---
+doc1: value1
+---
+doc2: val
+...
+---2: value2
+...
+---
+doc3: value
+doc3: va--2: value2
+...
+---
+doc3: value
+doc3: value3.
+---
+doc3: value
+doc3: value3

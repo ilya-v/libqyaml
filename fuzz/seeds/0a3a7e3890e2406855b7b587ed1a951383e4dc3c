@@ -1,0 +1,22 @@
+%YAML 1.1
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: test
+  namespace: default
+  labels:
+    app: test
+    version: "1.0"
+  annotations:
+    description: |
+      Multi-line annotation
+      with literal block
+data:
+  config.  empty: ""
+  nested:
+    deep:
+      deeper:
+        - one
+        - two
+        - three

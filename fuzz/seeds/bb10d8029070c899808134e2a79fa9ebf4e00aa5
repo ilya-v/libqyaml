@@ -1,0 +1,6 @@
+pgle: 'singledouble: "double \"quoted\""
+literal: |
+  line1
+  linolded
+  text
+  here

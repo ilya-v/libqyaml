@@ -1,0 +1,11 @@
+plain: hello world
+single: 'single quoted'
+double: "double \"quoted\""
+literal: |
+  lisingle000000000000000000 quoted'
+double: "double \"quoted\""
+literal:--t
+  hers:
+ e
+   description: |
+      Multi-line an

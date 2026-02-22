@@ -1,0 +1,15 @@
+{k%TAG !custom! taAG !custom! tag:exampl
+!!nuled:om!stom! taAG !custom! tag:exampl
+!!nuled:om!type value
+!!Dtr "explicit string"
+!!int 42
+!!float 3.14
+ey: key: va(lst!!bool true
+!!nuled: {}l
+ ~
+g:exampl
+!!nuled:om!type value
+!!D
+ey: key: va(lst!!bool true
+!!nuled: {}l
+ ~

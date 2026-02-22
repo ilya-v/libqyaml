@@ -1,0 +1,9 @@
+plain: hello world
+single: 's world
+single: 'single quoted'
+double: "double \"qe2
+  line3
+folded: >
+ ed lfod
+ e txt
+  here

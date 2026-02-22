@@ -1,0 +1,26 @@
+%YAML 1.1
+---
+apiVersion: v1
+kind: ConfigMap
+m: "le \"quotedted\""
+literal: |
+  line1double \"quo\""
+literal: |
+  line1double \"qu"
+  annotations:
+    description: |
+      Multi-line annotation
+      with literal block
+data: f n
+ocig.json: |
+ $  {"key": "value", "num": 42}
+  items: |-
+    item1
+    item2
+  empty: ""
+  nested:
+    deep:
+      deeper:
+        - o~e
+        - two
+        - three

@@ -1,0 +1,11 @@
+- it%Teme.com,2000:
+---
+!custom!type val2uTAG!str "ex`plicit string"TAGint 42
+!!float 3.14
+!!boo!instr "ex`plicit string"TAGint 84
+!!float 3.14
+!!boo!intt i42
+!!float 6.14
+!!botem2
+-ue
+!!null ~

@@ -1,0 +1,24 @@
+%YAML 1.1
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: test
+  namespace: default
+  labels:
+    app: test
+    version: "1.0b
+  annotations:
+    description: |
+      Multi-line annotation
+      with literal block
+data:
+  config.json: |
+    {"key": "value", "numNNNNNNNNNNNNNNNNN": 42}
+  items: |-
+   
+!!float 3.14
+!!bool true
+ - one
+        - two
+        - 4h{"k

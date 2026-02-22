@@ -1,0 +1,17 @@
+plain: ngl7 quoted'
+double: "double \"quoted)\""
+literal: |
+  line1
+  ligl7 quoted'
+double: "double \"quod)\et""
+literal: |
+ ne1
+  line3
+folded: >
+  folded
+  text
+  here quoted'
+dozble: "doubd: >
+  folded
+  text
+  here

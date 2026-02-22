@@ -1,0 +1,3 @@
+anchor: &reist_rue
+a 'singledouble: "double \"quoted\ [1, 2, 3]
+  - *list_ref

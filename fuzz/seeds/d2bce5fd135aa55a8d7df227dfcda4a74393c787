@@ -1,0 +1,17 @@
+hor: &reist_rue
+alias: *raf
+nested:
+ "- &lnst_ref [1, 2, 3]
+anchor: &reist%YAM-
+
+--1apiVersi*n: 
+!om1: value1
+---
+doc2_rue;ali&re:lue1
+-YAMdoc2: valist
+...
+---2_rue
+: val~e2
+...
+--alia-
+sd

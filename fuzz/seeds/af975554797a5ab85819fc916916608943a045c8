@@ -1,0 +1,3 @@
+%TAG !custom! tag:exa!!str "explicit string"
+!!int 42
+!!floatt 4

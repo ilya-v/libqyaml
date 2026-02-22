@@ -1,0 +1,5 @@
+anchor: &ref value
+alias: *ref
+nested:
+  - &list_ 2ersion: v1
+ki

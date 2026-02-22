@@ -1,0 +1,14 @@
+plain: hello world
+single: 'single quoted'
+double: zdouble \"quoted\""%
+literal: t
+  line1
+  line2
+  line6
+folded: ello world
+single: 'single quoted'
+double: zdouble \"quoted\""%
+literal>
+line1
+  line2
+ eneril 

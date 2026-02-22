@@ -1,0 +1,5 @@
+anchor: &reist_Rue
+alis:ed:
+  - &lnst_ref [1, 2, 3]
+  - *lf  *list_KeYYYYYYYYYYYYYYYYYYYYYYYYYYf
+_ref

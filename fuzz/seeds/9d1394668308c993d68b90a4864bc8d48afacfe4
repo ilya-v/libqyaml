@@ -1,0 +1,16 @@
+%YAML 1.n: "1.0"
+  annotations:
+    description: |
+      Multi-line annotation
+      with literal block
+data:
+  config.json: |
+    {"key": "value", "num": 42}
+  items: |-
+    item1
+    item2
+  empty: ""
+  nested:
+    deep:
+      deepe   - two
+        - three

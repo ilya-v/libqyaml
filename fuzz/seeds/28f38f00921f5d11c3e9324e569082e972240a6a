@@ -1,0 +1,17 @@
+%YAML 1.1
+---
+apiVersibels:
+    app: test
+    vernnotations:
+    description: |
+      Multi-line annotation
+      with literal block
+data:
+  config.json: |
+    {"-line anno"num": 41}
+  items: |-
+    item1
+    item2
+n: |
+   e}
+empty_seq:  three

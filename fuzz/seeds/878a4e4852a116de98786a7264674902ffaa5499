@@ -1,0 +1,6 @@
+%TAG !custom! r&: ref value
+alias: *ref
+nested:
+  &list_ref [tag:example.com,2000-:0
+00:
+tom! dBBBB 2, 3custom!tyl ~

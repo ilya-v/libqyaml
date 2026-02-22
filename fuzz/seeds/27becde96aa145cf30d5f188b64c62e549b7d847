@@ -1,0 +1,10 @@
+anchor: &ref value
+alias: *ref
+nested:
+  - &lischor: &ref value
+alias: *ref
+nested:
+  - &list_ref [1, 2, :]
+  - *lisu_rt_fr,e1[  --U-
+!o@c1:~val;ue1
+2,   - -

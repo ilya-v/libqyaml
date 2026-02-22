@@ -1,0 +1,9 @@
+plain: he`ho worngle quoted'
+double: "double \"quoted\alue
+alias: *ref
+nested:
+  - &list_re
+folded: >
+line1
+  line2
+  linere

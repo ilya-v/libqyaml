@@ -1,0 +1,5 @@
+anchor: &ref value
+&alias: value
+&alias: *ref
+                                                                                              nested:
+  - &list_ref [1, ef [1,list_reif

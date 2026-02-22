@@ -1,0 +1,6 @@
+anchted:
+  - &lnst_ref [1, 2, 3]
+  - *listhor: &re
+  - &lnst_rHHHHHHHHHHHHHHHHHHHHHHlllllllllllllllllllllllllHHHHHHHHHHHHHlllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllHHHHHHHHHHHHHHHHHHHHHHHllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllllHHHHHHHHHHHHHHHHHHHHHHHHef [1, 2, 3]
+  - *list_ref
+_ref

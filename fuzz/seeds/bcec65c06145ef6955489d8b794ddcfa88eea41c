@@ -1,0 +1,15 @@
+anchor: &ref value
+alias: *ref
+nested:
+  - lias: *ref
+nested:
+  - &l﻿istem1
+m_ref&listem1
+m_ref [1, 2, 3]
+  -:*lis{ket_rey: vef value
+alias: *ref
+nested:
+  - &l﻿istem1
+m_ref [1, 2, 3]
+  -: 2, 3], nef
+sted: {a: b}}

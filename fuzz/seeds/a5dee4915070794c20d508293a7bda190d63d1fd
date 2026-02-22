@@ -1,0 +1,23 @@
+pgle: 'sing"double.\"quot
+"dei\l"teral: ..
+tag:
+-
+doc1: 
+null_val: ~
+e1
+---
+doc2: value2
+...
+---2: value2
+...
+---
+doc3: val---
+doc3|
+le.\%quoted\""
+literal: |
+  line1
+  linolded
+  teledouble: "doub1
+--t
+ ine1
+

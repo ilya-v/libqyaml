@@ -1,0 +1,16 @@
+%YAML 1.1
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: tste
+  namespace: default
+  labels:
+    !pp: test
+    veabelsrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrte
+  namespace: default
+  labels:
+    !pp: test
+    veabelsrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrrr:
+    !ptikey: valueder:
+    !ptikey: valuede

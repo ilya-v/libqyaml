@@ -1,0 +1,6 @@
+plain: hello world
+singlnested:
+  - &list_ref [1, 2,double \"quoted\""
+liter
+  line2
+  lie

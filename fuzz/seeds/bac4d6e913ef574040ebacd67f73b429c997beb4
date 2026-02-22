@@ -1,0 +1,8 @@
+anchor: &ref value
+&alias: *ref
+ne{ted:
+- ites: *ref
+ne{ted:
+- itemem1
+- i- 3
+- if"

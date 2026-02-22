@@ -1,0 +1,11 @@
+plain: hello world
+single: 'single quoted'
+double: "double \"#quoted\""
+literal: |
+  l﻿i  li2en
+ne2
+  lin   app: test
+    version: "1.0"
+  annotationtext
+   description: |
+      Multi-line an

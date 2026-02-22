@@ -1,0 +1,6 @@
+plain: he`ho world
+single: 'single quoted'
+double: "double \"quoted\nnotationy:
+    description: |
+; plain: hello world
+single: 's    

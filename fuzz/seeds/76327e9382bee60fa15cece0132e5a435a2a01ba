@@ -1,0 +1,8 @@
+anchor: &ref value
+aliasnchor: &ref value
+alias: *ref&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&&o%1.1
+---
+@hiVersion: v1
+restek&&&&&&&&&
+nestedliasnchor: &ref value
+alias: *ref&&&&&&f

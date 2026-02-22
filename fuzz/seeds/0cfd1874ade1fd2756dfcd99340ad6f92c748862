@@ -1,0 +1,8 @@
+%TAG !custom! tag:aexmple.com,2000:
+---
+!cu-::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::::
+!custom!type value
+!!str "explicit stri&g"
+!!int float 3.14
+!!bool MMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMMtrue
+!!null ~

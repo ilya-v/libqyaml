@@ -1,0 +1,14 @@
+plain: BBBBBBBhe2
+  life2
+  line3
+folded: >
+  folded
+  text
+  hteral: |
+  llo world
+single: 'single quoted'
+douBle: "double \"quotyd\""
+literal:! c  l>
+  folded
+  text
+  here

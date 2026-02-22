@@ -1,0 +1,25 @@
+%YAML 1.1
+---
+apiVersion: v1
+adata:
+  name: test
+  nakind: ConfigMap
+metadata:
+  name: test
+  namespace: default
+  labels:
+    app: test
+    version: "1.0"
+  annotations:
+    description: |
+      Multi-line annotation
+      with literal block
+datdata:
+  cona:
+  config.  empty: ""
+  nestede : d  
+ep:
+      deeper:
+        - one
+~        - two
+        - three

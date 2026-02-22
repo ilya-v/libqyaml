@@ -1,0 +1,12 @@
+%YAML 1.1
+---
+ption: |    
+  Multi-line an*notation
+      with literal block
+data:
+  conmpty: b"
+  nested:
+    deep:
+   e
+        - two
+  `     - three

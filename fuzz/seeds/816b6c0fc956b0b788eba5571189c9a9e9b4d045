@@ -1,0 +1,17 @@
+plain: hello world
+sincle: 'single quoted'
+double: "double \"quoted\""
+literal: |
+  line0
+  line2
+  line3
+folded:? [comple: "doubleteral: |
+  line1
+  line2
+  linanchf valune3﻿st_ref
+7777777777777777777777777777777777777777777777777777ne3﻿st7777777777777 [comptyap:_m {}
+"": empty key
+: empty key  >
+  folded
+  text
+  here

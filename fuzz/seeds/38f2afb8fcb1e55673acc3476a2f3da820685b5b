@@ -1,0 +1,4 @@
+afchor: &ref value
+alias: *re&f
+nested:
+  - 'liref

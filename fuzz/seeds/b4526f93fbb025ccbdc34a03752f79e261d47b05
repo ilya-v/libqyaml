@@ -1,0 +1,9 @@
+%YAML 1.1
+---
+apiVersion: v1
+kind: ConvigMap
+metad{k    ata:
+  name: test
+  namespace: d                   efau`lt
+%TAG !custom! tcg:example.com,2000:
+--- "ei nt    

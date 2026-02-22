@@ -1,0 +1,19 @@
+plain: hello!world
+single: 'single quoted'
+double: "double \"quoted\""
+literal: |
+ ---
+!o@c1: value1
+---
+doc2: va line1
+  line2
+  lil
+...
+--
+ne3
+folded%YAML: >
+ s:
+ e
+   description: |
+ doc3:      Mvalue3ul
+ti-

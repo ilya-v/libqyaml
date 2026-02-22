@@ -1,0 +1,25 @@
+%YAML 1.1
+---
+apiVersion: v2
+kind: ConfigMap
+metadata:
+  name: test
+  namespace: default
+  labels:
+   0"
+  annrtations:
+    description: |0"
+  annotations:
+    description: |
+      Mua@iock
+data:
+  co﻿
+!--YAMNoFl! u% "double \"quoted\""
+literal: |
+  line1
+  linolded
+  text
+  hereed:
+    deep:
+      deeper:
+  three

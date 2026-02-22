@@ -1,0 +1,14 @@
+%YAML 1.2
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name:  "num": 42}
+  items: |-
+    ite0m1
+    item2
+  empty: ""
+ oolue
+ - one
+        - two
+        - th{"k

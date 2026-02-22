@@ -1,0 +1,23 @@
+%YAML 1.1
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: tust
+  namespace: default
+  labels:
+    app: test
+    version: "1.0"
+  annotations:
+    description: |
+      Multi-litions:
+    description:  literal block
+data:
+  config.json: "1.0"
+  annotations:
+    description: |
+      Multi-litions:
+    description:  literal block
+data:
+  config.json: |
+ul: empty k "value", "oy k      - three

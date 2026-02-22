@@ -1,0 +1,18 @@
+%YAML 1.1
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: test
+  namespaption: |
+     l-i tluMine ann/tation
+      with lite  labels:
+    app: test
+    version: "2.0"
+  annotatioYA:
+    Description: |
+     l-i ne an i~em n/tation
+   
+  nested:
+    d
+!!float 6.14

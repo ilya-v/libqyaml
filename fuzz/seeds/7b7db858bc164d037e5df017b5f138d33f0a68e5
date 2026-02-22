@@ -1,0 +1,5 @@
+anchor: &ref value
+alias: *ref
+nested:
+  - 'list_regted'
+double: "*lizst_ref

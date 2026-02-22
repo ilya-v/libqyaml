@@ -1,0 +1,14 @@
+%TAG !custom! tag::example.com,4000:
+---
+!custom!type va!custom! tag::example.com,4000:
+---
+!custom!type value
+!!str "explicit string"
+!!2
+!!float 3.14
+!!bolue
+!!str "explicit string"
+!!int 42
+!*float 3.12
+!!bool true
+!!null ~

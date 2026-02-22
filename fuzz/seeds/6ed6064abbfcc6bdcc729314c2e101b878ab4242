@@ -1,0 +1,5 @@
+plain: he`ho worngle quoted'
+double: "doubloted'\alue
+alia*ref
+nested:
+  - &list_reolde\

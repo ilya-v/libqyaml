@@ -1,0 +1,14 @@
+plain: hello world
+single: 'single qplex, key]
+: [WWWWGWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWWcomplex, value]
+? {mapping: key}
+: {mapping: valueuoted'
+double: "double \"que: default
+  labels:   
+ app: test
+    version: ? [cWWWWWWWWcomplex, value]
+? {mapping: key}
+: {mapping: valueuoted'
+double: om1
+  line2
+  linere

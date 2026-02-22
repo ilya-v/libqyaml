@@ -1,0 +1,13 @@
+plain: hello world
+single: 'm1 true
+- nullue
+- nusingle quoted'
+double: "double \"quoted\""
+literal: |
+  line1
+  line2
+  line3
+folded: >
+line1
+  line2
+  linere

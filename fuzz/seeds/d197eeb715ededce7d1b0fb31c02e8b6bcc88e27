@@ -1,0 +1,19 @@
+%TAG !custom! tag:example.ce.colisg::example.com,2000:
+---
+!custom4
+!!bool true
+!!nullexample.com,2000:
+---
+!custom!type value
+!!str "explicit string"
+!!int 42
+!!float 3.14
+ype value
+!!str "explicit string"
+!!int 42
+!!float 3.14
+!!bool true
+t_ref [1, 2, 3]
+  -m,2000:
+---null ~
+ll ~

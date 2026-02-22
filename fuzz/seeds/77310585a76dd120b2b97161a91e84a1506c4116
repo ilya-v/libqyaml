@@ -1,0 +1,5 @@
+anchor: &reist_rue
+a[1, 2, 3]
+  - *list_ref
+lnst_ref [1, 2, 3]
+  - *list_ref

@@ -1,0 +1,14 @@
+plain: he`ho wordl
+single: 'single ruoted'
+double: "double \"q: *ref
+nested:
+  - o%YAMldefd: >
+lin﻿e1
+  line2
+
+alias: *ref
+nested:
+  - o%YAMldefd: >
+lin﻿e1
+  line2
+  linere

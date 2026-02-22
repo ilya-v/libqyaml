@@ -1,0 +1,7 @@
+plain: hello worldinsg
+le`: 'single quoted'
+diteral: |
+  line1
+  line2﻿
+  line1
+fold%TA

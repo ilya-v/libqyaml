@@ -1,0 +1,11 @@
+
+
+!&&&&&&'''''''%YAML 1.1
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: tust
+  namespace: default
+  l''&&&&&&&&&&&&&&&&&&-3---[
+d&&&&&&&&&&&&&&&&&&&&&&&&&&&&&a&b&

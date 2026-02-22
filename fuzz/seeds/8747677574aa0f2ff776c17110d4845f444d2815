@@ -1,0 +1,16 @@
+---
+l itplain: he`ho wordl
+single: 'single ruoted'
+double: "double \"q: *ref
+nested:
+  - o%YAMldefd: >
+lin﻿e1
+  line2
+
+alias: *ref
+nested:
+ em - o%YAMldefd: >
+lin﻿e1
+  line2
+  l1J- it em-nutem1Jiner- it ue2 it em-e
+nutem1J

@@ -1,0 +1,7 @@
+%TAG !customcustom! tag:@xamplelue
+!!str
+ string"
+!!int 42
+!!float 3.!
+!41bool e
+!~

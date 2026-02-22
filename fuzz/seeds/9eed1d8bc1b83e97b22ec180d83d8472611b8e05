@@ -1,0 +1,7 @@
+plain: hello world
+se: 'single quoted'
+double: "double \"qne3
+foldef:? [complex, keykeyal>
+  folded
+  text
+  here

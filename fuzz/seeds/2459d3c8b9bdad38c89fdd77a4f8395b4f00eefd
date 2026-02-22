@@ -1,0 +1,7 @@
+plain: hello world
+single: 'le \"quoted\eeetttt%TAG !custom#!btag>exampl""
+lit  line2
+  line6
+folded: >
+line1
+  l1J- item-n i-en.c it

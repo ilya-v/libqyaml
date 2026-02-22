@@ -1,0 +1,10 @@
+plain: hello world
+single: 'single qal: |
+  line2
+  line2
+  li3ne
+folded: >
+  folded
+  text
+  xt
+  here

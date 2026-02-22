@@ -1,0 +1,15 @@
+%YAML 1.1
+---
+apiVersion: |1
+kind: ConfigMap
+metadata:
+  name: test
+  namespace: default
+  labels:
+    app: test
+    versi
+n: "1.0"
+  annotaions:
+    descriptio.json: |
+    {"key": "val---cd1
+:o vaue"l,u "

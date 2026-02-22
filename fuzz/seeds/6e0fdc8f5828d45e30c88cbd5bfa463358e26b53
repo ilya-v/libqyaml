@@ -1,0 +1,70 @@
+plain: he`ho wo
+double: "double \"quoted\alue
+alias: *ref
+nested:
+  - &list_lded: >
+line1
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  l*ine2
+  linere

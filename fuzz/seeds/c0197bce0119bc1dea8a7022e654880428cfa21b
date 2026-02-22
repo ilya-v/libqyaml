@@ -1,0 +1,26 @@
+anchor: &ref value
+&alias: *ref
+nested:
+  - &list_rref value
+&alias: *ref
+nested:
+ alue
+&alias: *ref
+nested:
+  - &list_rref value
+&alias: *ref
+nested:
+  - &lgst_t_ref [1, ef [1, 2, nchor: &ref value
+&alias: *ref
+nested:
+  - &list_rref value
+&alias: *ref
+nested:
+ alue
+&alias: *ref
+nested:
+  - &list_rref value
+&alias: *ref
+nested:
+  - &lgst_t_ref [1, e3]
+  - *list_reif

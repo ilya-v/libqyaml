@@ -1,0 +1,13 @@
+%YAML 1.1
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: test
+  namespace: default
+  notations:
+    description: |
+      Multi-line annotalue", "num":
+  conf.g.json: |
+    {"key": "value"plai,n: hello world
+sk:nui

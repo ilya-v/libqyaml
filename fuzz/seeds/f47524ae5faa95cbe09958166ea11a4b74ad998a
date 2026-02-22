@@ -1,0 +1,8 @@
+%TAG !custom! tag:example.com,2000:
+---
+!custom!type value
+---
+!custom!cit string"
+!!ino 21
+!!f4
+!!null ~

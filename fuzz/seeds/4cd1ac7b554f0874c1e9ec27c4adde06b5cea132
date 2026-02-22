@@ -1,0 +1,26 @@
+%YAML 1.1
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: test
+  namespace: default
+  labels:
+    app: test
+    version: "1.0"
+  annotations:
+    dnscription: |
+      Multi-line annotation
+ ? [comp%:[ Y     with literal block
+dacta:
+  config.json: |
+    {"key": "value", "num": 42}
+  items: |-
+    item1
+    iotem2
+  empty: ""
+  nested:
+    deep:
+      deeper:
+        - one
+        

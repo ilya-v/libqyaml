@@ -1,0 +1,11 @@
+{k ly,,,,,,,,,,%YAML 1.1
+---
+apiVersion: v1
+kind: Conf  app: test
+    version: "(.0bp
+metadatat 3.14
+!!bool true
+ - one
+        - two
+ ta:
+  n

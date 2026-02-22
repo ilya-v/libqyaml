@@ -1,0 +1,7 @@
+plain: hello world
+single:
+: [complex, ex, k: {mapping: value}
+empty_seq: [2]
+emptted'
+double: "dle \"quoted\""
+litere

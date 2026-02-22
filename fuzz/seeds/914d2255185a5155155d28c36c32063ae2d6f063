@@ -1,0 +1,7 @@
+%YAML 1.1
+---
+apiVersion:plain: hello world
+single: s'singquoted'
+double: "doTQGe \"quoted\ v1lit
+  namespace: default
+  label u   M 

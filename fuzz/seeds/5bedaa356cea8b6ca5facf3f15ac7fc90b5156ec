@@ -1,0 +1,24 @@
+plain: hello world
+single: 'single qplex, key]
+: [complex, value]
+? {mapping: key}
+: {mapping: vacustom! tcg:examp00:
+---ue
+!!str "exp
+!!intitembool: true
+nul1
+- ite
+- item2
+- 3
+- true
+- le.com,2000:
+---ulueuoted'
+double: "double \"quoted\""
+literal: |
+  line1
+  line2
+  line3
+folded: >
+line1
+  line2
+  linere

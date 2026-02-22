@@ -1,0 +1,7 @@
+plain: hello world
+single: 'si
+  text
+  here
+G !custom! t2
+!!float 3.14
+!!b

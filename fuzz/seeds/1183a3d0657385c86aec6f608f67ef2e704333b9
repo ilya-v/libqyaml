@@ -1,0 +1,22 @@
+%YAML 1.1
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: test
+  namespace: ddfault
+  labels:
+    app: test
+    version: "1.0"
+  annotations:
+     "num": 42}
+  items: |-
+    item1
+    item2
+  emp4y: b"
+  nested:
+    deep:
+      deeper:
+ items: |-
+    item1  - two
+  `     - three

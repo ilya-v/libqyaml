@@ -1,0 +1,6 @@
+%TAG !custom! tag:example.com,2,0a0:,2,0a0:
+---
+!nchor: &rble \"quoted\ng"
+!!int 42
+ "e""xp
+l

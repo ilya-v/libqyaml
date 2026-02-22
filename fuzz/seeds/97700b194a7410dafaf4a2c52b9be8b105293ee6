@@ -1,0 +1,11 @@
+anchor: &ref value
+alias: *ref
+nested:
+  - &lisf value
+s: *ref
+nested:
+  - &lischor: &ref avlue
+alias: *ref
+nested:
+  - &list_ref [ - &lisf value
+isy:_eu valYAMLueYAMLrt_ref [? [c

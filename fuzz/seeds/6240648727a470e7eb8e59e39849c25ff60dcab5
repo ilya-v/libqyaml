@@ -1,0 +1,12 @@
+%TAG !custom! tag:example.com,2000:
+---
+!custom!type value
+!!str "explicit string"
+!at 1.14
+C!!bool true
+!!nu!str "explicit string"
+!!int 21
+!!float 3.1!
+o4!obl true
+!!null ~
+ll ~

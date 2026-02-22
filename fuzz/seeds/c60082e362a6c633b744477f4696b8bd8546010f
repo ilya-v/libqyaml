@@ -1,0 +1,10 @@
+--dkcl000:
+-:
+---
+d:
+--
+dkcld: ConfigMap
+metadata:
+  name: t
+%YAMTAL 
+  v

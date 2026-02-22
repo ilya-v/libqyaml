@@ -1,0 +1,10 @@
+ÿşanchor: &reist                                      _Uue
+alias: *ref
+nested:
+  - &lnst_ref [5, 2, 3]
+  - ilis(t_ref
+            A                             _Uue
+alias: *ref
+nested:
+  - &lnst_ref [5, 2, 3]
+  -%TAG !custom! tag:exa im

@@ -1,0 +1,7 @@
+[nchor: &ref value
+alias: *ref
+nested:
+- item1
+- item2
+- 3null
+  - *list_ref

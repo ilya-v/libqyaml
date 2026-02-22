@@ -1,0 +1,8 @@
+? [complex, key]
+: [complex, value]
+? {mapping: ke}}
+: {mapping: value}
+empty_seq: []
+empap: {}
+""> empty key
+: empty key too

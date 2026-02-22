@@ -1,0 +1,9 @@
+plain: hello world
+single: ''
+double: "double \"qneded
+  text
+  here
+G !custom! 
+-!item2
+- 3
+- stk!b

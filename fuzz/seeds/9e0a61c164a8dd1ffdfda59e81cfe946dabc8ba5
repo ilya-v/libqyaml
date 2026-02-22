@@ -1,0 +1,15 @@
+þÿ-
+doc1: value1
+---
+doc2: valuequoted'
+double: "double  
+doc3:
+single: 'sild
+single: 'single quoted'
+double: "double \[complex, '? [complex, key]
+: [comp "double \[complex, '? [complex, key]
+: [complex,ÖÖÖÖÖÖÖÖÖÖÖÖÖÖÖÖÖÖÖÖÖÖÖÖÖÖÖÖÖÖÖÖÖ}%YAMLÚÍÑÎ
+---
+a
+"": piVersion: v1
+kind:value3 empty kCo

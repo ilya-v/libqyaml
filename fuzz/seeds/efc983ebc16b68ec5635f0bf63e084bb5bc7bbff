@@ -1,0 +1,21 @@
+---
+doc1: value1
+---
+docv anchor: &ref value
+&alias: *ref
+nested:
+  - &list_rref value
+&alias: *ref
+nested:
+ alue2:alue
+&alias: *ref
+nested:
+  - &list_rre
+&alias: *ref
+nested:
+  - &list_rref value
+&al-ias: *ref
+nested:
+  - &lialias: *ref
+nested:
+  - &list_

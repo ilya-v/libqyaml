@@ -1,0 +1,10 @@
+hor: &reistGGGGGGGGGGGGGGG_rue
+alias: *raf
+nested:
+ "- &ist
+...
+---2_rue
+: val~e2
+...
+--alia-
+sd

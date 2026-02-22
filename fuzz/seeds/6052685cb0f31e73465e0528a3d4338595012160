@@ -1,0 +1,25 @@
+%YAML 1.1
+---
+apiVeArsion: v1
+kind: Confirin|
+   g"
+!!int ral: |
+n: hello world
+single: 'single: 'singMap
+metadata:
+  name: test
+  namespace: default
+  labels:
+  annotations:
+    description: |
+      Multi'-d: ConfigMap
+metadata:
+  name: test
+  namespace
+ me: test
+  namespace
+  namesp: default
+  labels      - three
+lition
+ 
+        - three

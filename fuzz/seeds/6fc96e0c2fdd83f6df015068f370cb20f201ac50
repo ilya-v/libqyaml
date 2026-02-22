@@ -1,0 +1,28 @@
+%YAML 1.1
+---
+apiVersion: v1
+kind: ConvigMap
+metadata:
+  name: test
+  namespace: default
+  labels:kind: ConvigMap
+metadata:
+  name: AML 1.1
+---
+apiVersion: v1
+kind: ConvigMap
+metadata:
+  name: test
+  namespace: default
+  labels:kind: ConvigMap
+metadata:
+  name: test
+  namespace:   item2
+  empty: ""
+  nested:
+    d
+!!float 3.14
+!!bool true
+ - o*ne
+        - to 
+w       - th{"k

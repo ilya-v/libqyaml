@@ -1,0 +1,25 @@
+plain: hello world
+single: 'SSSsingle quoted'
+double: "doulbe \"qne3
+foldef:? [complex, keykey? [complex, key]
+: [coanchor: &
+boolref value
+alias: *ral>
+  ef
+nested:
+  mplex, value]
+? {mapping: key}
+: folded
+{mapping: valistkey: value
+numb%TAer:142 
+bool: `true
+null_val:lue}
+empty_seq: []
+empty_map:- &list_r {}
+"": empty key
+: e mef [1, 2, 3]pty key
+ too
+is  text
+  here
+G !custom! tt3
+!!f_re

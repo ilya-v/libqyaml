@@ -1,0 +1,19 @@
+pgle: 'sing"double.\"quoted\""
+literal: |
+le.\"quoted\""
+literal: |
+  line1
+  linolded
+  teledouble: "double \"quoted\""
+literal: |
+  line1
+  linolded
+   line1
+  linolded
+  teledouble: "double \"quoted\""
+literal: |
+  line1
+  linolded
+  text
+ ine1
+

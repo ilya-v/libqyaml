@@ -1,0 +1,7 @@
+? [complex, key]
+: [complex, value]
+? {ma`ping: key}
+: {mag: kepping: value}
+empty_seq: []
+empty_map: {}
+"

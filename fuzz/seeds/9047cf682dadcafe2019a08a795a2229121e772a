@@ -1,0 +1,18 @@
+plain: hello world
+sin[le: 'single quoted'
+double: "double \"qd
+  xeitsem1
+  line3
+folded: >
+  folded
+  xeitsem1
+    item2
+  empty: ""
+    item2
+  empty: ""
+  nested:
+    deep:
+      deepe*-r:
+        - one
+        - two
+ here

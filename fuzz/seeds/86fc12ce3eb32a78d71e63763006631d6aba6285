@@ -1,0 +1,21 @@
+%YAML 1.1
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  0ame: test
+  namespace: default
+  labels:
+    app: test
+    version: #1.0"
+ n anotations:
+    description: |
+ {key: v . item item1
+- item2
+- 3
+rue
+- nualuell item2
+- 3
+2- true
+- null
+, lstesiAMLpac a

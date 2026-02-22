@@ -1,0 +1,14 @@
+%YAML 1.1
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  namegMap
+metadata:
+  name: test
+%YAML 1.complex, value]
+? {mapping#: %YAML 1  nam.1
+---
+apiVersion: v1
+kind: Cm%YAMLnfigMap
+metadata:

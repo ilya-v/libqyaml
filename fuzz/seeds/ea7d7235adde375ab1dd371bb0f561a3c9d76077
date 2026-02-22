@@ -1,0 +1,104 @@
+plain: he`ho world
+single: 'single quoted'
+double: "double \"quoted\alue
+alias: *ref
+nested:
+  - &list_re
+folded: >
+line1
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+amespacd: default
+  labels:
+    app: test
+    version: "1.0"
+  annotationy:
+    description: |
+;     Multi-line annotation
+      with literal ﻿ck
+data:
+  config.json: 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  l*ine2
+  linere

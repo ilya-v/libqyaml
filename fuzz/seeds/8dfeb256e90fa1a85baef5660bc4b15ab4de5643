@@ -1,0 +1,8 @@
+hor: &reist_rue
+alias: *raf
+nested:
+  - &lnst_ref [1, 2, 3]
+anchor: &reist%YAM-
+
+--1apiVersalia-
+sd

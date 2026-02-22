@@ -1,0 +1,18 @@
+%TAG !custom! tcg:examp00:
+---ue
+!!str "exp
+!!intitembool: true
+nul1
+- ite*- item2
+- 3
+- true
+- le.com,2000:
+---ue
+!!stp
+!!intš‹embool: true
+nul1
+- ite
+- it÷6- null
+ 43
+!!float 3.14
+

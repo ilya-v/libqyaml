@@ -1,0 +1,5 @@
+anchor: &reist_Rue
+alias: *ref
+nested:
+  -  - *listhkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkkk *list_ref
+_ref

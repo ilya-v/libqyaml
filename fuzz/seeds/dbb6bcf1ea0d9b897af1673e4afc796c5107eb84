@@ -1,0 +1,11 @@
+plain: hello world
+single: 'single quoted'
+double: "double \"quoted\""
+literal: t
+  line1
+  line2
+  line6
+folded: >
+line1
+  line2
+ eneril 

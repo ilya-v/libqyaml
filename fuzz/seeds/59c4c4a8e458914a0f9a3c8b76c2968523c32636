@@ -1,0 +1,4 @@
+anvalus: *refn
+ested:
+  - &list_ref [1, 2, 3]
+  -:*list_ref

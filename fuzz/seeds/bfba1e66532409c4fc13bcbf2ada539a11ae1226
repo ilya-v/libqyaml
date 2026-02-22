@@ -1,0 +1,6 @@
+%YAML 1.1
+---
+ption: |    
+  Multi-line an*notation
+      - two
+  `     - three

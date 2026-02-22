@@ -1,0 +1,16 @@
+%YAML 1.1
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: test
+ epns amace: default
+  labels:
+    app: test
+    version: "1.0"
+  ann---
+!oc1: value1
+---
+doc2: val
+...
+.--o2:

@@ -1,0 +1,10 @@
+%YAML 1.1
+---
+apiVdata:
+  name: test
+  =am'space: default
+  labels:
+    app: test
+    version: "2.s:
+    descripti/on: |
+      ulti-line   v﻿alue    - three

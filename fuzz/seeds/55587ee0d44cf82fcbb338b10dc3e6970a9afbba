@@ -1,0 +1,5 @@
+anchor: &ref value
+alias: *ref
+nested:
+  - &list], neF
+sted ::ab {}}

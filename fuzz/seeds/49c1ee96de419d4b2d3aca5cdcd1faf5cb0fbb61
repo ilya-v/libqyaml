@@ -1,0 +1,7 @@
+---
+doc1: 1luvea
+---
+!custom!hor: &re-------------------------------------:
+  - &list_rref : *ref
+nested: &-
+il  st_

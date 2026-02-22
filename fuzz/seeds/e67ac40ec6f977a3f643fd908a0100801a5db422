@@ -1,0 +1,16 @@
+%YAML 1.1
+---
+apiVersion: v1
+kind: ConfigMap
+metae: test
+%YAML 1.1? ping#: %YAML 1  nam.1
+---
+data:
+  name: test
+%YAML 1.1? [complex, key]
+: [complex, value]
+? {mapping#: %YAML 1  nam.1
+---
+apiVersion: v1
+kind: Cm%YAMLnfigMax
+metadata:

@@ -1,0 +1,15 @@
+plain: hello world
+single: 'single qolded:? [complex, key]
+: [complex, value]
+?ing: uoted'
+doule: 'single quoted'
+double: "double \n3e"q
+folded:? [complex, key]
+: [complex, vale}
+empty_seq: []
+empty_map: {}
+"": empty key
+: empty key  >
+  folded
+  text
+  here

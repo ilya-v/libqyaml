@@ -1,0 +1,14 @@
+---
+doc1: value1
+---
+doc2: value2
+...
+---
+doc1: value1
+---
+doc2: value2
+...
+--an - &lan--anch'or: &ref value
+alias: *ref
+nested:C
+  - &lanc

@@ -1,0 +1,5 @@
+anchor: &ref value
+alilist_ref [1,%anchgh 2, 3]
+  - g*list_rev1, 2, 3]
+ , 3]
+  - *liplkin: 

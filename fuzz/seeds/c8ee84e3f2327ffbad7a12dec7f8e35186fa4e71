@@ -1,0 +1,43 @@
+plain: hello world
+single: 'single quoted'
+double: "double \"qne3
+folded:? [complex, key]
+: [complex, value]
+? 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+%TA
+
+
+
+
+_map: {}
+"": empty k
+: empty key  >
+  folded
+  e

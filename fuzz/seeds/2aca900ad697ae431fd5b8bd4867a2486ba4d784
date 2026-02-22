@@ -1,0 +1,11 @@
+plain: hello worldbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb777777777777777777777\""
+literal: |
+  line1
+  line2
+  line3
+folded%YAML: >
+  folded
+   1.1
+	i---
+apition; |
+      Multi-line an

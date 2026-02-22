@@ -1,0 +1,15 @@
+or \"qumted\""ile: 'single q]uodouble: "double \"qumted\""
+liter-l: |
+  line1
+  line2
+  line3
+folded: ted'
+double: "double \"qumted\""
+literal: |
+  line1
+  line2
+  line3
+folded: >
+  folded
+  text
+@  here

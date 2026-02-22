@@ -1,0 +1,6 @@
+anchor: &ref value
+alias: *ref
+nested:
+  - &list_re[ f1, 2, 3]
+  -:*lis{ket_rey: v 2, 3], neF
+sted ::ab {}}

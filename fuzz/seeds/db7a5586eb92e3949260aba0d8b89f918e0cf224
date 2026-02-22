@@ -1,0 +1,9 @@
+anchor: &ref value
+&alias: *ref
+nested:
+  - &list_rref value
+&alias: *ref
+nested:
+  - &or: &ref value
+&[1, 2, 3]
+  - *list_reif

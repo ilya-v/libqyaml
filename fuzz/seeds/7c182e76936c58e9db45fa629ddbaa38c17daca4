@@ -1,0 +1,5 @@
+anchor: &ref !t
+!!floa t, 3]or: &ref !t
+!!floa t, 3]
+  - *list_ref
+  - *list_ref

@@ -1,0 +1,10 @@
+%YAML 1.0
+---
+apiVersion: v0
+kilabels:
+  - 3
+-
+
+ !pp: test---
+-
+elldoc

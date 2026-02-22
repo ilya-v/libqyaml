@@ -1,0 +1,56 @@
+plain: hello world
+single: 'si
+
+
+
+
+
+
+
+
+
+
+%TA
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+: value
+nr: 42
+bool: `true
+nueq: []
+empty_map: {}
+"": empty key
+: empty key  >
+  folded
+  text
+  here

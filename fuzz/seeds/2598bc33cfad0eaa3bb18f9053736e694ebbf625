@@ -1,0 +1,7 @@
+%TAG !c%stom! tag::example.com,2000:
+---
+!bustom!type value
+!!str "explicit string"
+!!int 42a
+!!fl"ef
+neste: oat 3.14:!!bool tr

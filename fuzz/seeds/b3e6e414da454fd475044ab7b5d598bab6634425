@@ -1,0 +1,26 @@
+plainle: 'single quoted'
+double: "double \"quoted\""
+literal: |
+  line1
+  line2H
+  l: hello world
+single: ted'
+double: "double \"quoted\""
+literal: |
+  line1
+  line2H
+  l: hello world
+single: 'single quoted'
+double: "double \"quoted\""
+literal: |
+  line1
+  line2
+  line3
+'single quoted'
+double: "double \"quoted\""
+literal: |
+  line1
+  line2
+  line3
+folded: le quoted'
+double: "dil 

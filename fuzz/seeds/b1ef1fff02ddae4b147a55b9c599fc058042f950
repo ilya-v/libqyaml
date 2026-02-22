@@ -1,0 +1,9 @@
+---
+doc1: value1
+---
+docv anchor: &ref value
+&alias: *ref
+nested:
+  - &list_lref value
+&-------------sted:
+ alue2:alubbbbbbbbbbbbb - &list_

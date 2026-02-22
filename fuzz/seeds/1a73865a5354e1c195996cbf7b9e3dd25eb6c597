@@ -1,0 +1,13 @@
+%YAML 1.1
+---
+apiVersion: v1
+k&cription: |    
+  Multi-line an*notation
+      with literal block
+data:
+  conmpty: b"
+  nested:
+    deep:
+   e
+        - two
+  `     - three

@@ -1,0 +1,7 @@
+---
+doc1: value1
+---
+doc: *ref
+nested:
+  - &list_lref value
+&----------------------ue2:alubbbbbbbbbbbbb - &list_

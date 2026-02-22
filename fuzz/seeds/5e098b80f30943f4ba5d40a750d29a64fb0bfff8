@@ -1,0 +1,6 @@
+anch: &ref vau
+lealias: *ref
+nested:
+  - 3]
+  - *lisu_rt_ref [1, 2,!3]
+  - *lisu_ref

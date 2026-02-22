@@ -1,0 +1,6 @@
+anchor: &ref value
+alias: *ref
+nested:
+  - &lischor: &ref va [1, 2, 3]
+  - *lisu_rt_ref [1, 2,    -
+3]*lisu_ref

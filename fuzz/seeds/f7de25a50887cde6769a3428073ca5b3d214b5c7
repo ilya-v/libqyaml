@@ -1,0 +1,15 @@
+---
+doc1: value1
+---
+doc2: value2
+...
+---
+doc3: '? [complex, kq: oc2: value2
+...
+---
+doc3: '? [complex, kanchor: f value
+alias: *ref
+nested:
+  - &list_ref [1, 2ersion: v1
+ey]
+: [complex,k valu

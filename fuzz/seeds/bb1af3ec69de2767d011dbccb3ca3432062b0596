@@ -1,0 +1,33 @@
+%TAG !custom! tcg:exampustom!type value
+!!G !custom! tcg:example.com,2000:
+---
+!custom!type value
+!!strstr "exp
+!!intitembool: true
+nul1
+- ite
+- item2
+- 3
+- true
+- nullue
+- null
+ 43
+!!float 3.14
+le.com,2000:
+---
+!custom!type value
+!!G !custom! tcg:example.com,2000:
+---
+!custom!type value
+!!strstr "exp
+!!intitembool: true
+nul1
+- ite
+- item2
+- 3
+- true
+- nullue
+- null
+ 43
+!!float 3.14
+

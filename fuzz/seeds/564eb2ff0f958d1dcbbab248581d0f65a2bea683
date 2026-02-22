@@ -1,0 +1,5 @@
+plain: hello world
+sincle: 'single quoted'
+double: "double \"quotel: |
+  line0
+ { li

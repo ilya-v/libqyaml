@@ -1,0 +1,8 @@
+anchor, 3]
+ , 3]
+ 
+alilist_ref [1, 2, 3]
+ list_ref1, 2, 3]
+ , 3]
+  - *list_ref1, 2, 3]
+  - *list_ref

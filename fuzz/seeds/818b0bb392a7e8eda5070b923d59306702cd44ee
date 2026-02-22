@@ -1,0 +1,14 @@
+
+{key: value, list: [], ne: [], nested: {atedlue, list: [], ne: [], nested: {atedkey: value, listngle quoted'
+double: "double \"quoted\""
+literal: |
+ ---
+!o@c1: value1alue2
+...
+---
+doc3: valu key: v
+  lialue, listngle quoted'
+double: "double \"quo1alue2
+...
+---
+doc3: valu va

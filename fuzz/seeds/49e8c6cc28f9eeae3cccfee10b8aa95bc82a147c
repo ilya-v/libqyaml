@@ -1,0 +1,21 @@
+%YAML 1.1
+---
+apiV%TAG !custom! tag:example.com,4000:4000:
+---
+! tag:example.com,4le.com,4000:4000:
+---
+!77777777777777777777777777777777777777777777777 tag:example000:4000:
+---
+!c 'sl ~
+atnion
+      with literal block
+data:
+  config.json: |
+ $  {"key": "val2
+  empty: ""
+  nested:
+    deep:
+      deeper:
+       0- o~e
+        - two
+        - three

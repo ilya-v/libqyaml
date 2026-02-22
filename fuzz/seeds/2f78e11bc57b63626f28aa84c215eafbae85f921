@@ -1,0 +1,37 @@
+anchor: &ref valu?
+alias: *ref
+nested:
+  fref
+nested:
+  f [0,f value
+alias: *ref
+nested:
+- item1
+- item2
+- 3null
+  - *l
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+BBBBBBBBBBBB{key: nef
+sted: {a: b}a [0,BBBBBBBBBBBB{key: nef
+sted: {a: b}a}
+: b}}

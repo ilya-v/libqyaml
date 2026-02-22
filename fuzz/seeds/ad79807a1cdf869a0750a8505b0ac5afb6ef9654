@@ -1,0 +1,23 @@
+%YAML 1.1
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: test
+  namespace: defa--
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: test
+  namespace: default
+  labe": 42}
+  items: |-
+    item1
+    i1ult
+  labe": 42}
+  items: |-
+    item1
+    i1
+kind- one
+        - two
+        - three

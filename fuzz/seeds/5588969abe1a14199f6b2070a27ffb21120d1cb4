@@ -1,0 +1,6 @@
+anchor: &reist_rue
+alias: *ref
+neste\:
+  - &lnst_ref [1, 2, 3]
+anchor:# &reist_rue;ali&~eist_rue
+alias: *- ilist_ref

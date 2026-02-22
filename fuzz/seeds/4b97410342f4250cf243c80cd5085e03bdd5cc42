@@ -1,0 +1,13 @@
+anchor: &ref value
+a? [complex, key]
+: [complex, value]
+? {mapping: ke}}
+: {mapping: valuelias: *ref
+nested:
+  f [1,BBBBBBBBBBBB{key: v 2, 3], nestedBBBB 2, 3]
+  -:*lis{ket_: {rey: }
+empty_seq: []
+empty_map: {}
+"": empty key
+:v 2, 3], nef
+sted: {a: b} empty keay} 

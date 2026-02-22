@@ -1,0 +1,23 @@
+anchor: &ref value
+&alias: *ref
+nested:
+  - &list_rref value
+&alias: *ref
+nested:
+ alue
+&alias: *ref
+nested:
+  -t_ &listf value
+&al-ias: *ref
+nested:
+  - &lialias: *ref
+nested:
+  - &list_rref value_rref value
+&al-ias: *ref
+nested:
+  - &lialias: *ref
+nested:
+  - &list_rref value
+&alias: *ref
+nested:
+ ist_reif

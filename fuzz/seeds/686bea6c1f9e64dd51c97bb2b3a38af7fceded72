@@ -1,0 +1,6 @@
+anchor: &reist_rue
+alias: *ref
+nested:
+  - &lnst_value1
+ 2- 3]
+  - *list_ref

@@ -1,0 +1,7 @@
+plain: hello world
+single: 'single quoted'
+doun: hello world
+single: 'single quoted'
+double: "double \"quoteble: "double \"quoted\""
+literal: |
+ n: hello  linere

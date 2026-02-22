@@ -1,0 +1,11 @@
+? [complex, key]
+: [complex, value]
+? {mappi? [complex, key]
+: [complex, value]
+? {mapping: key}
+: {mapping: value}
+empty_seqng: key}
+: {mapping: value}
+empty_seq: [p]
+mety_map: {}
+"

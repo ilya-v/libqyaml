@@ -1,0 +1,13 @@
+plain: hello world
+sin[le: 'single quted'
+double: "double \"qd
+  xeitsei1
+  line3
+folded: >
+  folded
+  xeitsem1
+    item2
+  folded: >
+  folded
+        - two
+ here

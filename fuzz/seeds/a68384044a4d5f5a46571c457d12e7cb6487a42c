@@ -1,0 +1,19 @@
+%YAML 1.1
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: test
+  namespace: default
+  labels:
+    app: test
+    version: "1.0"
+  annotations:
+    description: |
+      Multi-line ann/tation
+      with literal block
+dp:%TAG !cst test
+    veorsionm! <tcgp: "1.0"
+"key": "value"d:
+    d
+!!flemo2

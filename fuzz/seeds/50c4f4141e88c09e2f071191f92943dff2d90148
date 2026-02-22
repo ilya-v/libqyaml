@@ -1,0 +1,25 @@
+anchor: &ref valu---
+dkl:.doc3:
+---
+d:
+---
+doc3cl:.doc3:
+---
+de
+&alias: *ref
+nested:
+  - &list_rref value
+&alias:
+---
+d: *ref
+nested:
+ alue
+&alias: *ref
+nested:
+  - &list_rref value
+&al-ias: *ref
+nested:
+  - &list_ref [1, ef [1, 2, 3]
+  - * - &list_ref [1, ef [oc31, 2, 3]
+  - *list_rei
+f

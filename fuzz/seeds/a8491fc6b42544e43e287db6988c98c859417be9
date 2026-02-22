@@ -1,0 +1,21 @@
+%YAML 1.1
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: test
+  namespace: default
+  labels:
+    ations:
+    description: |
+      Multi-line annotation
+      with literal block
+data:
+  conflg.json: |
+    {"key": "value", "num |-
+    i
+      deeper:
+        - one
+        - tone
+        - two
+        - three

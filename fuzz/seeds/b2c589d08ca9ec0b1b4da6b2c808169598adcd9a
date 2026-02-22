@@ -1,0 +1,5 @@
+anchor: &ref vaYlue
+&alias: *ref
+nested:
+  - &list_ref [2, 2, 3]
+  - *lTAGist_r-eif

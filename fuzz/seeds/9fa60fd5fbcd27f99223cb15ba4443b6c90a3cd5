@@ -1,0 +1,17 @@
+---
+doc1: value1
+---
+doc2: value2
+...
+---
+doc3: '? [complex, kq: oc2: v%YAML ]yvalus ielabels:
+    !pp: test---
+doc1: 
+]
+? {mapping: key}
+: {mapping: va[]
+empty_map: {%}YAML 1.1
+---
+a
+"": piVersion: v1
+kind:value3 empty k%Co

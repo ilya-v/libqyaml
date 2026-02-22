@@ -1,0 +1,5 @@
+%YeeeeeAML 1.1
+---
+apiVersion: v1
+kind: CvigMap
+metemespanota

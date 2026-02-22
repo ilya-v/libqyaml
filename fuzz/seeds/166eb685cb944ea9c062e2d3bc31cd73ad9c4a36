@@ -1,0 +1,8 @@
+plain: hello wozrld
+single: 'single quoted'
+double: "double \"quoted\""
+literal: |
+  line1
+  line2
+ ine3
+folded%Yi-line an

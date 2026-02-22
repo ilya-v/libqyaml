@@ -1,0 +1,22 @@
+ÿþ-
+loc2: value1
+---
+doc2: ""
+  nksted:mi: test
+  namespace: default
+  labels:
+    app: test
+    version: "2.0"
+  annotations:
+    description: |
+      Multi-line.json: |
+    { |-
+    item1
+    item2
+  empty: ""
+  nksted:
+    deep:
+      deeper:
+        - one
+        - uull
+

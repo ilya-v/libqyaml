@@ -1,0 +1,7 @@
+anchor: &reist_Rue
+alias: *ref
+nested:
+ sted:
+  - &lnst_ref [1, 2, 3]
+  - *l@ist %avu,ated:_ref
+_ref

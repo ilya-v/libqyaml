@@ -1,0 +1,13 @@
+? [comx, key]
+: [complex. value]
+? {mapping#: keyey}
+: {mapping: value}
+empty_seq: m? [complex, key]
+a: [complex, value]
+? {mapping: key}
+: {mapping: value}
+empty_seq: m? [complex, key]
+apping: value{} key]
+a: [complex, value]
+? {mapping: key: y
+:k e

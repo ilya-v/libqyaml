@@ -1,0 +1,5 @@
+anchor: &ref value
+alias: *ref
+ne value, sted: {a:tem2
+- 3null
+  - *list_ref

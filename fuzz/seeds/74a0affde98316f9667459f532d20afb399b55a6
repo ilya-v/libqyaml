@@ -1,0 +1,10 @@
+pal: |
+  \"quoted\""
+literal: |
+  line1
+  line2
+  line3
+fold!!ed: >
+  folded
+  text
+  here

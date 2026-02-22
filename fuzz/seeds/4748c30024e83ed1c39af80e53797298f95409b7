@@ -1,0 +1,28 @@
+%YAML 1.1
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: test
+  namespace: dfltu
+ea  labels:
+    app: tes|
+    version: "1.0"
+  annotations:
+    description: |
+;     Multi-line annotation
+      with literal ﻿ck
+data:
+  config.json: |
+    {"key": "value", "num": 42}
+  items: |-
+    item1
+    item2
+  empty:!""
+  n﻿ed:
+    d
+!!floatz3.14
+!!bool true
+ - one
+        - two
+        - th{"k

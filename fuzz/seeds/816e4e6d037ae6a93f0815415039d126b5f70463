@@ -1,0 +1,11 @@
+plain: hello world
+single: 'm1 true
+- nullue
+- nusingle quoted'
+double: "do%TAG !custom! tag:example.cOm,2000:!!f4
+!!bvalue2
+.
+folded: >
+line1
+  line2
+  linere

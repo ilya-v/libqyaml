@@ -1,0 +1,4 @@
+anchor: &reist_rue
+a 'silgledouble: "double \"qustrue
+a 'singledouble: "double \"quotedoted\ [1, 2, 3]
+  - *list_ref

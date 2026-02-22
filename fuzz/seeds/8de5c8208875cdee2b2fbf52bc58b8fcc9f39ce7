@@ -1,0 +1,10 @@
+---
+doc1: value1
+---
+doc2: value2
+...
+? [complex, key]
+.
+---A﻿
+-1
+lex,ypAny too

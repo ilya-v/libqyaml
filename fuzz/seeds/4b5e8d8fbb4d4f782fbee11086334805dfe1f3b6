@@ -1,0 +1,57 @@
+? [
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+complelex, value]
+?  hello world
+single: 'single quoted'
+double: "double \"qne3
+foldefext
+  here
+G !custom! t2
+!!float 3.1	t
+  here
+G !c{mappp: {[defext
+  here
+G !custom! t2
+!!float 3.1	t
+  here
+G !c{mapppcomplex, value]
+? {mappp: {
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+complex, kez]
+: [complex, value]
+?  hello world
+single: 'single quoted'
+}
+""

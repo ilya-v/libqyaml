@@ -1,0 +1,6 @@
+anchor: &ref valu?
+alias: *ref
+nested:
+  f [0,BBBBBBBBBBBB{key: nef
+sted: {a: b}a}
+: b}}

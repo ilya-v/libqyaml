@@ -1,0 +1,4 @@
+%TAG 1cutom! r&: ref value
+alias: *ref
+nested:
+  &list_ref [tag:e&xampom! dBBBB 2, 3custom!tyl ~

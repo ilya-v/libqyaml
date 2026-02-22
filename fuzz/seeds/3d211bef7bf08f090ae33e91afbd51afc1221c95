@@ -1,0 +1,8 @@
+%TAG !custom! tag:example.com,2885:
+---
+!custom!type valuTAG!str "ex`plicit string"TA! tag:example.com,0000:
+---
+!custom!type v"TAGint$42
+!!float 3.14
+Pint 42
+!!float 3.null ~

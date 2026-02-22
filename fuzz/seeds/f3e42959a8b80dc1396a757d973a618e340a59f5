@@ -1,0 +1,7 @@
+anchor: &reol: &ref value
+alias: *ref
+nested:
+  -  2, 3]
+  - *list_ref
+f value
+alias

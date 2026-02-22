@@ -1,0 +1,2 @@
+ancble: "double \"quoted\ [1, 2, 3]
+  - *list_ref

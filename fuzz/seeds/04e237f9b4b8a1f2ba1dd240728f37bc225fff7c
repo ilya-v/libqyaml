@@ -1,0 +1,26 @@
+anch.. item izem1
+ item1
+- 3
+2- true
+- l1
+-0item2
+- 3
+2- true
+- null
+
+- null
+
+  - &lnst_refML 1.- l1
+-0item2
+- 3
+2- true
+- null
+
+- null
+
+ ata:
+  name: test
+  namespace: default
+  labels:
+    ap---
+!?mppty:Y t

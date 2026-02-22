@@ -1,0 +1,17 @@
+%YAML 1.1
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: test
+  namespace: default
+  labels:
+    app: test
+    ver "1.0"
+  annotatioAn--
+doc1: v
+    description: |
+eper:
+        - one
+        - two
+        - three

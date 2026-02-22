@@ -1,0 +1,3 @@
+a: *ref
+nest+ed:
+  - &lis:

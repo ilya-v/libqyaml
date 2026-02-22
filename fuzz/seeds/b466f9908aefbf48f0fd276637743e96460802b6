@@ -1,0 +1,9 @@
+ﻷ- item1
+- item2
+- 3
+- truef
+nested:
+ t_TAGrue
+alias: *ref
+nested:
+  l

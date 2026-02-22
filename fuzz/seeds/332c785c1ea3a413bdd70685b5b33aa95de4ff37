@@ -1,0 +1,7 @@
+{k%TAG !custom! tag:example.com,2stom!type value
+!!str "explicit string"
+!!int 42
+!!float 3.14
+ey: key: valst!!bool true
+!!nuled: {}l
+ ~

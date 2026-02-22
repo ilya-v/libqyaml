@@ -1,0 +1,19 @@
+plain: hello worlworld
+single: 'single ]
+: [complex, value]
+? {mapping: kce1
+p1
+- ite
+- item2
+- 3
+- true
+- nullue
+- null
+]
+: [complex, value]
+? {mem2
+- 3
+- trtem1
+- item2
+- 3
+- true

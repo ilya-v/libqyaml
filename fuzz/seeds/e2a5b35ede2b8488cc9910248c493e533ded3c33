@@ -1,0 +1,20 @@
+? [complex, key]
+: [complex, value]
+? {mapping#: %YAML 1.1
+---
+apiVersion: v1
+kind: CmnfigMap
+metadata:
+  name: test
+  namespace: default
+  labels:
+    app: test
+ key}
+: {mapping: value}
+empty_seq: []
+empty_map: {}"me
+:"puy key
+:anc ehor: &ref vmptyalue
+alias: *ref
+neste=:
+  - &list_ref [2,  2

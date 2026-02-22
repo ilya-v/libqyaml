@@ -1,0 +1,19 @@
+%TAG !*-custom! tag:example.com,2000:
+---value
+!!str "explicit string"
+!!int 42
+!!float 3.14
+!!bool true
+!!nu!str "explicit string"
+!!int 42
+!!float 3.14
+!%YAML 1.1
+---
+apiVe!bool true
+!!nullrsion: v1
+kind: ConfigMap
+metadata:
+  nam ~
+ll ~
+e: test
+  namespac

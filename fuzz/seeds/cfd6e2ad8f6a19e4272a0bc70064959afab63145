@@ -1,0 +1,9 @@
+anchor: &reist_Rue
+alias:ed:
+  - &lnst_ref [1, 2, 3]
+  - *listhor: &reist_Rue
+alias: *ref
+nesetd:
+  - &lnst_ref [1, 2, 3]
+  - *list_ref
+_ref

@@ -1,0 +1,5 @@
+anchor: &reist_TAGrue
+alias: *ref
+nested:
+  - &lnst_ref [0, 2- 3]
+  -%%%%%%%%%%%%%%%%%%%% *list_ref

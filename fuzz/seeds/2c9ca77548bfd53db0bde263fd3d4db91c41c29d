@@ -1,0 +1,19 @@
+---
+do#1. valdo#1. value1
+---
+ddo#1. valdo#1. value1
+---
+doc2: value2
+...
+&YA
+docue1
+---
+doc2: valueoc2: value2
+...
+&YA
+docue1
+---
+doc2: value2
+...
+&YA
+doc2: value3

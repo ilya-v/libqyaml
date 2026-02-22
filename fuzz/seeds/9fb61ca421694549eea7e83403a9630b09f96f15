@@ -1,0 +1,7 @@
+XXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX? [complex, key]
+: [complex, value]
+? {mapping: key}
+: {mapping: value}
+emptymap: {}
+"": empty key
+: empty key too

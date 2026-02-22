@@ -1,0 +1,5 @@
+anchor:   - *lisu_rt_ref [A1, 2, 3]
+  alia[1, 2TAG, 3]
+  - *&ref valueöž“–žed:
+  -   - *lisu_rt_ref [1, 2, 3]
+$ - *lisu_ref

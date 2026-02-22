@@ -1,0 +1,4 @@
+anchor: &ref !t
+!!floa t, 3]or: &ref !talue
+alias: *resu_rt_st_ref
+  - *list_ref

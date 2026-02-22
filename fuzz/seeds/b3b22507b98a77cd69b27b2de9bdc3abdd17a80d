@@ -1,0 +1,23 @@
+%TAG !custom! tag:example.com,2custom! tag:example.com,2p: {}
+"": "emp]
+empty_map: {}
+"": "emlicit st,2p: {}
+"": "emp]
+empty_map: {}
+"": "emlicit string"
+!!intp: {}
+"": "emp]
+empty_map: {}
+"": "emlicit st,2p: {}
+"": "emp]
+empty_map: {}
+"": "emlicit string"
+!!int 42
+!!float 3.тк
+!!bool true
+!!ring"
+!!int 42
+!!float 3.тк
+!!bool true
+!!null ~
+"": 

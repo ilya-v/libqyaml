@@ -1,0 +1,9 @@
+anchor: &ref value
+alias: *ref
+nested:
+  - &liscref value
+aTAas: *ref
+nested:
+  - &list_ref [1, 2, 3]
+  - *lisu_rt_ref [1, 2, 3]
+  - *lisu_ref

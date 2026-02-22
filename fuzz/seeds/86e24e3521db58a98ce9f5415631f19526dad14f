@@ -1,0 +1,18 @@
+plainal: |
+ 2
+folded: >
+  folded
+  text
+  herteral: |
+
+  ligl7 quoted'
+double: "double \"quoted)\""
+lkTTiteral: |
+ 3
+folded: >
+  folded
+  text
+  here quoted'
+dozble: "double \"e quoted'
+dozble: "double \"quoted\" text
+  here

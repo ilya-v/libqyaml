@@ -1,0 +1,9 @@
+anchor: &ref valuref value
+alias: *ref
+nese
+alias: *ref
+nested:
+  - &l- it%Teme.com,2000:
+---
+!custom!type valuTAGiscrhox`pl: &ref value
+aliicias

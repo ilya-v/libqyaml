@@ -1,0 +1,9 @@
+---
+doc1: value1
+---
+docv anchor: &r-----------------------------------------ested:
+ --------------------alias: *ref
+nested:
+ alue2:alue
+&al:
+  - &list_

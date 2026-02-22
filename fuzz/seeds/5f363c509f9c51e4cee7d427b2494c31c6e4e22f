@@ -1,0 +1,7 @@
+? [c`mplex, key]
+: [complex, valu%]
+? {mapping: key}
+:0{mapping: value}
+empty_seq: []
+empty_map: {}
+":":# " empty knul: empty key 

@@ -1,0 +1,6 @@
+anchor: &ref value
+alias: *ref
+nest+ed:
+  - &lis:*lis{ket_: {rey: v 2, 3], nef
+sted: {a: b}a}
+: b}}

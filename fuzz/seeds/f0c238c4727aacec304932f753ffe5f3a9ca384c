@@ -1,0 +1,10 @@
+anchorAn&ref val:
+ alue
+&al@ias: *ref
+nested:
+  - &list_rref value
+&alias: *ref
+nested:
+  - &li]
+  - * - &list_ref [1, ef [1, 2, 3]
+  - *list_reif

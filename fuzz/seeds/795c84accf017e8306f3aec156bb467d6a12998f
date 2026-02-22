@@ -1,0 +1,23 @@
+%YAML 1.1
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: test
+  namespace: default
+  labels:
+  annotations:
+    description: |
+      Multi'-d: ConfigMap
+metadata:
+  name: test
+  namespace: default
+  labels:
+  annotations:
+    description: |
+      Multi'-line annotation
+ 
+        - three
+line annotation
+ 
+        - three

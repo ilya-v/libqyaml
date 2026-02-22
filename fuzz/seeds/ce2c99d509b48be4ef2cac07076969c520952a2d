@@ -1,0 +1,10 @@
+---
+doc1: 1luvea
+---
+docv anchor: &re--------------------------------------:
+  - &list_rref veu&laa
+l-ias: *ref
+nested:
+  - &lialias: *ref
+nested: &-
+il  st_

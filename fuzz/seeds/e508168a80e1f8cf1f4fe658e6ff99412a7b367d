@@ -1,0 +1,13 @@
+%TAG !custom! tag:example.com,4000:4000:
+---
+! tag:example.com,4le.com,4000:4000:
+---%TAG !custom! tag:example.com,4000:4000:
+---
+! tag:example.com,4le.com,4000:4000:
+---
+! tag:example000:4000:
+---
+!c 's
+! tag:example000:4000:
+---
+!c 'sl ~

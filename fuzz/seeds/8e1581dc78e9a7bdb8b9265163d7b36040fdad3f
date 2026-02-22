@@ -1,0 +1,99 @@
+plain: he`ho world
+single: 'single quoted'
+double: "double \"quoted\alue
+alias: *ref
+nested:
+  - &list_re
+folded: >
+line1
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+amespacd: default
+  labels:
+   iteral ﻿coted\alue
+alias: *ref
+ 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+  l*ine2
+  linere

@@ -1,0 +1,10 @@
+anchor: &ref? [complex, key]
+: [com[]
+empty_map: {}
+"": empty k value
+alias: *ref
+nested:
+ value, list: [1, 2, 3]
+  -ey
+: empt 3list_yref key 
+too

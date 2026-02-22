@@ -1,0 +1,7 @@
+anchor: &ref value
+alias: *ref
+nested:
+ value, lnchor: &ref value
+alias: *ref
+nested:
+ value, list&: [ist: [1, 2as: *ref

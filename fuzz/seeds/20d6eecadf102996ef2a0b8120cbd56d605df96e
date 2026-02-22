@@ -1,0 +1,6 @@
+%Yce: default
+  l1
+---
+apiVersion: v1
+kind: C        0.1
+--  - 

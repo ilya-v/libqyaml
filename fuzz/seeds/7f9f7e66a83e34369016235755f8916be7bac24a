@@ -1,0 +1,28 @@
+plain: ngl7 quoted'
+double: "double \"quoted)\""
+literal: |
+  line1
+  ligl7 quoted'
+double: "double \"quoted)\""
+literal: |
+
+  ligl7 quoted'
+double: "double \"quoted)\""
+lkTTiteral: |
+ 3
+folded: >
+  folded
+  text
+  herteral: |
+
+  ligl7 quoted'
+double: "double \"quoted)\""
+lkTTiteral: |
+ 3
+folded: >
+  folded
+  text
+  here quoted'
+dozble: "double \"e quoted'
+dozble: "double \"quoted\" text
+  here

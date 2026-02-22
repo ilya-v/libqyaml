@@ -1,0 +1,15 @@
+%YAML 1.1
+---
+apiVersibels:
+    app: test
+    vernnotations:
+    description: |
+      Multi-line annotation
+      with literal bl-ock
+data:
+  config.json: |
+    ${"-line anno"num":
+      deeper:
+        - one
+  g: value}
+empty_seq:  three

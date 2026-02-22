@@ -1,0 +1,5 @@
+anchor: &ref va
+alias: *ref
+nested:C
+  - &list_ref [1, 2, 3]
+  - *list  -f

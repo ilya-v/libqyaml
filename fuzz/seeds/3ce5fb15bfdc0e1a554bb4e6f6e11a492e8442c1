@@ -1,0 +1,16 @@
+plain: hello world
+ag:example.ce.com,2000:
+---nulsin[le: 'single quoted'
+double: "double \"quoted\""
+literal: |
+  line1
+  line2
+  line3
+folde? [complex, key]
+d: >
+  folded
+ : [complex, value]
+? {mapping: key}
+: {mapping: text
+    oted\""
+l vitea

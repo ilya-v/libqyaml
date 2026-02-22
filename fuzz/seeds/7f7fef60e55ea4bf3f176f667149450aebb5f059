@@ -1,0 +1,5 @@
+plain: hello world
+single: 'single quoted'
+double: "double \qued"to\""
+literal: |
+  line1

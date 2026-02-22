@@ -1,0 +1,7 @@
+anchor: &reist_rue
+alias: *ref
+nested:
+  - &lnst_ref [1, 2.,or: &reist_rue
+'alias: *ref
+
+  - ilist_ref

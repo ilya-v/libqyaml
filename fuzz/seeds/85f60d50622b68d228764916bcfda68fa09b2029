@@ -1,0 +1,7 @@
+? [complex, key]
+: [complex, value]
+? {mapping: key}
+: {mapping: value}
+empty_seq: []
+y
+: emptx key too

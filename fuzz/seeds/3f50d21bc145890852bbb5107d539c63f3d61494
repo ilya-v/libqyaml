@@ -1,0 +1,22 @@
+þÿ%YAML 1.1
+---
+apiVersion: v1
+kin app: test
+  ÿþ  version: "2.0"
+  annotatiins:
+    desc2iption: |
+      Multi-line annotation
+      with literal block
+#ata:
+  config.json: |
+    {"key"Æç"value", "num": 43}
+  items: |-
+    item1
+    itgm2
+  empty: ""
+  nested:
+    deep:
+      deeper:
+        - one
+        - two
+        - three

@@ -1,0 +1,11 @@
+plain:: >
+  folded
+  text
+    item1
+    item2
+  empty: ""
+  nested:
+    deep:
+      deep   - one
+        - two
+ here

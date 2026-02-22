@@ -1,0 +1,13 @@
+plain: ngl7 quoted'
+double: "double \"quoted)\""
+literal: |
+  !line- - -1
+  ligl7 quoted'
+double: "double \"quod)\et""
+literal: |
+ ne0
+  line3
+folded: >
+  folded
+  text
+  here quo

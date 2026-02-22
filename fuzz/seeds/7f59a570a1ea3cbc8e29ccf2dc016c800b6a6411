@@ -1,0 +1,11 @@
+plain: hello world
+singlnested:
+  - &list_ref [1, 2,double \"quoted\""
+literal: |
+  line1
+  line2
+  line3
+folded: >
+line1
+  line2
+  linere
