@@ -34,6 +34,18 @@ qyaml_add_test(errors-comprehensive test_errors_comprehensive.c)
 qyaml_add_test(emitter-comprehensive test_emitter_comprehensive.c)
 qyaml_add_test(loader-comprehensive test_loader_comprehensive.c)
 
+# OOM injection test: requires --wrap linker flag (Linux/GNU ld)
+# Tests that all allocation failure paths return errors cleanly
+if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
+    add_executable(test-oom test_oom.c)
+    target_link_libraries(test-oom qyaml)
+    target_compile_definitions(test-oom PRIVATE YAML_DECLARE_STATIC)
+    target_compile_options(test-oom PRIVATE -O0)
+    target_link_options(test-oom PRIVATE
+        -Wl,--wrap=malloc -Wl,--wrap=realloc -Wl,--wrap=calloc)
+    add_test(NAME oom COMMAND test-oom)
+endif()
+
 # True differential test: compare against system libyaml via dlopen
 add_executable(test-differential-libyaml test_differential_libyaml.c)
 target_link_libraries(test-differential-libyaml qyaml ${CMAKE_DL_LIBS})

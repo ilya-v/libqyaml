@@ -111,7 +111,7 @@ yaml_parser_load(yaml_parser_t *parser, yaml_document_t *document)
     }
 
     if (!STACK_INIT(parser, parser->aliases, yaml_alias_data_t*))
-        goto error;
+        goto error_with_event;
 
     parser->document = document;
 
@@ -121,6 +121,9 @@ yaml_parser_load(yaml_parser_t *parser, yaml_document_t *document)
     parser->document = NULL;
 
     return 1;
+
+error_with_event:
+    yaml_event_delete(&event);
 
 error:
 
@@ -438,7 +441,7 @@ yaml_parser_load_sequence(yaml_parser_t *parser, yaml_event_t *event,
             event->data.sequence_start.style,
             event->start_mark, event->end_mark);
 
-    if (!PUSH(parser, parser->document->nodes, node)) goto error;
+    if (!PUSH(parser, parser->document->nodes, node)) goto error_after_items;
 
     index = parser->document->nodes.top - parser->document->nodes.start;
 
@@ -451,6 +454,9 @@ yaml_parser_load_sequence(yaml_parser_t *parser, yaml_event_t *event,
     if (!PUSH(parser, *ctx, index)) return 0;
 
     return 1;
+
+error_after_items:
+    STACK_DEL(parser, items);
 
 error:
     yaml_free(tag);
@@ -506,7 +512,7 @@ yaml_parser_load_mapping(yaml_parser_t *parser, yaml_event_t *event,
             event->data.mapping_start.style,
             event->start_mark, event->end_mark);
 
-    if (!PUSH(parser, parser->document->nodes, node)) goto error;
+    if (!PUSH(parser, parser->document->nodes, node)) goto error_after_pairs;
 
     index = parser->document->nodes.top - parser->document->nodes.start;
 
@@ -519,6 +525,9 @@ yaml_parser_load_mapping(yaml_parser_t *parser, yaml_event_t *event,
     if (!PUSH(parser, *ctx, index)) return 0;
 
     return 1;
+
+error_after_pairs:
+    STACK_DEL(parser, pairs);
 
 error:
     yaml_free(tag);
