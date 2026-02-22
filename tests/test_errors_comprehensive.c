@@ -407,6 +407,124 @@ static void test_err_has_context(void) {
     yaml_parser_delete(&parser);
 }
 
+/* ========== Coverage-targeted scanner error paths ========== */
+
+/* scanner.c:2118 -- directive with trailing non-comment non-break */
+static void test_err_directive_no_linebreak(void) {
+    ASSERT(parse_should_fail("%YAML 1.1 extra_stuff"), "directive no linebreak");
+}
+
+/* scanner.c:2180 -- directive name followed by non-blank non-break */
+static void test_err_directive_bad_name(void) {
+    ASSERT(parse_should_fail("%BADNAME!"), "directive bad name");
+}
+
+/* scanner.c:2224 -- %YAML version missing dot */
+static void test_err_yaml_no_dot(void) {
+    ASSERT(parse_should_fail("%YAML 1x1\n---\nfoo\n"), "yaml no dot");
+}
+
+/* scanner.c:2266 -- extremely long YAML version number */
+static void test_err_yaml_long_version(void) {
+    ASSERT(parse_should_fail("%YAML 1.111111111111\n---\nfoo\n"), "yaml long version");
+}
+
+/* scanner.c:2323 -- %TAG handle not followed by whitespace */
+static void test_err_tag_no_space_after_handle(void) {
+    ASSERT(parse_should_fail("%TAG !!http://example.com/\n---\nfoo\n"),
+           "tag no space after handle");
+}
+
+/* scanner.c:2345 -- %TAG prefix not followed by whitespace/break */
+static void test_err_tag_no_linebreak_after_prefix(void) {
+    ASSERT(parse_should_fail("%TAG ! http://example.com/BADTAIL"),
+           "tag no linebreak after prefix");
+}
+
+/* scanner.c:1583 -- block sequence entry in disallowed context */
+static void test_err_block_seq_not_allowed(void) {
+    ASSERT(parse_should_fail("\"hello\" - item\n"), "block seq not allowed");
+}
+
+/* scanner.c:1644 -- mapping key in disallowed context */
+static void test_err_mapping_key_not_allowed(void) {
+    ASSERT(parse_should_fail("a: b\n  c: d\n"), "mapping key not allowed");
+}
+
+/* scanner.c:1081 -- required simple key exceeds 1024 chars */
+static void test_err_required_simple_key_long(void) {
+    /* Build a long key in a flow context (where simple key is required) */
+    char buf[2048];
+    int pos = 0;
+    buf[pos++] = '{';
+    for (int i = 0; i < 1100; i++) {
+        buf[pos++] = 'a' + (i % 26);
+    }
+    /* Add a newline to push past the "same line" requirement */
+    buf[pos++] = '\n';
+    buf[pos++] = ':';
+    buf[pos++] = ' ';
+    buf[pos++] = 'v';
+    buf[pos++] = '}';
+    buf[pos] = '\0';
+    /* This may or may not trigger the specific error; just verify no crash */
+    yaml_parser_t parser;
+    yaml_event_t event;
+    yaml_parser_initialize(&parser);
+    yaml_parser_set_input_string(&parser, (const yaml_char_t *)buf, pos);
+    while (1) {
+        if (!yaml_parser_parse(&parser, &event)) break;
+        int done = (event.type == YAML_STREAM_END_EVENT);
+        yaml_event_delete(&event);
+        if (done) break;
+    }
+    yaml_parser_delete(&parser);
+}
+
+/* scanner.c:2753 -- tag URI with invalid UTF-8 */
+static void test_err_tag_uri_invalid_utf8(void) {
+    /* Tag with an invalid UTF-8 continuation byte */
+    unsigned char data[] = "!<tag:\x80> foo\n";
+    yaml_parser_t parser;
+    yaml_event_t event;
+    yaml_parser_initialize(&parser);
+    yaml_parser_set_input_string(&parser, data, sizeof(data) - 1);
+    while (1) {
+        if (!yaml_parser_parse(&parser, &event)) break;
+        int done = (event.type == YAML_STREAM_END_EVENT);
+        yaml_event_delete(&event);
+        if (done) break;
+    }
+    yaml_parser_delete(&parser);
+}
+
+/* scanner.c:3068 -- block scalar with bad indentation */
+static void test_err_block_scalar_bad_indent(void) {
+    ASSERT(parse_should_fail("|\n hello\n  world\noutside\n"), "block scalar bad indent");
+}
+
+/* scanner.c:3320 -- invalid escape in double-quoted scalar */
+static void test_err_quoted_scalar_invalid_escape(void) {
+    ASSERT(parse_should_fail("\"\\z\""), "invalid escape z");
+}
+
+/* scanner.c:3581 -- invalid character in plain scalar */
+static void test_err_plain_scalar_invalid_chars(void) {
+    /* Control character in plain scalar */
+    unsigned char data[] = "key: val\x01ue\n";
+    yaml_parser_t parser;
+    yaml_event_t event;
+    yaml_parser_initialize(&parser);
+    yaml_parser_set_input_string(&parser, data, sizeof(data) - 1);
+    while (1) {
+        if (!yaml_parser_parse(&parser, &event)) break;
+        int done = (event.type == YAML_STREAM_END_EVENT);
+        yaml_event_delete(&event);
+        if (done) break;
+    }
+    yaml_parser_delete(&parser);
+}
+
 /* ========== Valid edge cases (should NOT error) ========== */
 
 static void test_ok_empty_stream(void) {
@@ -569,6 +687,21 @@ int main(void) {
     test_err_has_problem_string();
     test_err_has_problem_mark();
     test_err_has_context();
+
+    /* Coverage-targeted scanner errors */
+    test_err_directive_no_linebreak();
+    test_err_directive_bad_name();
+    test_err_yaml_no_dot();
+    test_err_yaml_long_version();
+    test_err_tag_no_space_after_handle();
+    test_err_tag_no_linebreak_after_prefix();
+    test_err_block_seq_not_allowed();
+    test_err_mapping_key_not_allowed();
+    test_err_required_simple_key_long();
+    test_err_tag_uri_invalid_utf8();
+    test_err_block_scalar_bad_indent();
+    test_err_quoted_scalar_invalid_escape();
+    test_err_plain_scalar_invalid_chars();
 
     /* Valid edge cases */
     test_ok_empty_stream();

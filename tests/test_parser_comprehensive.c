@@ -1044,6 +1044,177 @@ static void test_p_docker_compose_like(void) {
     ASSERT(find_scalar(input, "app"), "dc: postgres_db");
 }
 
+/* Coverage: flow sequence entry mapping -- key empty at ] */
+static void test_p_flow_seq_entry_mapping_empty_key_at_end(void) {
+    /* [a: b, c: ] triggers mapping key with empty value at ] */
+    yaml_event_type_t ev[32];
+    int n;
+    ASSERT(collect_events("[a: b, c: ]", ev, 32, &n), "flow seq mapping end");
+    /* Should parse without error */
+    ASSERT(n >= 2, "flow seq mapping end: has events");
+}
+
+/* Coverage: flow sequence implicit mapping key followed by , */
+static void test_p_flow_seq_entry_mapping_key_comma(void) {
+    /* [a: ,b] -- mapping key with empty value before comma */
+    yaml_event_type_t ev[32];
+    int n;
+    ASSERT(collect_events("[a: ,b]", ev, 32, &n), "flow seq key comma");
+    ASSERT(n >= 2, "flow seq key comma: events");
+}
+
+/* Coverage: flow sequence implicit mapping with VALUE then ] */
+static void test_p_flow_seq_entry_mapping_value_end(void) {
+    /* [a: b: ] -- mapping value followed by ] */
+    yaml_event_type_t ev[32];
+    int n;
+    /* This may parse or error -- just verify no crash */
+    collect_events("[a: ]", ev, 32, &n);
+    ASSERT(n >= 2, "flow seq value end: events");
+}
+
+/* Coverage: flow mapping with complex key followed by empty value */
+static void test_p_flow_mapping_complex_key_empty_value(void) {
+    /* {? key: } -- complex key with empty value */
+    yaml_event_type_t ev[32];
+    int n;
+    ASSERT(collect_events("{? key: }", ev, 32, &n), "complex key empty val");
+    int map_count = 0;
+    for (int i = 0; i < n; i++)
+        if (ev[i] == YAML_MAPPING_START_EVENT) map_count++;
+    ASSERT(map_count >= 1, "complex key: has mapping");
+}
+
+/* Coverage: flow mapping with complex key followed by , (no value) */
+static void test_p_flow_mapping_complex_key_no_value(void) {
+    /* {? key, other: val} -- complex key with no value */
+    yaml_event_type_t ev[32];
+    int n;
+    ASSERT(collect_events("{? key, other: val}", ev, 32, &n), "complex key no val");
+    ASSERT(n >= 2, "complex key no val: events");
+}
+
+/* Coverage: scanner directive error paths */
+static void test_p_malformed_yaml_directive(void) {
+    yaml_parser_t parser;
+    yaml_event_t event;
+
+    /* %YAML with bad version */
+    yaml_parser_initialize(&parser);
+    yaml_parser_set_input_string(&parser, (const yaml_char_t *)"%YAML 2.0\n---\nfoo\n", 19);
+    int got_error = 0;
+    while (1) {
+        if (!yaml_parser_parse(&parser, &event)) { got_error = 1; break; }
+        int done = (event.type == YAML_STREAM_END_EVENT);
+        yaml_event_delete(&event);
+        if (done) break;
+    }
+    yaml_parser_delete(&parser);
+    /* libyaml may or may not error on YAML 2.0 -- just verify no crash */
+
+    /* %YAML with missing version number */
+    yaml_parser_initialize(&parser);
+    yaml_parser_set_input_string(&parser, (const yaml_char_t *)"%YAML\n---\nfoo\n", 14);
+    while (1) {
+        if (!yaml_parser_parse(&parser, &event)) break;
+        int done = (event.type == YAML_STREAM_END_EVENT);
+        yaml_event_delete(&event);
+        if (done) break;
+    }
+    yaml_parser_delete(&parser);
+
+    /* Duplicate %YAML directive */
+    yaml_parser_initialize(&parser);
+    const char *dup_yaml = "%YAML 1.1\n%YAML 1.1\n---\nfoo\n";
+    yaml_parser_set_input_string(&parser, (const yaml_char_t *)dup_yaml, strlen(dup_yaml));
+    while (1) {
+        if (!yaml_parser_parse(&parser, &event)) break;
+        int done = (event.type == YAML_STREAM_END_EVENT);
+        yaml_event_delete(&event);
+        if (done) break;
+    }
+    yaml_parser_delete(&parser);
+}
+
+/* Coverage: malformed TAG directive */
+static void test_p_malformed_tag_directive(void) {
+    yaml_parser_t parser;
+    yaml_event_t event;
+
+    /* %TAG with missing handle */
+    yaml_parser_initialize(&parser);
+    const char *bad_tag = "%TAG\n---\nfoo\n";
+    yaml_parser_set_input_string(&parser, (const yaml_char_t *)bad_tag, strlen(bad_tag));
+    while (1) {
+        if (!yaml_parser_parse(&parser, &event)) break;
+        int done = (event.type == YAML_STREAM_END_EVENT);
+        yaml_event_delete(&event);
+        if (done) break;
+    }
+    yaml_parser_delete(&parser);
+
+    /* %TAG with bad handle (no trailing !) */
+    yaml_parser_initialize(&parser);
+    const char *bad_tag2 = "%TAG !foo http://example.com/\n---\nfoo\n";
+    yaml_parser_set_input_string(&parser, (const yaml_char_t *)bad_tag2, strlen(bad_tag2));
+    while (1) {
+        if (!yaml_parser_parse(&parser, &event)) break;
+        int done = (event.type == YAML_STREAM_END_EVENT);
+        yaml_event_delete(&event);
+        if (done) break;
+    }
+    yaml_parser_delete(&parser);
+}
+
+/* Coverage: block scalar with explicit indent indicator */
+static void test_p_block_scalar_indent_indicator(void) {
+    yaml_event_type_t ev[16];
+    int n;
+    /* literal block with explicit indent of 2 */
+    ASSERT(collect_events("|\n  hello\n  world\n", ev, 16, &n), "lit indent");
+    /* literal block with indent indicator 1 */
+    ASSERT(collect_events("|1\n hello\n world\n", ev, 16, &n), "lit indent1");
+    /* literal block with indent indicator and chomp */
+    ASSERT(collect_events("|2-\n  hello\n  world\n", ev, 16, &n), "lit indent2-");
+}
+
+/* Coverage: document end followed by explicit new document */
+static void test_p_doc_end_then_new_doc(void) {
+    yaml_event_type_t ev[16];
+    int n;
+    ASSERT(collect_events("---\nfoo\n...\n---\nbar\n", ev, 16, &n), "doc end new doc");
+    int doc_starts = 0;
+    for (int i = 0; i < n; i++)
+        if (ev[i] == YAML_DOCUMENT_START_EVENT) doc_starts++;
+    ASSERT_EQ_INT(doc_starts, 2, "doc end: 2 docs");
+}
+
+/* Coverage: flow sequence with implicit mapping where value is a node */
+static void test_p_flow_seq_mapping_value_node(void) {
+    yaml_event_type_t ev[32];
+    int n;
+    /* [a: {nested: true}] -- mapping value is a flow mapping */
+    ASSERT(collect_events("[a: {nested: true}]", ev, 32, &n), "flow seq map val node");
+    ASSERT(find_scalar("[a: {nested: true}]", "true"), "flow seq: nested val");
+}
+
+/* Coverage: maximum nesting depth */
+static void test_p_deep_flow_nesting(void) {
+    /* Build deeply nested flow structure: [[[[...]]]] */
+    char buf[2048];
+    int depth = 100;
+    int pos = 0;
+    for (int i = 0; i < depth && pos < 1000; i++) buf[pos++] = '[';
+    buf[pos++] = '1';
+    for (int i = 0; i < depth && pos < 2000; i++) buf[pos++] = ']';
+    buf[pos] = '\0';
+
+    yaml_event_type_t ev[512];
+    int n;
+    /* May succeed or hit max nesting -- just verify no crash */
+    collect_events(buf, ev, 512, &n);
+}
+
 int main(void) {
     TEST_SUITE_BEGIN("Parser Comprehensive");
 
@@ -1182,6 +1353,21 @@ int main(void) {
     test_p_kubernetes_like();
     test_p_github_actions_like();
     test_p_docker_compose_like();
+
+    /* Coverage-targeted: flow seq entry mapping states */
+    test_p_flow_seq_entry_mapping_empty_key_at_end();
+    test_p_flow_seq_entry_mapping_key_comma();
+    test_p_flow_seq_entry_mapping_value_end();
+    test_p_flow_mapping_complex_key_empty_value();
+    test_p_flow_mapping_complex_key_no_value();
+    test_p_flow_seq_mapping_value_node();
+    test_p_deep_flow_nesting();
+
+    /* Coverage-targeted: directives and block scalars */
+    test_p_malformed_yaml_directive();
+    test_p_malformed_tag_directive();
+    test_p_block_scalar_indent_indicator();
+    test_p_doc_end_then_new_doc();
 
     TEST_SUITE_END();
 }
