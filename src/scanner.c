@@ -1965,14 +1965,18 @@ yaml_parser_scan_to_next_token(yaml_parser_t *parser)
         /* Eat a comment until a line break. */
 
         if (CHECK(parser->buffer, '#')) {
-            /* Batch-skip ASCII comment content */
+            /* Batch-skip ASCII comment content.
+             * Stop at any non-ASCII byte (>= 0x80) so that
+             * unread (which counts characters) is decremented
+             * correctly -- within the ASCII region, bytes == chars.
+             */
             {
                 yaml_char_t *ptr = parser->buffer.pointer;
                 yaml_char_t *limit = ptr + parser->unread;
                 while (ptr < limit) {
                     unsigned char ch = *ptr;
                     if (ch == '\r' || ch == '\n' || ch == '\0'
-                            || ch == 0xC2 || ch == 0xE2)
+                            || (ch & 0x80))
                         break;
                     ptr++;
                 }

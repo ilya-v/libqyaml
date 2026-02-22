@@ -594,6 +594,49 @@ static void test_large_mapping(void) {
     ASSERT_EQ_INT(scalar_count, 60, "large map: 60 scalars");
 }
 
+/* Regression: BOM (U+FEFF, EF BB BF) inside a comment caused infinite loop.
+ * The batch-skip in yaml_parser_scan_to_next_token was counting bytes instead
+ * of characters for the unread decrement, causing underflow on multi-byte chars. */
+static void test_comment_bom_regression(void) {
+    /* Original fuzz input: v1\nusY\r\r\riv1\n#k<BOM>\n */
+    unsigned char data1[] = {0x76,0x31,0x0a,0x75,0x73,0x59,0x0d,0x0d,
+                             0x0d,0x69,0x76,0x31,0x0a,0x23,0x6b,0xef,
+                             0xbb,0xbf,0x0a};
+    yaml_parser_t parser;
+    yaml_event_t event;
+
+    ASSERT(yaml_parser_initialize(&parser), "init");
+    yaml_parser_set_input_string(&parser, data1, sizeof(data1));
+    int count = 0;
+    while (1) {
+        int ok = yaml_parser_parse(&parser, &event);
+        if (!ok) break;
+        int type = event.type;
+        yaml_event_delete(&event);
+        if (type == YAML_STREAM_END_EVENT) break;
+        count++;
+        ASSERT(count < 100, "must not loop forever");
+    }
+    yaml_parser_delete(&parser);
+    ASSERT(count > 0, "produced some events");
+
+    /* Simpler case: comment with BOM directly */
+    unsigned char data2[] = {'#', 'Y', 0xef, 0xbb, 0xbf, 'A'};
+    ASSERT(yaml_parser_initialize(&parser), "init2");
+    yaml_parser_set_input_string(&parser, data2, sizeof(data2));
+    count = 0;
+    while (1) {
+        int ok = yaml_parser_parse(&parser, &event);
+        if (!ok) break;
+        int type = event.type;
+        yaml_event_delete(&event);
+        if (type == YAML_STREAM_END_EVENT) break;
+        count++;
+        ASSERT(count < 100, "must not loop forever (case 2)");
+    }
+    yaml_parser_delete(&parser);
+}
+
 int main(void) {
     TEST_SUITE_BEGIN("Edge Cases");
 
@@ -635,6 +678,9 @@ int main(void) {
     test_unicode_scalars();
     test_large_sequence();
     test_large_mapping();
+
+    /* Fuzz regression: BOM in comment caused infinite loop */
+    test_comment_bom_regression();
 
     TEST_SUITE_END();
 }
