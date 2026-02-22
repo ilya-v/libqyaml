@@ -34,6 +34,15 @@ qyaml_add_test(errors-comprehensive test_errors_comprehensive.c)
 qyaml_add_test(emitter-comprehensive test_emitter_comprehensive.c)
 qyaml_add_test(loader-comprehensive test_loader_comprehensive.c)
 
+# True differential test: compare against system libyaml via dlopen
+add_executable(test-differential-libyaml test_differential_libyaml.c)
+target_link_libraries(test-differential-libyaml qyaml ${CMAKE_DL_LIBS})
+target_compile_definitions(test-differential-libyaml PRIVATE YAML_DECLARE_STATIC)
+if(QYAML_COVERAGE)
+    target_link_options(test-differential-libyaml PRIVATE --coverage)
+endif()
+add_test(NAME differential-libyaml COMMAND test-differential-libyaml)
+
 # libyaml conformance tests -- built from reference libyaml test sources
 # but linked against libqyaml to verify API compatibility
 
