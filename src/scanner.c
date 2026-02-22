@@ -1919,6 +1919,8 @@ yaml_parser_fetch_plain_scalar(yaml_parser_t *parser)
 static int
 yaml_parser_scan_to_next_token(yaml_parser_t *parser)
 {
+    int allow_tabs = parser->flow_level || !parser->simple_key_allowed;
+
     /* Until the next token is not found. */
 
     while (1)
@@ -1927,24 +1929,34 @@ yaml_parser_scan_to_next_token(yaml_parser_t *parser)
 
         if (!CACHE(parser, 1)) return 0;
 
-        if (parser->mark.column == 0 && IS_BOM(parser->buffer))
+        if (parser->mark.column == 0 && IS_BOM(parser->buffer)) {
             SKIP(parser);
+            if (!CACHE(parser, 1)) return 0;
+        }
 
         /*
-         * Eat whitespaces.
-         *
-         * Tabs are allowed:
-         *
-         *  - in the flow context;
-         *  - in the block context, but not at the beginning of the line or
-         *  after '-', '?', or ':' (complex value).
+         * Eat whitespaces: batch-skip consecutive spaces in the buffer,
+         * then fall back to single-char for cross-buffer or tab handling.
          */
 
-        if (!CACHE(parser, 1)) return 0;
+        if (*parser->buffer.pointer == ' ') {
+            yaml_char_t *ptr = parser->buffer.pointer + 1;
+            yaml_char_t *limit = parser->buffer.pointer + parser->unread;
+            while (ptr < limit && *ptr == ' ') {
+                ptr++;
+            }
+            size_t count = (size_t)(ptr - parser->buffer.pointer);
+            parser->buffer.pointer = ptr;
+            parser->mark.index += count;
+            parser->mark.column += count;
+            parser->unread -= count;
+            if (parser->unread == 0) {
+                if (!CACHE(parser, 1)) return 0;
+            }
+        }
 
         while (CHECK(parser->buffer,' ') ||
-                ((parser->flow_level || !parser->simple_key_allowed) &&
-                 CHECK(parser->buffer, '\t'))) {
+                (allow_tabs && CHECK(parser->buffer, '\t'))) {
             SKIP(parser);
             if (!CACHE(parser, 1)) return 0;
         }
@@ -1970,6 +1982,9 @@ yaml_parser_scan_to_next_token(yaml_parser_t *parser)
             if (!parser->flow_level) {
                 parser->simple_key_allowed = 1;
             }
+
+            /* Update tab allowance after line break */
+            allow_tabs = parser->flow_level || !parser->simple_key_allowed;
         }
         else
         {
@@ -3505,7 +3520,57 @@ yaml_parser_scan_plain_scalar(yaml_parser_t *parser, yaml_token_t *token)
                 }
             }
 
-            /* Copy the character. */
+            /*
+             * Fast path: batch-copy ASCII characters that cannot end
+             * a plain scalar. Only attempt when enough data is buffered
+             * to amortize the setup cost.
+             */
+            if (parser->unread >= 4) {
+                yaml_char_t *src = parser->buffer.pointer;
+                yaml_char_t *src_limit = src + parser->unread - 1;
+                yaml_char_t *src_start = src;
+
+                if (!parser->flow_level) {
+                    while (src < src_limit) {
+                        unsigned char ch = *src;
+                        if (ch <= 0x20 || ch == '#' || ch == ':' || ch >= 0x80)
+                            break;
+                        src++;
+                    }
+                } else {
+                    while (src < src_limit) {
+                        unsigned char ch = *src;
+                        if (ch <= 0x20 || ch == '#' || ch == ':' || ch >= 0x80
+                            || ch == ',' || ch == '[' || ch == ']'
+                            || ch == '{' || ch == '}')
+                            break;
+                        src++;
+                    }
+                }
+
+                if (src > src_start) {
+                    size_t n = (size_t)(src - src_start);
+                    while (string.pointer + n + 5 >= string.end) {
+                        if (!yaml_string_extend(&string.start,
+                                &string.pointer, &string.end)) {
+                            parser->error = YAML_MEMORY_ERROR;
+                            goto error;
+                        }
+                    }
+                    memcpy(string.pointer, src_start, n);
+                    string.pointer += n;
+                    parser->buffer.pointer = src;
+                    parser->mark.index += n;
+                    parser->mark.column += n;
+                    parser->unread -= n;
+
+                    end_mark = parser->mark;
+                    if (!CACHE(parser, 2)) goto error;
+                    continue;
+                }
+            }
+
+            /* Copy a single character. */
 
             if (!READ(parser, string)) goto error;
 

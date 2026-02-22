@@ -228,8 +228,48 @@ yaml_parser_update_buffer(yaml_parser_t *parser, size_t length)
                     /* Determine the length of the UTF-8 sequence. */
 
                     octet = parser->raw_buffer.pointer[0];
-                    width = (octet & 0x80) == 0x00 ? 1 :
-                            (octet & 0xE0) == 0xC0 ? 2 :
+
+                    /*
+                     * Fast path: batch-process ASCII bytes (0x09, 0x0A,
+                     * 0x0D, 0x20-0x7E) directly without full decode.
+                     * For UTF-8, ASCII bytes are single-byte and pass
+                     * through unchanged.
+                     */
+                    if ((octet & 0x80) == 0x00) {
+                        unsigned char *rp = parser->raw_buffer.pointer;
+                        unsigned char *rl = parser->raw_buffer.last;
+                        yaml_char_t *bp = parser->buffer.last;
+
+                        while (rp < rl) {
+                            unsigned char c = *rp;
+                            if (c >= 0x80) break;
+                            if (c >= 0x20) {
+                                if (c > 0x7E) break;
+                                /* Printable ASCII 0x20-0x7E */
+                            } else if (c != 0x09 && c != 0x0A && c != 0x0D) {
+                                /* Control character not allowed */
+                                break;
+                            }
+                            *bp++ = c;
+                            rp++;
+                        }
+
+                        if (rp > parser->raw_buffer.pointer) {
+                            size_t n = (size_t)(rp - parser->raw_buffer.pointer);
+                            parser->offset += n;
+                            parser->unread += n;
+                            parser->raw_buffer.pointer = rp;
+                            parser->buffer.last = bp;
+                            continue;
+                        }
+
+                        /* Single ASCII byte that's a control char */
+                        value = octet;
+                        width = 1;
+                        break;
+                    }
+
+                    width = (octet & 0xE0) == 0xC0 ? 2 :
                             (octet & 0xF0) == 0xE0 ? 3 :
                             (octet & 0xF8) == 0xF0 ? 4 : 0;
 
@@ -254,8 +294,7 @@ yaml_parser_update_buffer(yaml_parser_t *parser, size_t length)
 
                     /* Decode the leading octet. */
 
-                    value = (octet & 0x80) == 0x00 ? octet & 0x7F :
-                            (octet & 0xE0) == 0xC0 ? octet & 0x1F :
+                    value = (octet & 0xE0) == 0xC0 ? octet & 0x1F :
                             (octet & 0xF0) == 0xE0 ? octet & 0x0F :
                             (octet & 0xF8) == 0xF0 ? octet & 0x07 : 0;
 
@@ -279,8 +318,7 @@ yaml_parser_update_buffer(yaml_parser_t *parser, size_t length)
 
                     /* Check the length of the sequence against the value. */
 
-                    if (!((width == 1) ||
-                            (width == 2 && value >= 0x80) ||
+                    if (!((width == 2 && value >= 0x80) ||
                             (width == 3 && value >= 0x800) ||
                             (width == 4 && value >= 0x10000)))
                         return yaml_parser_set_reader_error(parser,

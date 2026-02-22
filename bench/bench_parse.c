@@ -180,9 +180,9 @@ int main(void) {
         size_t size;
         char *yaml = generate_mapping_yaml(10000, &size);
         printf("Mapping-heavy YAML (%.1f KB):\n", size / 1024.0);
-        run_benchmark("scan", (const unsigned char *)yaml, size, bench_scan, 100);
-        run_benchmark("parse (events)", (const unsigned char *)yaml, size, bench_parse, 100);
-        run_benchmark("load (document)", (const unsigned char *)yaml, size, bench_load, 100);
+        run_benchmark("scan", (const unsigned char *)yaml, size, bench_scan, 500);
+        run_benchmark("parse (events)", (const unsigned char *)yaml, size, bench_parse, 500);
+        run_benchmark("load (document)", (const unsigned char *)yaml, size, bench_load, 500);
         printf("\n");
         free(yaml);
     }
@@ -192,9 +192,9 @@ int main(void) {
         size_t size;
         char *yaml = generate_flow_yaml(10000, &size);
         printf("Flow sequence (%.1f KB):\n", size / 1024.0);
-        run_benchmark("scan", (const unsigned char *)yaml, size, bench_scan, 100);
-        run_benchmark("parse (events)", (const unsigned char *)yaml, size, bench_parse, 100);
-        run_benchmark("load (document)", (const unsigned char *)yaml, size, bench_load, 100);
+        run_benchmark("scan", (const unsigned char *)yaml, size, bench_scan, 500);
+        run_benchmark("parse (events)", (const unsigned char *)yaml, size, bench_parse, 500);
+        run_benchmark("load (document)", (const unsigned char *)yaml, size, bench_load, 500);
         printf("\n");
         free(yaml);
     }
