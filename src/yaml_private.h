@@ -138,6 +138,9 @@ yaml_string_join(
         ((context)->error = YAML_MEMORY_ERROR,                                  \
          0))
 
+#define STRING_INIT_LAZY(context,string,size)                                    \
+    ((string).start ? 1 : STRING_INIT((context),(string),(size)))
+
 #define STRING_DEL(context,string)                                              \
     (yaml_free((string).start),                                                 \
      (string).start = (string).pointer = (string).end = 0)

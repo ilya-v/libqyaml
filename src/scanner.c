@@ -3086,9 +3086,7 @@ yaml_parser_scan_flow_scalar(yaml_parser_t *parser, yaml_token_t *token,
     int leading_blanks;
 
     if (!STRING_INIT(parser, string, INITIAL_STRING_SIZE)) goto error;
-    if (!STRING_INIT(parser, leading_break, INITIAL_STRING_SIZE)) goto error;
-    if (!STRING_INIT(parser, trailing_breaks, INITIAL_STRING_SIZE)) goto error;
-    if (!STRING_INIT(parser, whitespaces, INITIAL_STRING_SIZE)) goto error;
+    /* Auxiliary buffers allocated lazily -- only needed for multiline scalars */
 
     /* Eat the left quote. */
 
@@ -3394,6 +3392,7 @@ yaml_parser_scan_flow_scalar(yaml_parser_t *parser, yaml_token_t *token,
                 /* Consume a space or a tab character. */
 
                 if (!leading_blanks) {
+                    if (!STRING_INIT_LAZY(parser, whitespaces, INITIAL_STRING_SIZE)) goto error;
                     if (!READ(parser, whitespaces)) goto error;
                 }
                 else {
@@ -3408,12 +3407,16 @@ yaml_parser_scan_flow_scalar(yaml_parser_t *parser, yaml_token_t *token,
 
                 if (!leading_blanks)
                 {
-                    CLEAR(parser, whitespaces);
+                    if (whitespaces.start) {
+                        CLEAR(parser, whitespaces);
+                    }
+                    if (!STRING_INIT_LAZY(parser, leading_break, INITIAL_STRING_SIZE)) goto error;
                     if (!READ_LINE(parser, leading_break)) goto error;
                     leading_blanks = 1;
                 }
                 else
                 {
+                    if (!STRING_INIT_LAZY(parser, trailing_breaks, INITIAL_STRING_SIZE)) goto error;
                     if (!READ_LINE(parser, trailing_breaks)) goto error;
                 }
             }
@@ -3427,7 +3430,7 @@ yaml_parser_scan_flow_scalar(yaml_parser_t *parser, yaml_token_t *token,
             /* Do we need to fold line breaks? */
 
             if (leading_break.start[0] == '\n') {
-                if (trailing_breaks.start[0] == '\0') {
+                if (!trailing_breaks.start || trailing_breaks.start[0] == '\0') {
                     if (!STRING_EXTEND(parser, string)) goto error;
                     *(string.pointer++) = ' ';
                 }
@@ -3439,15 +3442,19 @@ yaml_parser_scan_flow_scalar(yaml_parser_t *parser, yaml_token_t *token,
             }
             else {
                 if (!JOIN(parser, string, leading_break)) goto error;
-                if (!JOIN(parser, string, trailing_breaks)) goto error;
+                if (trailing_breaks.start) {
+                    if (!JOIN(parser, string, trailing_breaks)) goto error;
+                    CLEAR(parser, trailing_breaks);
+                }
                 CLEAR(parser, leading_break);
-                CLEAR(parser, trailing_breaks);
             }
         }
         else
         {
-            if (!JOIN(parser, string, whitespaces)) goto error;
-            CLEAR(parser, whitespaces);
+            if (whitespaces.start) {
+                if (!JOIN(parser, string, whitespaces)) goto error;
+                CLEAR(parser, whitespaces);
+            }
         }
     }
 
@@ -3496,9 +3503,7 @@ yaml_parser_scan_plain_scalar(yaml_parser_t *parser, yaml_token_t *token)
     int indent = parser->indent+1;
 
     if (!STRING_INIT(parser, string, INITIAL_STRING_SIZE)) goto error;
-    if (!STRING_INIT(parser, leading_break, INITIAL_STRING_SIZE)) goto error;
-    if (!STRING_INIT(parser, trailing_breaks, INITIAL_STRING_SIZE)) goto error;
-    if (!STRING_INIT(parser, whitespaces, INITIAL_STRING_SIZE)) goto error;
+    /* Auxiliary buffers allocated lazily -- only needed for multiline scalars */
 
     start_mark = end_mark = parser->mark;
 
@@ -3561,14 +3566,14 @@ yaml_parser_scan_plain_scalar(yaml_parser_t *parser, yaml_token_t *token)
 
             /* Check if we need to join whitespaces and breaks. */
 
-            if (leading_blanks || whitespaces.start != whitespaces.pointer)
+            if (leading_blanks || (whitespaces.start && whitespaces.start != whitespaces.pointer))
             {
                 if (leading_blanks)
                 {
                     /* Do we need to fold line breaks? */
 
                     if (leading_break.start[0] == '\n') {
-                        if (trailing_breaks.start[0] == '\0') {
+                        if (!trailing_breaks.start || trailing_breaks.start[0] == '\0') {
                             if (!STRING_EXTEND(parser, string)) goto error;
                             *(string.pointer++) = ' ';
                         }
@@ -3580,9 +3585,11 @@ yaml_parser_scan_plain_scalar(yaml_parser_t *parser, yaml_token_t *token)
                     }
                     else {
                         if (!JOIN(parser, string, leading_break)) goto error;
-                        if (!JOIN(parser, string, trailing_breaks)) goto error;
+                        if (trailing_breaks.start) {
+                            if (!JOIN(parser, string, trailing_breaks)) goto error;
+                            CLEAR(parser, trailing_breaks);
+                        }
                         CLEAR(parser, leading_break);
-                        CLEAR(parser, trailing_breaks);
                     }
 
                     leading_blanks = 0;
@@ -3678,6 +3685,7 @@ yaml_parser_scan_plain_scalar(yaml_parser_t *parser, yaml_token_t *token)
                 /* Consume a space or a tab character. */
 
                 if (!leading_blanks) {
+                    if (!STRING_INIT_LAZY(parser, whitespaces, INITIAL_STRING_SIZE)) goto error;
                     if (!READ(parser, whitespaces)) goto error;
                 }
                 else {
@@ -3692,12 +3700,16 @@ yaml_parser_scan_plain_scalar(yaml_parser_t *parser, yaml_token_t *token)
 
                 if (!leading_blanks)
                 {
-                    CLEAR(parser, whitespaces);
+                    if (whitespaces.start) {
+                        CLEAR(parser, whitespaces);
+                    }
+                    if (!STRING_INIT_LAZY(parser, leading_break, INITIAL_STRING_SIZE)) goto error;
                     if (!READ_LINE(parser, leading_break)) goto error;
                     leading_blanks = 1;
                 }
                 else
                 {
+                    if (!STRING_INIT_LAZY(parser, trailing_breaks, INITIAL_STRING_SIZE)) goto error;
                     if (!READ_LINE(parser, trailing_breaks)) goto error;
                 }
             }
