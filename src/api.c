@@ -2,14 +2,6 @@
 #include "yaml_private.h"
 
 /*
- * Static default tag strings shared between loader.c and api.c.
- */
-const yaml_char_t yaml_default_scalar_tag[] = YAML_DEFAULT_SCALAR_TAG;
-const yaml_char_t yaml_default_sequence_tag[] = YAML_DEFAULT_SEQUENCE_TAG;
-const yaml_char_t yaml_default_mapping_tag[] = YAML_DEFAULT_MAPPING_TAG;
-const yaml_char_t yaml_empty_scalar_value[] = "";
-
-/*
  * Get the library version.
  */
 
@@ -1016,8 +1008,7 @@ yaml_event_delete(yaml_event_t *event)
         case YAML_SCALAR_EVENT:
             yaml_free(event->data.scalar.anchor);
             yaml_free(event->data.scalar.tag);
-            if (!yaml_value_is_empty_static(event->data.scalar.value))
-                yaml_free(event->data.scalar.value);
+            yaml_free(event->data.scalar.value);
             break;
 
         case YAML_SEQUENCE_START_EVENT:
@@ -1137,12 +1128,10 @@ yaml_document_delete(yaml_document_t *document)
 
     while (!STACK_EMPTY(&context, document->nodes)) {
         yaml_node_t node = POP(&context, document->nodes);
-        if (!yaml_tag_is_default(node.tag))
-            yaml_free(node.tag);
+        yaml_free(node.tag);
         switch (node.type) {
             case YAML_SCALAR_NODE:
-                if (!yaml_value_is_empty_static(node.data.scalar.value))
-                    yaml_free(node.data.scalar.value);
+                yaml_free(node.data.scalar.value);
                 break;
             case YAML_SEQUENCE_NODE:
                 STACK_DEL(&context, node.data.sequence.items);

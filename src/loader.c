@@ -383,7 +383,8 @@ yaml_parser_load_scalar(yaml_parser_t *parser, yaml_event_t *event,
 
     if (!tag || strcmp((char *)tag, "!") == 0) {
         yaml_free(tag);
-        tag = (yaml_char_t *)yaml_default_scalar_tag;
+        tag = yaml_strdup((yaml_char_t *)YAML_DEFAULT_SCALAR_TAG);
+        if (!tag) goto error;
     }
 
     SCALAR_NODE_INIT(node, tag, event->data.scalar.value,
@@ -400,8 +401,7 @@ yaml_parser_load_scalar(yaml_parser_t *parser, yaml_event_t *event,
     return yaml_parser_load_node_add(parser, ctx, index);
 
 error:
-    if (!yaml_tag_is_default(tag))
-        yaml_free(tag);
+    yaml_free(tag);
     yaml_free(event->data.scalar.anchor);
     yaml_free(event->data.scalar.value);
     return 0;
@@ -428,7 +428,8 @@ yaml_parser_load_sequence(yaml_parser_t *parser, yaml_event_t *event,
 
     if (!tag || strcmp((char *)tag, "!") == 0) {
         yaml_free(tag);
-        tag = (yaml_char_t *)yaml_default_sequence_tag;
+        tag = yaml_strdup((yaml_char_t *)YAML_DEFAULT_SEQUENCE_TAG);
+        if (!tag) goto error;
     }
 
     if (!STACK_INIT(parser, items, yaml_node_item_t*)) goto error;
@@ -452,8 +453,7 @@ yaml_parser_load_sequence(yaml_parser_t *parser, yaml_event_t *event,
     return 1;
 
 error:
-    if (!yaml_tag_is_default(tag))
-        yaml_free(tag);
+    yaml_free(tag);
     yaml_free(event->data.sequence_start.anchor);
     return 0;
 }
@@ -496,7 +496,8 @@ yaml_parser_load_mapping(yaml_parser_t *parser, yaml_event_t *event,
 
     if (!tag || strcmp((char *)tag, "!") == 0) {
         yaml_free(tag);
-        tag = (yaml_char_t *)yaml_default_mapping_tag;
+        tag = yaml_strdup((yaml_char_t *)YAML_DEFAULT_MAPPING_TAG);
+        if (!tag) goto error;
     }
 
     if (!STACK_INIT(parser, pairs, yaml_node_pair_t*)) goto error;
@@ -520,8 +521,7 @@ yaml_parser_load_mapping(yaml_parser_t *parser, yaml_event_t *event,
     return 1;
 
 error:
-    if (!yaml_tag_is_default(tag))
-        yaml_free(tag);
+    yaml_free(tag);
     yaml_free(event->data.mapping_start.anchor);
     return 0;
 }

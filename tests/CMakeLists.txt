@@ -1,74 +1,67 @@
 # Unit test framework - we use a simple single-header approach
 # Tests link against the static library
 
-# Test version API
-add_executable(test-version test_version.c)
-target_link_libraries(test-version qyaml)
-target_compile_definitions(test-version PRIVATE YAML_DECLARE_STATIC)
-add_test(NAME version COMMAND test-version)
+# Helper function to add a test with standard settings
+function(qyaml_add_test TEST_NAME TEST_SOURCE)
+    add_executable(test-${TEST_NAME} ${TEST_SOURCE})
+    target_link_libraries(test-${TEST_NAME} qyaml)
+    target_compile_definitions(test-${TEST_NAME} PRIVATE YAML_DECLARE_STATIC)
+    if(QYAML_COVERAGE)
+        target_link_options(test-${TEST_NAME} PRIVATE --coverage)
+    endif()
+    add_test(NAME ${TEST_NAME} COMMAND test-${TEST_NAME})
+endfunction()
 
-# Test reader
-add_executable(test-reader test_reader.c)
-target_link_libraries(test-reader qyaml)
-target_compile_definitions(test-reader PRIVATE YAML_DECLARE_STATIC)
-add_test(NAME reader COMMAND test-reader)
+qyaml_add_test(version test_version.c)
+qyaml_add_test(reader test_reader.c)
+qyaml_add_test(scanner test_scanner.c)
+qyaml_add_test(parser test_parser.c)
+qyaml_add_test(event-api test_event_api.c)
+qyaml_add_test(document-api test_document_api.c)
+qyaml_add_test(emitter test_emitter.c)
+qyaml_add_test(scalars test_scalars.c)
+qyaml_add_test(edge-cases test_edge_cases.c)
+qyaml_add_test(differential test_differential.c)
+qyaml_add_test(errors test_errors.c)
+qyaml_add_test(stress test_stress.c)
 
-# Scanner test
-add_executable(test-scanner test_scanner.c)
-target_link_libraries(test-scanner qyaml)
-target_compile_definitions(test-scanner PRIVATE YAML_DECLARE_STATIC)
-add_test(NAME scanner COMMAND test-scanner)
+# libyaml conformance tests -- built from reference libyaml test sources
+# but linked against libqyaml to verify API compatibility
 
-# Parser test
-add_executable(test-parser test_parser.c)
-target_link_libraries(test-parser qyaml)
-target_compile_definitions(test-parser PRIVATE YAML_DECLARE_STATIC)
-add_test(NAME parser COMMAND test-parser)
+set(LIBYAML_TESTS_DIR "${CMAKE_SOURCE_DIR}/reference/libyaml/tests")
+set(LIBYAML_EXAMPLES_DIR "${CMAKE_SOURCE_DIR}/reference/libyaml/examples")
 
-# Event API test
-add_executable(test-event-api test_event_api.c)
-target_link_libraries(test-event-api qyaml)
-target_compile_definitions(test-event-api PRIVATE YAML_DECLARE_STATIC)
-add_test(NAME event-api COMMAND test-event-api)
+if(EXISTS "${LIBYAML_TESTS_DIR}")
+    # Helper to build a conformance test from libyaml sources
+    function(qyaml_add_conformance_test TEST_NAME TEST_SOURCE)
+        add_executable(conformance-${TEST_NAME} ${LIBYAML_TESTS_DIR}/${TEST_SOURCE})
+        target_link_libraries(conformance-${TEST_NAME} qyaml)
+        target_compile_definitions(conformance-${TEST_NAME} PRIVATE YAML_DECLARE_STATIC)
+        if(QYAML_COVERAGE)
+            target_link_options(conformance-${TEST_NAME} PRIVATE --coverage)
+        endif()
+    endfunction()
 
-# Document API test
-add_executable(test-document-api test_document_api.c)
-target_link_libraries(test-document-api qyaml)
-target_compile_definitions(test-document-api PRIVATE YAML_DECLARE_STATIC)
-add_test(NAME document-api COMMAND test-document-api)
+    # Build conformance test binaries
+    qyaml_add_conformance_test(test-version test-version.c)
+    qyaml_add_conformance_test(test-reader test-reader.c)
+    qyaml_add_conformance_test(run-scanner run-scanner.c)
+    qyaml_add_conformance_test(run-parser run-parser.c)
+    qyaml_add_conformance_test(run-loader run-loader.c)
+    qyaml_add_conformance_test(run-emitter run-emitter.c)
+    qyaml_add_conformance_test(run-dumper run-dumper.c)
 
-# Emitter test
-add_executable(test-emitter test_emitter.c)
-target_link_libraries(test-emitter qyaml)
-target_compile_definitions(test-emitter PRIVATE YAML_DECLARE_STATIC)
-add_test(NAME emitter COMMAND test-emitter)
+    # Collect example YAML files for file-argument tests
+    file(GLOB YAML_EXAMPLES "${LIBYAML_EXAMPLES_DIR}/*.yaml")
 
-# Comprehensive scalar test
-add_executable(test-scalars test_scalars.c)
-target_link_libraries(test-scalars qyaml)
-target_compile_definitions(test-scalars PRIVATE YAML_DECLARE_STATIC)
-add_test(NAME scalars COMMAND test-scalars)
+    # Tests that take no arguments
+    add_test(NAME conformance-test-version COMMAND conformance-test-version)
+    add_test(NAME conformance-test-reader COMMAND conformance-test-reader)
 
-# Edge cases test
-add_executable(test-edge-cases test_edge_cases.c)
-target_link_libraries(test-edge-cases qyaml)
-target_compile_definitions(test-edge-cases PRIVATE YAML_DECLARE_STATIC)
-add_test(NAME edge-cases COMMAND test-edge-cases)
-
-# Differential test
-add_executable(test-differential test_differential.c)
-target_link_libraries(test-differential qyaml)
-target_compile_definitions(test-differential PRIVATE YAML_DECLARE_STATIC)
-add_test(NAME differential COMMAND test-differential)
-
-# Error handling test
-add_executable(test-errors test_errors.c)
-target_link_libraries(test-errors qyaml)
-target_compile_definitions(test-errors PRIVATE YAML_DECLARE_STATIC)
-add_test(NAME errors COMMAND test-errors)
-
-# Stress test
-add_executable(test-stress test_stress.c)
-target_link_libraries(test-stress qyaml)
-target_compile_definitions(test-stress PRIVATE YAML_DECLARE_STATIC)
-add_test(NAME stress COMMAND test-stress)
+    # Tests that take YAML files as arguments
+    add_test(NAME conformance-run-scanner COMMAND conformance-run-scanner ${YAML_EXAMPLES})
+    add_test(NAME conformance-run-parser COMMAND conformance-run-parser ${YAML_EXAMPLES})
+    add_test(NAME conformance-run-loader COMMAND conformance-run-loader ${YAML_EXAMPLES})
+    add_test(NAME conformance-run-emitter COMMAND conformance-run-emitter ${YAML_EXAMPLES})
+    add_test(NAME conformance-run-dumper COMMAND conformance-run-dumper ${YAML_EXAMPLES})
+endif()

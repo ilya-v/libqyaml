@@ -18,6 +18,7 @@ configure_file(
 
 option(QYAML_BUILD_TESTS "Build tests" ON)
 option(QYAML_BUILD_BENCHMARKS "Build benchmarks" OFF)
+option(QYAML_COVERAGE "Build with code coverage instrumentation" OFF)
 
 # Library sources
 set(QYAML_SOURCES
@@ -60,6 +61,14 @@ target_include_directories(qyaml_shared PRIVATE ${CMAKE_CURRENT_BINARY_DIR}/incl
 if(CMAKE_C_COMPILER_ID MATCHES "GNU|Clang")
     target_compile_options(qyaml PRIVATE -Wall -Wextra -pedantic)
     target_compile_options(qyaml_shared PRIVATE -Wall -Wextra -pedantic)
+endif()
+
+# Code coverage instrumentation
+if(QYAML_COVERAGE)
+    if(CMAKE_C_COMPILER_ID MATCHES "GNU|Clang")
+        target_compile_options(qyaml PRIVATE --coverage -fprofile-arcs -ftest-coverage)
+        target_link_options(qyaml PRIVATE --coverage)
+    endif()
 endif()
 
 # Also provide a yaml alias target for drop-in replacement

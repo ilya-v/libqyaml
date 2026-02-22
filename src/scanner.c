@@ -1965,6 +1965,26 @@ yaml_parser_scan_to_next_token(yaml_parser_t *parser)
         /* Eat a comment until a line break. */
 
         if (CHECK(parser->buffer, '#')) {
+            /* Batch-skip ASCII comment content */
+            {
+                yaml_char_t *ptr = parser->buffer.pointer;
+                yaml_char_t *limit = ptr + parser->unread;
+                while (ptr < limit) {
+                    unsigned char ch = *ptr;
+                    if (ch == '\r' || ch == '\n' || ch == '\0'
+                            || ch == 0xC2 || ch == 0xE2)
+                        break;
+                    ptr++;
+                }
+                if (ptr > parser->buffer.pointer) {
+                    size_t n = (size_t)(ptr - parser->buffer.pointer);
+                    parser->buffer.pointer = ptr;
+                    parser->mark.index += n;
+                    parser->mark.column += n;
+                    parser->unread -= n;
+                }
+            }
+            if (!CACHE(parser, 1)) return 0;
             while (!IS_BREAKZ(parser->buffer)) {
                 SKIP(parser);
                 if (!CACHE(parser, 1)) return 0;
