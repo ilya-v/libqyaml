@@ -3449,7 +3449,10 @@ yaml_parser_scan_flow_scalar(yaml_parser_t *parser, yaml_token_t *token,
         {
             /* Do we need to fold line breaks? */
 
-            if (leading_break.start[0] == '\n') {
+            if (!leading_break.start || leading_break.start[0] == '\0') {
+                /* Escaped line break: no stored break content, just continue */
+            }
+            else if (leading_break.start[0] == '\n') {
                 if (!trailing_breaks.start || trailing_breaks.start[0] == '\0') {
                     if (!STRING_EXTEND(parser, string)) goto error;
                     *(string.pointer++) = ' ';
@@ -3468,6 +3471,8 @@ yaml_parser_scan_flow_scalar(yaml_parser_t *parser, yaml_token_t *token,
                 }
                 CLEAR(parser, leading_break);
             }
+
+            leading_blanks = 0;
         }
         else
         {

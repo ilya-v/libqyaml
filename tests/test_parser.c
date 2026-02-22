@@ -311,6 +311,310 @@ static void test_event_marks(void) {
     yaml_parser_delete(&parser);
 }
 
+/* Test empty values in mappings (exercises process_empty_scalar) */
+static void test_empty_values(void) {
+    yaml_parser_t parser;
+    yaml_event_t event;
+
+    /* Mapping with empty value */
+    const char *yaml = "key:\nother: val\n";
+    ASSERT(yaml_parser_initialize(&parser), "init empty values");
+    yaml_parser_set_input_string(&parser, (const unsigned char *)yaml, strlen(yaml));
+
+    int found_empty = 0;
+    while (1) {
+        ASSERT(yaml_parser_parse(&parser, &event), "parse empty value event");
+        if (event.type == YAML_SCALAR_EVENT) {
+            if (event.data.scalar.length == 0) {
+                found_empty = 1;
+            }
+        }
+        if (event.type == YAML_STREAM_END_EVENT) {
+            yaml_event_delete(&event);
+            break;
+        }
+        yaml_event_delete(&event);
+    }
+    ASSERT(found_empty, "empty values: should produce empty scalar");
+    yaml_parser_delete(&parser);
+}
+
+/* Test block mapping with empty key */
+static void test_empty_key(void) {
+    yaml_parser_t parser;
+    yaml_event_t event;
+
+    /* Empty key in block mapping (: value) */
+    const char *yaml = "? \n: value\n";
+    ASSERT(yaml_parser_initialize(&parser), "init empty key");
+    yaml_parser_set_input_string(&parser, (const unsigned char *)yaml, strlen(yaml));
+
+    int scalar_count = 0;
+    while (1) {
+        ASSERT(yaml_parser_parse(&parser, &event), "parse empty key event");
+        if (event.type == YAML_SCALAR_EVENT) scalar_count++;
+        if (event.type == YAML_STREAM_END_EVENT) {
+            yaml_event_delete(&event);
+            break;
+        }
+        yaml_event_delete(&event);
+    }
+    ASSERT(scalar_count >= 2, "empty key: should have key and value scalars");
+    yaml_parser_delete(&parser);
+}
+
+/* Test complex keys in flow sequences (exercises flow_sequence_entry_mapping states) */
+static void test_flow_complex_keys(void) {
+    yaml_parser_t parser;
+    yaml_event_t event;
+
+    /* Flow sequence with complex mapping key */
+    const char *yaml = "[a : b, c : d]";
+    ASSERT(yaml_parser_initialize(&parser), "init flow complex keys");
+    yaml_parser_set_input_string(&parser, (const unsigned char *)yaml, strlen(yaml));
+
+    int map_start = 0, map_end = 0, scalar_count = 0;
+    while (1) {
+        ASSERT(yaml_parser_parse(&parser, &event), "parse flow complex key event");
+        if (event.type == YAML_MAPPING_START_EVENT) map_start++;
+        if (event.type == YAML_MAPPING_END_EVENT) map_end++;
+        if (event.type == YAML_SCALAR_EVENT) scalar_count++;
+        if (event.type == YAML_STREAM_END_EVENT) {
+            yaml_event_delete(&event);
+            break;
+        }
+        yaml_event_delete(&event);
+    }
+    /* Flow sequence with implicit mappings creates MAPPING events */
+    ASSERT(map_start == map_end, "flow complex: balanced mappings");
+    ASSERT(scalar_count >= 4, "flow complex: 4+ scalars");
+    yaml_parser_delete(&parser);
+}
+
+/* Test indentless sequence (sequence under a mapping key without extra indent) */
+static void test_indentless_sequence(void) {
+    yaml_parser_t parser;
+    yaml_event_t event;
+
+    const char *yaml = "key:\n- item1\n- item2\n";
+    ASSERT(yaml_parser_initialize(&parser), "init indentless seq");
+    yaml_parser_set_input_string(&parser, (const unsigned char *)yaml, strlen(yaml));
+
+    int seq_start = 0, scalar_count = 0;
+    while (1) {
+        ASSERT(yaml_parser_parse(&parser, &event), "parse indentless seq event");
+        if (event.type == YAML_SEQUENCE_START_EVENT) seq_start++;
+        if (event.type == YAML_SCALAR_EVENT) scalar_count++;
+        if (event.type == YAML_STREAM_END_EVENT) {
+            yaml_event_delete(&event);
+            break;
+        }
+        yaml_event_delete(&event);
+    }
+    ASSERT(seq_start >= 1, "indentless: has sequence");
+    ASSERT(scalar_count >= 3, "indentless: key + 2 items");
+    yaml_parser_delete(&parser);
+}
+
+/* Test flow mapping with empty value */
+static void test_flow_empty_value(void) {
+    yaml_parser_t parser;
+    yaml_event_t event;
+
+    const char *yaml = "{a: , b: c}";
+    ASSERT(yaml_parser_initialize(&parser), "init flow empty val");
+    yaml_parser_set_input_string(&parser, (const unsigned char *)yaml, strlen(yaml));
+
+    int empty_scalars = 0;
+    while (1) {
+        ASSERT(yaml_parser_parse(&parser, &event), "parse flow empty val event");
+        if (event.type == YAML_SCALAR_EVENT && event.data.scalar.length == 0) {
+            empty_scalars++;
+        }
+        if (event.type == YAML_STREAM_END_EVENT) {
+            yaml_event_delete(&event);
+            break;
+        }
+        yaml_event_delete(&event);
+    }
+    ASSERT(empty_scalars >= 1, "flow empty: at least one empty scalar");
+    yaml_parser_delete(&parser);
+}
+
+/* Test explicit key in flow mapping */
+static void test_flow_explicit_key(void) {
+    yaml_parser_t parser;
+    yaml_event_t event;
+
+    const char *yaml = "{? key : value}";
+    ASSERT(yaml_parser_initialize(&parser), "init flow explicit key");
+    yaml_parser_set_input_string(&parser, (const unsigned char *)yaml, strlen(yaml));
+
+    int scalar_count = 0;
+    while (1) {
+        ASSERT(yaml_parser_parse(&parser, &event), "parse flow explicit key event");
+        if (event.type == YAML_SCALAR_EVENT) scalar_count++;
+        if (event.type == YAML_STREAM_END_EVENT) {
+            yaml_event_delete(&event);
+            break;
+        }
+        yaml_event_delete(&event);
+    }
+    ASSERT_EQ_INT(scalar_count, 2, "flow explicit key: key + value");
+    yaml_parser_delete(&parser);
+}
+
+/* Test parsing tags with handles */
+static void test_tag_handle_parsing(void) {
+    yaml_parser_t parser;
+    yaml_event_t event;
+
+    const char *yaml = "%TAG !e! tag:example.com,2000:\n---\n!e!foo bar\n";
+    ASSERT(yaml_parser_initialize(&parser), "init tag handle");
+    yaml_parser_set_input_string(&parser, (const unsigned char *)yaml, strlen(yaml));
+
+    int found_tagged = 0;
+    while (1) {
+        ASSERT(yaml_parser_parse(&parser, &event), "parse tag handle event");
+        if (event.type == YAML_SCALAR_EVENT) {
+            if (event.data.scalar.tag != NULL &&
+                strstr((const char *)event.data.scalar.tag, "example.com") != NULL) {
+                found_tagged = 1;
+            }
+        }
+        if (event.type == YAML_STREAM_END_EVENT) {
+            yaml_event_delete(&event);
+            break;
+        }
+        yaml_event_delete(&event);
+    }
+    ASSERT(found_tagged, "tag handle: found scalar with resolved tag");
+    yaml_parser_delete(&parser);
+}
+
+/* Test parser error on duplicate version directive */
+static void test_duplicate_version_error(void) {
+    yaml_parser_t parser;
+    yaml_event_t event;
+
+    const char *yaml = "%YAML 1.1\n%YAML 1.1\n---\nhello\n";
+    ASSERT(yaml_parser_initialize(&parser), "init dup version");
+    yaml_parser_set_input_string(&parser, (const unsigned char *)yaml, strlen(yaml));
+
+    int got_error = 0;
+    while (1) {
+        if (!yaml_parser_parse(&parser, &event)) {
+            got_error = 1;
+            break;
+        }
+        if (event.type == YAML_STREAM_END_EVENT) {
+            yaml_event_delete(&event);
+            break;
+        }
+        yaml_event_delete(&event);
+    }
+    ASSERT(got_error, "duplicate version: should produce error");
+    yaml_parser_delete(&parser);
+}
+
+/* Test parser error on duplicate tag directive */
+static void test_duplicate_tag_error(void) {
+    yaml_parser_t parser;
+    yaml_event_t event;
+
+    const char *yaml = "%TAG !e! tag:a.com,2000:\n%TAG !e! tag:b.com,2000:\n---\nhello\n";
+    ASSERT(yaml_parser_initialize(&parser), "init dup tag");
+    yaml_parser_set_input_string(&parser, (const unsigned char *)yaml, strlen(yaml));
+
+    int got_error = 0;
+    while (1) {
+        if (!yaml_parser_parse(&parser, &event)) {
+            got_error = 1;
+            break;
+        }
+        if (event.type == YAML_STREAM_END_EVENT) {
+            yaml_event_delete(&event);
+            break;
+        }
+        yaml_event_delete(&event);
+    }
+    ASSERT(got_error, "duplicate tag: should produce error");
+    yaml_parser_delete(&parser);
+}
+
+/* Test document end followed by new document */
+static void test_document_end_then_new(void) {
+    yaml_parser_t parser;
+    yaml_event_t event;
+
+    const char *yaml = "doc1\n...\n---\ndoc2\n";
+    ASSERT(yaml_parser_initialize(&parser), "init doc end new");
+    yaml_parser_set_input_string(&parser, (const unsigned char *)yaml, strlen(yaml));
+
+    int doc_start = 0, doc_end = 0;
+    while (1) {
+        ASSERT(yaml_parser_parse(&parser, &event), "parse doc end new");
+        if (event.type == YAML_DOCUMENT_START_EVENT) doc_start++;
+        if (event.type == YAML_DOCUMENT_END_EVENT) doc_end++;
+        if (event.type == YAML_STREAM_END_EVENT) {
+            yaml_event_delete(&event);
+            break;
+        }
+        yaml_event_delete(&event);
+    }
+    ASSERT_EQ_INT(doc_start, 2, "doc end new: 2 doc starts");
+    ASSERT_EQ_INT(doc_end, 2, "doc end new: 2 doc ends");
+    yaml_parser_delete(&parser);
+}
+
+/* Test flow node (standalone flow in block context) */
+static void test_flow_in_block(void) {
+    yaml_parser_t parser;
+    yaml_event_t event;
+
+    const char *yaml = "- [a, b]\n- {x: 1}\n";
+    ASSERT(yaml_parser_initialize(&parser), "init flow in block");
+    yaml_parser_set_input_string(&parser, (const unsigned char *)yaml, strlen(yaml));
+
+    int seq_start = 0, map_start = 0;
+    while (1) {
+        ASSERT(yaml_parser_parse(&parser, &event), "parse flow in block");
+        if (event.type == YAML_SEQUENCE_START_EVENT) seq_start++;
+        if (event.type == YAML_MAPPING_START_EVENT) map_start++;
+        if (event.type == YAML_STREAM_END_EVENT) {
+            yaml_event_delete(&event);
+            break;
+        }
+        yaml_event_delete(&event);
+    }
+    ASSERT(seq_start >= 2, "flow in block: outer seq + inner flow seq");
+    ASSERT(map_start >= 1, "flow in block: inner flow map");
+    yaml_parser_delete(&parser);
+}
+
+/* Test block sequence with explicit key */
+static void test_block_explicit_key(void) {
+    yaml_parser_t parser;
+    yaml_event_t event;
+
+    const char *yaml = "? key1\n: val1\n? key2\n: val2\n";
+    ASSERT(yaml_parser_initialize(&parser), "init block explicit key");
+    yaml_parser_set_input_string(&parser, (const unsigned char *)yaml, strlen(yaml));
+
+    int scalar_count = 0;
+    while (1) {
+        ASSERT(yaml_parser_parse(&parser, &event), "parse block explicit key");
+        if (event.type == YAML_SCALAR_EVENT) scalar_count++;
+        if (event.type == YAML_STREAM_END_EVENT) {
+            yaml_event_delete(&event);
+            break;
+        }
+        yaml_event_delete(&event);
+    }
+    ASSERT_EQ_INT(scalar_count, 4, "block explicit: 4 scalars");
+    yaml_parser_delete(&parser);
+}
+
 int main(void) {
     TEST_SUITE_BEGIN("Parser");
 
@@ -330,6 +634,18 @@ int main(void) {
     test_deep_nesting();
     test_parse_errors();
     test_event_marks();
+    test_empty_values();
+    test_empty_key();
+    test_flow_complex_keys();
+    test_indentless_sequence();
+    test_flow_empty_value();
+    test_flow_explicit_key();
+    test_tag_handle_parsing();
+    test_duplicate_version_error();
+    test_duplicate_tag_error();
+    test_document_end_then_new();
+    test_flow_in_block();
+    test_block_explicit_key();
 
     TEST_SUITE_END();
 }

@@ -24,6 +24,7 @@ qyaml_add_test(edge-cases test_edge_cases.c)
 qyaml_add_test(differential test_differential.c)
 qyaml_add_test(errors test_errors.c)
 qyaml_add_test(stress test_stress.c)
+qyaml_add_test(writer test_writer.c)
 
 # libyaml conformance tests -- built from reference libyaml test sources
 # but linked against libqyaml to verify API compatibility

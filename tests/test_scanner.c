@@ -334,6 +334,328 @@ static void test_token_marks(void) {
     yaml_parser_delete(&parser);
 }
 
+/* Test double-quoted escape sequences: \N, \_, \L, \P, \u, \U */
+static void test_escape_sequences(void) {
+    yaml_parser_t parser;
+    yaml_token_t token;
+
+    /* \N = NEL (U+0085), \_ = NBSP (U+00A0) */
+    const char *yaml = "\"\\N\\_ hello\"";
+    ASSERT(yaml_parser_initialize(&parser), "init escape seq");
+    yaml_parser_set_input_string(&parser, (const unsigned char *)yaml, strlen(yaml));
+
+    int found_scalar = 0;
+    while (1) {
+        ASSERT(yaml_parser_scan(&parser, &token), "scan escape seq");
+        if (token.type == YAML_SCALAR_TOKEN) {
+            found_scalar = 1;
+            /* NEL = C2 85 in UTF-8, NBSP = C2 A0 */
+            ASSERT(token.data.scalar.length >= 2, "escape: has content");
+            ASSERT((unsigned char)token.data.scalar.value[0] == 0xC2 &&
+                   (unsigned char)token.data.scalar.value[1] == 0x85,
+                   "escape: \\N produces NEL (C2 85)");
+        }
+        if (token.type == YAML_STREAM_END_TOKEN) {
+            yaml_token_delete(&token);
+            break;
+        }
+        yaml_token_delete(&token);
+    }
+    ASSERT(found_scalar, "escape: found scalar");
+    yaml_parser_delete(&parser);
+}
+
+/* Test \L (LS U+2028) and \P (PS U+2029) escapes */
+static void test_escape_ls_ps(void) {
+    yaml_parser_t parser;
+    yaml_token_t token;
+
+    const char *yaml = "\"\\L\\P\"";
+    ASSERT(yaml_parser_initialize(&parser), "init LS PS escape");
+    yaml_parser_set_input_string(&parser, (const unsigned char *)yaml, strlen(yaml));
+
+    int found_scalar = 0;
+    while (1) {
+        ASSERT(yaml_parser_scan(&parser, &token), "scan LS PS");
+        if (token.type == YAML_SCALAR_TOKEN) {
+            found_scalar = 1;
+            /* LS = E2 80 A8, PS = E2 80 A9 */
+            ASSERT(token.data.scalar.length == 6, "LS PS: 6 bytes (2 x 3-byte UTF-8)");
+            ASSERT((unsigned char)token.data.scalar.value[0] == 0xE2 &&
+                   (unsigned char)token.data.scalar.value[1] == 0x80 &&
+                   (unsigned char)token.data.scalar.value[2] == 0xA8,
+                   "escape: \\L produces LS (E2 80 A8)");
+            ASSERT((unsigned char)token.data.scalar.value[3] == 0xE2 &&
+                   (unsigned char)token.data.scalar.value[4] == 0x80 &&
+                   (unsigned char)token.data.scalar.value[5] == 0xA9,
+                   "escape: \\P produces PS (E2 80 A9)");
+        }
+        if (token.type == YAML_STREAM_END_TOKEN) {
+            yaml_token_delete(&token);
+            break;
+        }
+        yaml_token_delete(&token);
+    }
+    ASSERT(found_scalar, "LS PS: found scalar");
+    yaml_parser_delete(&parser);
+}
+
+/* Test \u and \U unicode escapes */
+static void test_unicode_escapes(void) {
+    yaml_parser_t parser;
+    yaml_token_t token;
+
+    /* \u00E9 = e-acute, \u2603 = snowman */
+    const char *yaml = "\"\\u00E9 \\u2603\"";
+    ASSERT(yaml_parser_initialize(&parser), "init unicode escape");
+    yaml_parser_set_input_string(&parser, (const unsigned char *)yaml, strlen(yaml));
+
+    int found_scalar = 0;
+    while (1) {
+        ASSERT(yaml_parser_scan(&parser, &token), "scan unicode escape");
+        if (token.type == YAML_SCALAR_TOKEN) {
+            found_scalar = 1;
+            /* e-acute = C3 A9 (2 bytes), space (1 byte), snowman = E2 98 83 (3 bytes) = 6 bytes total */
+            ASSERT(token.data.scalar.length == 6, "unicode: 6 bytes");
+            ASSERT((unsigned char)token.data.scalar.value[0] == 0xC3 &&
+                   (unsigned char)token.data.scalar.value[1] == 0xA9,
+                   "unicode: \\u00E9 produces e-acute");
+            ASSERT((unsigned char)token.data.scalar.value[3] == 0xE2 &&
+                   (unsigned char)token.data.scalar.value[4] == 0x98 &&
+                   (unsigned char)token.data.scalar.value[5] == 0x83,
+                   "unicode: \\u2603 produces snowman");
+        }
+        if (token.type == YAML_STREAM_END_TOKEN) {
+            yaml_token_delete(&token);
+            break;
+        }
+        yaml_token_delete(&token);
+    }
+    ASSERT(found_scalar, "unicode: found scalar");
+    yaml_parser_delete(&parser);
+}
+
+/* Test \U (8-digit) unicode escape for non-BMP character */
+static void test_unicode_escape_U(void) {
+    yaml_parser_t parser;
+    yaml_token_t token;
+
+    /* \U0001F600 = U+1F600 (grinning face emoji), UTF-8: F0 9F 98 80 */
+    const char *yaml = "\"\\U0001F600\"";
+    ASSERT(yaml_parser_initialize(&parser), "init \\U escape");
+    yaml_parser_set_input_string(&parser, (const unsigned char *)yaml, strlen(yaml));
+
+    int found_scalar = 0;
+    while (1) {
+        ASSERT(yaml_parser_scan(&parser, &token), "scan \\U escape");
+        if (token.type == YAML_SCALAR_TOKEN) {
+            found_scalar = 1;
+            ASSERT(token.data.scalar.length == 4, "\\U: 4-byte UTF-8");
+            ASSERT((unsigned char)token.data.scalar.value[0] == 0xF0 &&
+                   (unsigned char)token.data.scalar.value[1] == 0x9F &&
+                   (unsigned char)token.data.scalar.value[2] == 0x98 &&
+                   (unsigned char)token.data.scalar.value[3] == 0x80,
+                   "\\U: produces F0 9F 98 80");
+        }
+        if (token.type == YAML_STREAM_END_TOKEN) {
+            yaml_token_delete(&token);
+            break;
+        }
+        yaml_token_delete(&token);
+    }
+    ASSERT(found_scalar, "\\U: found scalar");
+    yaml_parser_delete(&parser);
+}
+
+/* Test URI-escaped tags (exercises scan_uri_escapes) */
+static void test_tag_uri_escapes(void) {
+    yaml_parser_t parser;
+    yaml_token_t token;
+
+    /* Tag with URI-escaped character: !<!foo%20bar> */
+    const char *yaml = "!<!foo%20bar> value\n";
+    ASSERT(yaml_parser_initialize(&parser), "init tag uri escape");
+    yaml_parser_set_input_string(&parser, (const unsigned char *)yaml, strlen(yaml));
+
+    int found_tag = 0;
+    while (1) {
+        ASSERT(yaml_parser_scan(&parser, &token), "scan tag uri escape");
+        if (token.type == YAML_TAG_TOKEN) {
+            found_tag = 1;
+            /* The suffix should have the URI decoded */
+            ASSERT_NOT_NULL(token.data.tag.suffix, "tag uri: has suffix");
+            if (token.data.tag.suffix) {
+                ASSERT(strstr((const char *)token.data.tag.suffix, "foo") != NULL,
+                       "tag uri: suffix contains foo");
+            }
+        }
+        if (token.type == YAML_STREAM_END_TOKEN) {
+            yaml_token_delete(&token);
+            break;
+        }
+        yaml_token_delete(&token);
+    }
+    ASSERT(found_tag, "tag uri: found tag token");
+    yaml_parser_delete(&parser);
+}
+
+/* Test scanner error on invalid escape sequence */
+static void test_invalid_escape(void) {
+    yaml_parser_t parser;
+    yaml_token_t token;
+
+    const char *yaml = "\"\\z\"";
+    ASSERT(yaml_parser_initialize(&parser), "init invalid escape");
+    yaml_parser_set_input_string(&parser, (const unsigned char *)yaml, strlen(yaml));
+
+    int got_error = 0;
+    while (1) {
+        if (!yaml_parser_scan(&parser, &token)) {
+            got_error = 1;
+            break;
+        }
+        if (token.type == YAML_STREAM_END_TOKEN) {
+            yaml_token_delete(&token);
+            break;
+        }
+        yaml_token_delete(&token);
+    }
+    ASSERT(got_error, "invalid escape: should fail");
+    ASSERT(parser.error == YAML_SCANNER_ERROR, "invalid escape: scanner error");
+    yaml_parser_delete(&parser);
+}
+
+/* Test scanner error on tab in indentation */
+static void test_tab_error(void) {
+    yaml_parser_t parser;
+    yaml_token_t token;
+
+    const char *yaml = "key:\n\t value\n";
+    ASSERT(yaml_parser_initialize(&parser), "init tab error");
+    yaml_parser_set_input_string(&parser, (const unsigned char *)yaml, strlen(yaml));
+
+    int got_error = 0;
+    while (1) {
+        if (!yaml_parser_scan(&parser, &token)) {
+            got_error = 1;
+            break;
+        }
+        if (token.type == YAML_STREAM_END_TOKEN) {
+            yaml_token_delete(&token);
+            break;
+        }
+        yaml_token_delete(&token);
+    }
+    /* Tab as indentation should cause an error */
+    ASSERT(got_error, "tab error: should fail");
+    yaml_parser_delete(&parser);
+}
+
+/* Test multi-line double-quoted scalar with escaped newlines */
+static void test_dquote_multiline(void) {
+    yaml_parser_t parser;
+    yaml_token_t token;
+
+    const char *yaml = "\"line1\\n\\\nline2\"";
+    ASSERT(yaml_parser_initialize(&parser), "init dquote multiline");
+    yaml_parser_set_input_string(&parser, (const unsigned char *)yaml, strlen(yaml));
+
+    int found_scalar = 0;
+    while (1) {
+        ASSERT(yaml_parser_scan(&parser, &token), "scan dquote multiline");
+        if (token.type == YAML_SCALAR_TOKEN) {
+            found_scalar = 1;
+            /* Should contain a literal newline from \n, and the fold from \ at EOL */
+            ASSERT(token.data.scalar.length > 0, "dquote multiline: not empty");
+        }
+        if (token.type == YAML_STREAM_END_TOKEN) {
+            yaml_token_delete(&token);
+            break;
+        }
+        yaml_token_delete(&token);
+    }
+    ASSERT(found_scalar, "dquote multiline: found scalar");
+    yaml_parser_delete(&parser);
+}
+
+/* Test single-quoted scalar with escaped quote */
+static void test_squote_escape(void) {
+    yaml_parser_t parser;
+    yaml_token_t token;
+
+    const char *yaml = "'it''s'";
+    ASSERT(yaml_parser_initialize(&parser), "init squote escape");
+    yaml_parser_set_input_string(&parser, (const unsigned char *)yaml, strlen(yaml));
+
+    int found_scalar = 0;
+    while (1) {
+        ASSERT(yaml_parser_scan(&parser, &token), "scan squote escape");
+        if (token.type == YAML_SCALAR_TOKEN) {
+            found_scalar = 1;
+            ASSERT_EQ_STR((const char *)token.data.scalar.value, "it's",
+                          "squote: escaped quote produces it's");
+        }
+        if (token.type == YAML_STREAM_END_TOKEN) {
+            yaml_token_delete(&token);
+            break;
+        }
+        yaml_token_delete(&token);
+    }
+    ASSERT(found_scalar, "squote: found scalar");
+    yaml_parser_delete(&parser);
+}
+
+/* Test scanning with explicit key indicator */
+static void test_explicit_key_token(void) {
+    yaml_token_type_t tokens[32];
+    int count;
+
+    ASSERT(scan_string_tokens("? explicit_key\n: value\n", tokens, 32, &count),
+           "scan explicit key");
+
+    int found_key = 0;
+    for (int i = 0; i < count; i++) {
+        if (tokens[i] == YAML_KEY_TOKEN) found_key++;
+    }
+    ASSERT(found_key >= 1, "explicit key: has KEY token");
+}
+
+/* Test scanning large input to exercise buffer resizing */
+static void test_large_scalar(void) {
+    char yaml[32768];
+    int pos;
+
+    /* Build a large double-quoted string */
+    yaml[0] = '"';
+    for (pos = 1; pos < 30000; pos++) {
+        yaml[pos] = 'a' + (pos % 26);
+    }
+    yaml[pos++] = '"';
+    yaml[pos] = '\0';
+
+    yaml_parser_t parser;
+    yaml_token_t token;
+    ASSERT(yaml_parser_initialize(&parser), "init large scalar");
+    yaml_parser_set_input_string(&parser, (const unsigned char *)yaml, (size_t)pos);
+
+    int found_scalar = 0;
+    while (1) {
+        ASSERT(yaml_parser_scan(&parser, &token), "scan large scalar");
+        if (token.type == YAML_SCALAR_TOKEN) {
+            found_scalar = 1;
+            ASSERT_EQ_INT((int)token.data.scalar.length, 29999,
+                          "large scalar: correct length");
+        }
+        if (token.type == YAML_STREAM_END_TOKEN) {
+            yaml_token_delete(&token);
+            break;
+        }
+        yaml_token_delete(&token);
+    }
+    ASSERT(found_scalar, "large scalar: found");
+    yaml_parser_delete(&parser);
+}
+
 int main(void) {
     TEST_SUITE_BEGIN("Scanner");
 
@@ -354,6 +676,17 @@ int main(void) {
     test_nested();
     test_multiline_plain();
     test_token_marks();
+    test_escape_sequences();
+    test_escape_ls_ps();
+    test_unicode_escapes();
+    test_unicode_escape_U();
+    test_tag_uri_escapes();
+    test_invalid_escape();
+    test_tab_error();
+    test_dquote_multiline();
+    test_squote_escape();
+    test_explicit_key_token();
+    test_large_scalar();
 
     TEST_SUITE_END();
 }
