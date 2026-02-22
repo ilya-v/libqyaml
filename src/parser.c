@@ -721,14 +721,9 @@ yaml_parser_parse_node(yaml_parser_t *parser, yaml_event_t *event,
                 return 1;
             }
             else if (anchor || tag) {
-                yaml_char_t *value = YAML_MALLOC(1);
-                if (!value) {
-                    parser->error = YAML_MEMORY_ERROR;
-                    goto error;
-                }
-                value[0] = '\0';
                 parser->state = POP(parser, parser->states);
-                SCALAR_EVENT_INIT(*event, anchor, tag, value, 0,
+                SCALAR_EVENT_INIT(*event, anchor, tag,
+                        (yaml_char_t *)yaml_empty_scalar_value, 0,
                         implicit, 0, YAML_PLAIN_SCALAR_STYLE,
                         start_mark, end_mark);
                 return 1;
@@ -1244,19 +1239,11 @@ yaml_parser_parse_flow_mapping_value(yaml_parser_t *parser,
  */
 
 static int
-yaml_parser_process_empty_scalar(yaml_parser_t *parser, yaml_event_t *event,
+yaml_parser_process_empty_scalar(SHIM(yaml_parser_t *parser), yaml_event_t *event,
         yaml_mark_t mark)
 {
-    yaml_char_t *value;
-
-    value = YAML_MALLOC(1);
-    if (!value) {
-        parser->error = YAML_MEMORY_ERROR;
-        return 0;
-    }
-    value[0] = '\0';
-
-    SCALAR_EVENT_INIT(*event, NULL, NULL, value, 0,
+    SCALAR_EVENT_INIT(*event, NULL, NULL,
+            (yaml_char_t *)yaml_empty_scalar_value, 0,
             1, 0, YAML_PLAIN_SCALAR_STYLE, mark, mark);
 
     return 1;

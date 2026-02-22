@@ -181,7 +181,8 @@ yaml_emitter_delete_document_and_anchors(yaml_emitter_t *emitter)
             if (!yaml_tag_is_default(node.tag))
                 yaml_free(node.tag);
             if (node.type == YAML_SCALAR_NODE) {
-                yaml_free(node.data.scalar.value);
+                if (!yaml_value_is_empty_static(node.data.scalar.value))
+                    yaml_free(node.data.scalar.value);
             }
         }
         if (node.type == YAML_SEQUENCE_NODE) {

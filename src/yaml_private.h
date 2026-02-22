@@ -690,6 +690,7 @@ yaml_queue_extend(void **start, void **head, void **tail, void **end);
 extern const yaml_char_t yaml_default_scalar_tag[];
 extern const yaml_char_t yaml_default_sequence_tag[];
 extern const yaml_char_t yaml_default_mapping_tag[];
+extern const yaml_char_t yaml_empty_scalar_value[];
 
 static inline int
 yaml_tag_is_default(const yaml_char_t *tag)
@@ -697,6 +698,12 @@ yaml_tag_is_default(const yaml_char_t *tag)
     return tag == yaml_default_scalar_tag
         || tag == yaml_default_sequence_tag
         || tag == yaml_default_mapping_tag;
+}
+
+static inline int
+yaml_value_is_empty_static(const yaml_char_t *value)
+{
+    return value == yaml_empty_scalar_value;
 }
 
 #define YAML_MALLOC_STATIC(type) (type*)yaml_malloc(sizeof(type))
