@@ -500,8 +500,7 @@ yaml_queue_extend(void **start, void **head, void **tail, void **end);
  */
 
 #define TOKEN_INIT(token,token_type,token_start_mark,token_end_mark)            \
-    (memset(&(token), 0, sizeof(yaml_token_t)),                                 \
-     (token).type = (token_type),                                               \
+    ((token).type = (token_type),                                               \
      (token).start_mark = (token_start_mark),                                   \
      (token).end_mark = (token_end_mark))
 
@@ -546,8 +545,7 @@ yaml_queue_extend(void **start, void **head, void **tail, void **end);
  */
 
 #define EVENT_INIT(event,event_type,event_start_mark,event_end_mark)            \
-    (memset(&(event), 0, sizeof(yaml_event_t)),                                 \
-     (event).type = (event_type),                                               \
+    ((event).type = (event_type),                                               \
      (event).start_mark = (event_start_mark),                                   \
      (event).end_mark = (event_end_mark))
 
