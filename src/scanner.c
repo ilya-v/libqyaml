@@ -2925,6 +2925,36 @@ yaml_parser_scan_block_scalar(yaml_parser_t *parser, yaml_token_t *token,
         /* Consume the current line. */
 
         while (!IS_BREAKZ(parser->buffer)) {
+            /* Batch copy ASCII bytes until line break */
+            if (parser->unread >= 2) {
+                yaml_char_t *src = parser->buffer.pointer;
+                yaml_char_t *lim = src + parser->unread;
+                yaml_char_t *start = src;
+                while (src < lim) {
+                    unsigned char ch = *src;
+                    if (ch == '\0' || ch == '\n' || ch == '\r'
+                        || ch >= 0x80) break;
+                    src++;
+                }
+                if (src > start) {
+                    size_t n = (size_t)(src - start);
+                    while (string.pointer + n + 5 >= string.end) {
+                        if (!yaml_string_extend(&string.start,
+                                &string.pointer, &string.end)) {
+                            parser->error = YAML_MEMORY_ERROR;
+                            goto error;
+                        }
+                    }
+                    memcpy(string.pointer, start, n);
+                    string.pointer += n;
+                    parser->buffer.pointer = src;
+                    parser->mark.index += n;
+                    parser->mark.column += n;
+                    parser->unread -= n;
+                    if (!CACHE(parser, 1)) goto error;
+                    continue;
+                }
+            }
             if (!READ(parser, string)) goto error;
             if (!CACHE(parser, 1)) goto error;
         }
@@ -3292,7 +3322,43 @@ yaml_parser_scan_flow_scalar(yaml_parser_t *parser, yaml_token_t *token,
 
             else
             {
-                /* It is a non-escaped non-blank character. */
+                /*
+                 * Non-escaped non-blank character. Try batch copy for
+                 * ASCII characters that cannot be special in this context.
+                 */
+                if (parser->unread >= 4) {
+                    yaml_char_t *src = parser->buffer.pointer;
+                    yaml_char_t *lim = src + parser->unread - 1;
+                    yaml_char_t *start = src;
+                    unsigned char quote = single ? '\'' : '"';
+
+                    while (src < lim) {
+                        unsigned char ch = *src;
+                        if (ch <= 0x20 || ch >= 0x80
+                            || ch == quote || ch == '\\')
+                            break;
+                        src++;
+                    }
+
+                    if (src > start) {
+                        size_t n = (size_t)(src - start);
+                        while (string.pointer + n + 5 >= string.end) {
+                            if (!yaml_string_extend(&string.start,
+                                    &string.pointer, &string.end)) {
+                                parser->error = YAML_MEMORY_ERROR;
+                                goto error;
+                            }
+                        }
+                        memcpy(string.pointer, start, n);
+                        string.pointer += n;
+                        parser->buffer.pointer = src;
+                        parser->mark.index += n;
+                        parser->mark.column += n;
+                        parser->unread -= n;
+                        if (!CACHE(parser, 2)) goto error;
+                        continue;
+                    }
+                }
 
                 if (!READ(parser, string)) goto error;
             }

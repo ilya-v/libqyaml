@@ -78,8 +78,6 @@ yaml_string_extend(yaml_char_t **start,
 
     if (!new_start) return 0;
 
-    memset(new_start + (*end - *start), 0, *end - *start);
-
     *pointer = new_start + (*pointer - *start);
     *end = new_start + (*end - *start)*2;
     *start = new_start;
