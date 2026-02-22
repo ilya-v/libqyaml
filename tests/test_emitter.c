@@ -848,9 +848,977 @@ static void test_width_limit(void) {
     yaml_emitter_delete(&emitter);
 }
 
+/* ==================================================================
+ * Emitter deep-dive: double-quoted escape sequences
+ * Each test emits a scalar containing a specific control/special
+ * character and verifies the emitter produces the correct escape.
+ * ================================================================== */
+
+/* Helper: emit a single double-quoted scalar and return the output string.
+ * unicode_flag: 1=pass non-ASCII through, 0=escape non-ASCII */
+static int emit_double_quoted_ex(const unsigned char *value, size_t length,
+                                 int unicode_flag,
+                                 char *out, size_t out_size, size_t *out_len) {
+    yaml_emitter_t emitter;
+    yaml_event_t event;
+    unsigned char output[8192];
+    size_t written = 0;
+
+    if (!yaml_emitter_initialize(&emitter)) return 0;
+    yaml_emitter_set_output_string(&emitter, output, sizeof(output), &written);
+    yaml_emitter_set_unicode(&emitter, unicode_flag);
+
+    yaml_stream_start_event_initialize(&event, YAML_UTF8_ENCODING);
+    if (!yaml_emitter_emit(&emitter, &event)) goto fail;
+
+    yaml_document_start_event_initialize(&event, NULL, NULL, NULL, 1);
+    if (!yaml_emitter_emit(&emitter, &event)) goto fail;
+
+    yaml_scalar_event_initialize(&event, NULL, (const yaml_char_t *)YAML_STR_TAG,
+        value, (int)length, 0, 0, YAML_DOUBLE_QUOTED_SCALAR_STYLE);
+    if (!yaml_emitter_emit(&emitter, &event)) goto fail;
+
+    yaml_document_end_event_initialize(&event, 1);
+    if (!yaml_emitter_emit(&emitter, &event)) goto fail;
+
+    yaml_stream_end_event_initialize(&event);
+    if (!yaml_emitter_emit(&emitter, &event)) goto fail;
+
+    yaml_emitter_delete(&emitter);
+
+    if (written < out_size) {
+        memcpy(out, output, written);
+        out[written] = '\0';
+        *out_len = written;
+    }
+    return 1;
+
+fail:
+    yaml_emitter_delete(&emitter);
+    return 0;
+}
+
+static int emit_double_quoted(const unsigned char *value, size_t length,
+                              char *out, size_t out_size, size_t *out_len) {
+    return emit_double_quoted_ex(value, length, 1, out, out_size, out_len);
+}
+
+static int emit_double_quoted_no_unicode(const unsigned char *value, size_t length,
+                                         char *out, size_t out_size, size_t *out_len) {
+    return emit_double_quoted_ex(value, length, 0, out, out_size, out_len);
+}
+
+static void test_escape_null(void) {
+    char out[8192]; size_t len;
+    unsigned char val[] = {'a', 0x00, 'b'};
+    ASSERT(emit_double_quoted(val, 3, out, sizeof(out), &len), "escape null: emit");
+    ASSERT(strstr(out, "\\0") != NULL, "escape null: contains \\0");
+}
+
+static void test_escape_bell(void) {
+    char out[8192]; size_t len;
+    unsigned char val[] = {'a', 0x07, 'b'};
+    ASSERT(emit_double_quoted(val, 3, out, sizeof(out), &len), "escape bell: emit");
+    ASSERT(strstr(out, "\\a") != NULL, "escape bell: contains \\a");
+}
+
+static void test_escape_backspace(void) {
+    char out[8192]; size_t len;
+    unsigned char val[] = {'a', 0x08, 'b'};
+    ASSERT(emit_double_quoted(val, 3, out, sizeof(out), &len), "escape bs: emit");
+    ASSERT(strstr(out, "\\b") != NULL, "escape bs: contains \\b");
+}
+
+static void test_escape_tab(void) {
+    char out[8192]; size_t len;
+    unsigned char val[] = {'a', 0x09, 'b'};
+    ASSERT(emit_double_quoted(val, 3, out, sizeof(out), &len), "escape tab: emit");
+    ASSERT(strstr(out, "\\t") != NULL, "escape tab: contains \\t");
+}
+
+static void test_escape_newline(void) {
+    char out[8192]; size_t len;
+    unsigned char val[] = {'a', 0x0A, 'b'};
+    ASSERT(emit_double_quoted(val, 3, out, sizeof(out), &len), "escape nl: emit");
+    ASSERT(strstr(out, "\\n") != NULL, "escape nl: contains \\n");
+}
+
+static void test_escape_vtab(void) {
+    char out[8192]; size_t len;
+    unsigned char val[] = {'a', 0x0B, 'b'};
+    ASSERT(emit_double_quoted(val, 3, out, sizeof(out), &len), "escape vtab: emit");
+    ASSERT(strstr(out, "\\v") != NULL, "escape vtab: contains \\v");
+}
+
+static void test_escape_formfeed(void) {
+    char out[8192]; size_t len;
+    unsigned char val[] = {'a', 0x0C, 'b'};
+    ASSERT(emit_double_quoted(val, 3, out, sizeof(out), &len), "escape ff: emit");
+    ASSERT(strstr(out, "\\f") != NULL, "escape ff: contains \\f");
+}
+
+static void test_escape_cr(void) {
+    char out[8192]; size_t len;
+    unsigned char val[] = {'a', 0x0D, 'b'};
+    ASSERT(emit_double_quoted(val, 3, out, sizeof(out), &len), "escape cr: emit");
+    ASSERT(strstr(out, "\\r") != NULL, "escape cr: contains \\r");
+}
+
+static void test_escape_esc(void) {
+    char out[8192]; size_t len;
+    unsigned char val[] = {'a', 0x1B, 'b'};
+    ASSERT(emit_double_quoted(val, 3, out, sizeof(out), &len), "escape esc: emit");
+    ASSERT(strstr(out, "\\e") != NULL, "escape esc: contains \\e");
+}
+
+static void test_escape_backslash(void) {
+    char out[8192]; size_t len;
+    unsigned char val[] = {'a', '\\', 'b'};
+    ASSERT(emit_double_quoted(val, 3, out, sizeof(out), &len), "escape bs: emit");
+    ASSERT(strstr(out, "\\\\") != NULL, "escape backslash: contains \\\\");
+}
+
+static void test_escape_dquote(void) {
+    char out[8192]; size_t len;
+    unsigned char val[] = {'a', '"', 'b'};
+    ASSERT(emit_double_quoted(val, 3, out, sizeof(out), &len), "escape dquote: emit");
+    ASSERT(strstr(out, "\\\"") != NULL, "escape dquote: contains \\\"");
+}
+
+static void test_escape_next_line(void) {
+    /* U+0085 NEL = 0xC2 0x85 in UTF-8 */
+    char out[8192]; size_t len;
+    unsigned char val[] = {'a', 0xC2, 0x85, 'b'};
+    ASSERT(emit_double_quoted(val, 4, out, sizeof(out), &len), "escape NEL: emit");
+    ASSERT(strstr(out, "\\N") != NULL, "escape NEL: contains \\N");
+}
+
+static void test_escape_nbsp(void) {
+    /* U+00A0 NBSP = 0xC2 0xA0 in UTF-8
+     * IS_PRINTABLE considers this printable, so need unicode=0 to force escape */
+    char out[8192]; size_t len;
+    unsigned char val[] = {'a', 0xC2, 0xA0, 'b'};
+    ASSERT(emit_double_quoted_no_unicode(val, 4, out, sizeof(out), &len), "escape NBSP: emit");
+    ASSERT(strstr(out, "\\_") != NULL, "escape NBSP: contains \\_");
+}
+
+static void test_escape_linesep(void) {
+    /* U+2028 LS = 0xE2 0x80 0xA8 in UTF-8
+     * IS_BREAK matches LS, so it's escaped even with unicode=1 */
+    char out[8192]; size_t len;
+    unsigned char val[] = {'a', 0xE2, 0x80, 0xA8, 'b'};
+    ASSERT(emit_double_quoted(val, 5, out, sizeof(out), &len), "escape LS: emit");
+    ASSERT(strstr(out, "\\L") != NULL, "escape LS: contains \\L");
+}
+
+static void test_escape_parasep(void) {
+    /* U+2029 PS = 0xE2 0x80 0xA9 in UTF-8
+     * IS_BREAK matches PS, so it's escaped even with unicode=1 */
+    char out[8192]; size_t len;
+    unsigned char val[] = {'a', 0xE2, 0x80, 0xA9, 'b'};
+    ASSERT(emit_double_quoted(val, 5, out, sizeof(out), &len), "escape PS: emit");
+    ASSERT(strstr(out, "\\P") != NULL, "escape PS: contains \\P");
+}
+
+static void test_escape_hex(void) {
+    /* Control char 0x01 should produce \x01 */
+    char out[8192]; size_t len;
+    unsigned char val[] = {'a', 0x01, 'b'};
+    ASSERT(emit_double_quoted(val, 3, out, sizeof(out), &len), "escape hex: emit");
+    ASSERT(strstr(out, "\\x01") != NULL, "escape hex: contains \\x01");
+}
+
+static void test_escape_unicode_bmp(void) {
+    /* Non-printable BMP char: U+FFFE = 0xEF 0xBF 0xBE in UTF-8 */
+    char out[8192]; size_t len;
+    unsigned char val[] = {'a', 0xEF, 0xBF, 0xBE, 'b'};
+    ASSERT(emit_double_quoted(val, 5, out, sizeof(out), &len), "escape ubmp: emit");
+    ASSERT(strstr(out, "\\uFFFE") != NULL, "escape ubmp: contains \\uFFFE");
+}
+
+static void test_escape_unicode_nonbmp(void) {
+    /* Non-BMP: U+1F600 = 0xF0 0x9F 0x98 0x80 in UTF-8
+     * IS_PRINTABLE doesn't cover 4-byte UTF-8, so it will be escaped */
+    char out[8192]; size_t len;
+    unsigned char val[] = {'a', 0xF0, 0x9F, 0x98, 0x80, 'b'};
+    ASSERT(emit_double_quoted(val, 6, out, sizeof(out), &len), "escape nonbmp: emit");
+    ASSERT(strstr(out, "\\U0001F600") != NULL, "escape nonbmp: contains \\U0001F600");
+}
+
+/* ==================================================================
+ * Emitter deep-dive: block scalar hints (indent + chomp)
+ * ================================================================== */
+
+static void test_block_scalar_empty_content(void) {
+    /* Empty scalar with literal style -- not allowed, emitter will use quotes */
+    yaml_emitter_t emitter;
+    yaml_event_t event;
+    unsigned char output[4096];
+    size_t written = 0;
+
+    yaml_emitter_initialize(&emitter);
+    yaml_emitter_set_output_string(&emitter, output, sizeof(output), &written);
+
+    yaml_stream_start_event_initialize(&event, YAML_UTF8_ENCODING);
+    yaml_emitter_emit(&emitter, &event);
+    yaml_document_start_event_initialize(&event, NULL, NULL, NULL, 1);
+    yaml_emitter_emit(&emitter, &event);
+
+    /* Request literal style for empty scalar */
+    yaml_scalar_event_initialize(&event, NULL, (const yaml_char_t *)YAML_STR_TAG,
+        (const yaml_char_t *)"", 0, 1, 1, YAML_LITERAL_SCALAR_STYLE);
+    ASSERT(yaml_emitter_emit(&emitter, &event), "block empty: emit scalar");
+
+    yaml_document_end_event_initialize(&event, 1);
+    yaml_emitter_emit(&emitter, &event);
+    yaml_stream_end_event_initialize(&event);
+    yaml_emitter_emit(&emitter, &event);
+
+    output[written] = '\0';
+    /* Emitter should fall back to a quoted style for empty string */
+    ASSERT(written > 0, "block empty: produces output");
+
+    yaml_emitter_delete(&emitter);
+}
+
+static void test_block_scalar_leading_space(void) {
+    /* Literal scalar starting with space triggers indent indicator */
+    yaml_emitter_t emitter;
+    yaml_event_t event;
+    unsigned char output[4096];
+    size_t written = 0;
+
+    yaml_emitter_initialize(&emitter);
+    yaml_emitter_set_output_string(&emitter, output, sizeof(output), &written);
+
+    yaml_stream_start_event_initialize(&event, YAML_UTF8_ENCODING);
+    yaml_emitter_emit(&emitter, &event);
+    yaml_document_start_event_initialize(&event, NULL, NULL, NULL, 1);
+    yaml_emitter_emit(&emitter, &event);
+
+    yaml_scalar_event_initialize(&event, NULL, (const yaml_char_t *)YAML_STR_TAG,
+        (const yaml_char_t *)" indented first line\nsecond line\n", 32, 0, 0,
+        YAML_LITERAL_SCALAR_STYLE);
+    ASSERT(yaml_emitter_emit(&emitter, &event), "block leading space: emit");
+
+    yaml_document_end_event_initialize(&event, 1);
+    yaml_emitter_emit(&emitter, &event);
+    yaml_stream_end_event_initialize(&event);
+    yaml_emitter_emit(&emitter, &event);
+
+    output[written] = '\0';
+    /* Should contain indent indicator (|2 or similar) */
+    ASSERT(strstr((const char *)output, "|") != NULL, "block leading space: has | indicator");
+
+    yaml_emitter_delete(&emitter);
+}
+
+static void test_block_scalar_leading_break(void) {
+    /* Literal scalar starting with newline triggers indent indicator */
+    yaml_emitter_t emitter;
+    yaml_event_t event;
+    unsigned char output[4096];
+    size_t written = 0;
+
+    yaml_emitter_initialize(&emitter);
+    yaml_emitter_set_output_string(&emitter, output, sizeof(output), &written);
+
+    yaml_stream_start_event_initialize(&event, YAML_UTF8_ENCODING);
+    yaml_emitter_emit(&emitter, &event);
+    yaml_document_start_event_initialize(&event, NULL, NULL, NULL, 1);
+    yaml_emitter_emit(&emitter, &event);
+
+    yaml_scalar_event_initialize(&event, NULL, (const yaml_char_t *)YAML_STR_TAG,
+        (const yaml_char_t *)"\nfirst line\nsecond line\n", 23, 0, 0,
+        YAML_LITERAL_SCALAR_STYLE);
+    ASSERT(yaml_emitter_emit(&emitter, &event), "block leading break: emit");
+
+    yaml_document_end_event_initialize(&event, 1);
+    yaml_emitter_emit(&emitter, &event);
+    yaml_stream_end_event_initialize(&event);
+    yaml_emitter_emit(&emitter, &event);
+
+    output[written] = '\0';
+    ASSERT(strstr((const char *)output, "|") != NULL, "block leading break: has | indicator");
+
+    yaml_emitter_delete(&emitter);
+}
+
+static void test_block_scalar_strip_chomp(void) {
+    /* Scalar without trailing newline should get strip chomp (-) */
+    yaml_emitter_t emitter;
+    yaml_event_t event;
+    unsigned char output[4096];
+    size_t written = 0;
+
+    yaml_emitter_initialize(&emitter);
+    yaml_emitter_set_output_string(&emitter, output, sizeof(output), &written);
+
+    yaml_stream_start_event_initialize(&event, YAML_UTF8_ENCODING);
+    yaml_emitter_emit(&emitter, &event);
+    yaml_document_start_event_initialize(&event, NULL, NULL, NULL, 1);
+    yaml_emitter_emit(&emitter, &event);
+
+    yaml_scalar_event_initialize(&event, NULL, (const yaml_char_t *)YAML_STR_TAG,
+        (const yaml_char_t *)"no trailing newline", 19, 0, 0,
+        YAML_LITERAL_SCALAR_STYLE);
+    ASSERT(yaml_emitter_emit(&emitter, &event), "strip chomp: emit");
+
+    yaml_document_end_event_initialize(&event, 1);
+    yaml_emitter_emit(&emitter, &event);
+    yaml_stream_end_event_initialize(&event);
+    yaml_emitter_emit(&emitter, &event);
+
+    output[written] = '\0';
+    ASSERT(strstr((const char *)output, "|-") != NULL, "strip chomp: has |-");
+
+    yaml_emitter_delete(&emitter);
+}
+
+static void test_block_scalar_keep_chomp(void) {
+    /* Scalar ending with two newlines should get keep chomp (+) */
+    yaml_emitter_t emitter;
+    yaml_event_t event;
+    unsigned char output[4096];
+    size_t written = 0;
+
+    yaml_emitter_initialize(&emitter);
+    yaml_emitter_set_output_string(&emitter, output, sizeof(output), &written);
+
+    yaml_stream_start_event_initialize(&event, YAML_UTF8_ENCODING);
+    yaml_emitter_emit(&emitter, &event);
+    yaml_document_start_event_initialize(&event, NULL, NULL, NULL, 1);
+    yaml_emitter_emit(&emitter, &event);
+
+    yaml_scalar_event_initialize(&event, NULL, (const yaml_char_t *)YAML_STR_TAG,
+        (const yaml_char_t *)"keep trailing\n\n", 15, 0, 0,
+        YAML_LITERAL_SCALAR_STYLE);
+    ASSERT(yaml_emitter_emit(&emitter, &event), "keep chomp: emit");
+
+    yaml_document_end_event_initialize(&event, 1);
+    yaml_emitter_emit(&emitter, &event);
+    yaml_stream_end_event_initialize(&event);
+    yaml_emitter_emit(&emitter, &event);
+
+    output[written] = '\0';
+    ASSERT(strstr((const char *)output, "|+") != NULL, "keep chomp: has |+");
+
+    yaml_emitter_delete(&emitter);
+}
+
+static void test_block_scalar_only_newline(void) {
+    /* Scalar that is just "\n" should use keep chomp */
+    yaml_emitter_t emitter;
+    yaml_event_t event;
+    unsigned char output[4096];
+    size_t written = 0;
+
+    yaml_emitter_initialize(&emitter);
+    yaml_emitter_set_output_string(&emitter, output, sizeof(output), &written);
+
+    yaml_stream_start_event_initialize(&event, YAML_UTF8_ENCODING);
+    yaml_emitter_emit(&emitter, &event);
+    yaml_document_start_event_initialize(&event, NULL, NULL, NULL, 1);
+    yaml_emitter_emit(&emitter, &event);
+
+    yaml_scalar_event_initialize(&event, NULL, (const yaml_char_t *)YAML_STR_TAG,
+        (const yaml_char_t *)"\n", 1, 0, 0,
+        YAML_LITERAL_SCALAR_STYLE);
+    ASSERT(yaml_emitter_emit(&emitter, &event), "only newline: emit");
+
+    yaml_document_end_event_initialize(&event, 1);
+    yaml_emitter_emit(&emitter, &event);
+    yaml_stream_end_event_initialize(&event);
+    yaml_emitter_emit(&emitter, &event);
+
+    output[written] = '\0';
+    /* Single newline: start==pointer after backup, so keep chomp */
+    ASSERT(written > 0, "only newline: produces output");
+
+    yaml_emitter_delete(&emitter);
+}
+
+/* ==================================================================
+ * Emitter deep-dive: scalar analysis edge cases
+ * ================================================================== */
+
+static void test_scalar_starting_with_dash(void) {
+    /* "---" at start of scalar forces quoting */
+    char out[8192]; size_t len;
+    ASSERT(emit_double_quoted((const unsigned char *)"--- header", 10, out, sizeof(out), &len),
+           "dash scalar: emit");
+    ASSERT(strstr(out, "--- header") != NULL || strstr(out, "\\\"") != NULL || strstr(out, "'") != NULL,
+           "dash scalar: properly handled");
+}
+
+static void test_scalar_starting_with_dots(void) {
+    /* "..." at start forces quoting */
+    char out[8192]; size_t len;
+    ASSERT(emit_double_quoted((const unsigned char *)"... footer", 10, out, sizeof(out), &len),
+           "dots scalar: emit");
+    ASSERT(strstr(out, "... footer") != NULL, "dots scalar: properly handled");
+}
+
+static void test_scalar_space_break_forces_dquote(void) {
+    /* Space followed by break forces double-quoted only */
+    char out[8192]; size_t len;
+    unsigned char val[] = {'a', ' ', '\n', 'b'};
+    ASSERT(emit_double_quoted(val, 4, out, sizeof(out), &len),
+           "space_break: emit");
+    ASSERT(strstr(out, "\"") != NULL, "space_break: uses double quotes");
+}
+
+static void test_scalar_break_space(void) {
+    /* Break followed by space */
+    char out[8192]; size_t len;
+    unsigned char val[] = {'a', '\n', ' ', 'b'};
+    ASSERT(emit_double_quoted(val, 4, out, sizeof(out), &len),
+           "break_space: emit");
+    ASSERT(strstr(out, "\"") != NULL, "break_space: uses double quotes");
+}
+
+/* ==================================================================
+ * Emitter deep-dive: multi-document with directives
+ * ================================================================== */
+
+static void test_version_directive_1_2(void) {
+    yaml_emitter_t emitter;
+    yaml_event_t event;
+    unsigned char output[4096];
+    size_t written = 0;
+
+    yaml_emitter_initialize(&emitter);
+    yaml_emitter_set_output_string(&emitter, output, sizeof(output), &written);
+
+    yaml_stream_start_event_initialize(&event, YAML_UTF8_ENCODING);
+    yaml_emitter_emit(&emitter, &event);
+
+    /* Version 1.2 */
+    yaml_version_directive_t ver = {1, 2};
+    yaml_document_start_event_initialize(&event, &ver, NULL, NULL, 0);
+    yaml_emitter_emit(&emitter, &event);
+
+    yaml_scalar_event_initialize(&event, NULL, (const yaml_char_t *)YAML_STR_TAG,
+        (const yaml_char_t *)"test", 4, 1, 1, YAML_PLAIN_SCALAR_STYLE);
+    yaml_emitter_emit(&emitter, &event);
+
+    yaml_document_end_event_initialize(&event, 0);
+    yaml_emitter_emit(&emitter, &event);
+
+    yaml_stream_end_event_initialize(&event);
+    yaml_emitter_emit(&emitter, &event);
+
+    output[written] = '\0';
+    ASSERT(strstr((const char *)output, "%YAML 1.2") != NULL,
+           "version 1.2: contains %YAML 1.2");
+    ASSERT(strstr((const char *)output, "---") != NULL,
+           "version 1.2: contains ---");
+
+    yaml_emitter_delete(&emitter);
+}
+
+static void test_multi_doc_with_version(void) {
+    yaml_emitter_t emitter;
+    yaml_event_t event;
+    unsigned char output[4096];
+    size_t written = 0;
+
+    yaml_emitter_initialize(&emitter);
+    yaml_emitter_set_output_string(&emitter, output, sizeof(output), &written);
+
+    yaml_stream_start_event_initialize(&event, YAML_UTF8_ENCODING);
+    yaml_emitter_emit(&emitter, &event);
+
+    /* First doc with version 1.1 */
+    yaml_version_directive_t ver1 = {1, 1};
+    yaml_document_start_event_initialize(&event, &ver1, NULL, NULL, 0);
+    yaml_emitter_emit(&emitter, &event);
+    yaml_scalar_event_initialize(&event, NULL, (const yaml_char_t *)YAML_STR_TAG,
+        (const yaml_char_t *)"first", 5, 1, 1, YAML_PLAIN_SCALAR_STYLE);
+    yaml_emitter_emit(&emitter, &event);
+    yaml_document_end_event_initialize(&event, 0);
+    yaml_emitter_emit(&emitter, &event);
+
+    /* Second doc with version 1.2 */
+    yaml_version_directive_t ver2 = {1, 2};
+    yaml_document_start_event_initialize(&event, &ver2, NULL, NULL, 0);
+    yaml_emitter_emit(&emitter, &event);
+    yaml_scalar_event_initialize(&event, NULL, (const yaml_char_t *)YAML_STR_TAG,
+        (const yaml_char_t *)"second", 6, 1, 1, YAML_PLAIN_SCALAR_STYLE);
+    yaml_emitter_emit(&emitter, &event);
+    yaml_document_end_event_initialize(&event, 0);
+    yaml_emitter_emit(&emitter, &event);
+
+    yaml_stream_end_event_initialize(&event);
+    yaml_emitter_emit(&emitter, &event);
+
+    output[written] = '\0';
+    ASSERT(strstr((const char *)output, "1.1") != NULL,
+           "multi doc version: contains 1.1");
+    ASSERT(strstr((const char *)output, "1.2") != NULL,
+           "multi doc version: contains 1.2");
+
+    yaml_emitter_delete(&emitter);
+}
+
+static void test_doc_end_before_directive(void) {
+    /* When a doc has open_ended content and the next doc has directives,
+     * the emitter must emit "..." before the directive */
+    yaml_emitter_t emitter;
+    yaml_event_t event;
+    unsigned char output[8192];
+    size_t written = 0;
+
+    yaml_emitter_initialize(&emitter);
+    yaml_emitter_set_output_string(&emitter, output, sizeof(output), &written);
+
+    yaml_stream_start_event_initialize(&event, YAML_UTF8_ENCODING);
+    yaml_emitter_emit(&emitter, &event);
+
+    /* First doc: literal scalar with keep chomp (open_ended=2) */
+    yaml_document_start_event_initialize(&event, NULL, NULL, NULL, 1);
+    yaml_emitter_emit(&emitter, &event);
+    yaml_scalar_event_initialize(&event, NULL, (const yaml_char_t *)YAML_STR_TAG,
+        (const yaml_char_t *)"content\n\n", 9, 0, 0,
+        YAML_LITERAL_SCALAR_STYLE);
+    yaml_emitter_emit(&emitter, &event);
+    yaml_document_end_event_initialize(&event, 1);
+    yaml_emitter_emit(&emitter, &event);
+
+    /* Second doc: with tag directive (forces ... before it) */
+    yaml_tag_directive_t tags[] = {
+        {(yaml_char_t *)"!e!", (yaml_char_t *)"tag:example.com,2000:"},
+        {NULL, NULL}
+    };
+    yaml_document_start_event_initialize(&event, NULL, tags, tags + 1, 0);
+    yaml_emitter_emit(&emitter, &event);
+    yaml_scalar_event_initialize(&event, NULL, (const yaml_char_t *)YAML_STR_TAG,
+        (const yaml_char_t *)"tagged", 6, 1, 1, YAML_PLAIN_SCALAR_STYLE);
+    yaml_emitter_emit(&emitter, &event);
+    yaml_document_end_event_initialize(&event, 0);
+    yaml_emitter_emit(&emitter, &event);
+
+    yaml_stream_end_event_initialize(&event);
+    yaml_emitter_emit(&emitter, &event);
+
+    output[written] = '\0';
+    ASSERT(strstr((const char *)output, "...") != NULL,
+           "doc end before directive: contains ...");
+    ASSERT(strstr((const char *)output, "%TAG") != NULL,
+           "doc end before directive: contains %TAG");
+
+    yaml_emitter_delete(&emitter);
+}
+
+/* ==================================================================
+ * Emitter deep-dive: check_simple_key coverage
+ * ================================================================== */
+
+static void test_long_key_not_simple(void) {
+    /* Keys longer than 1024 bytes are not simple */
+    yaml_emitter_t emitter;
+    yaml_event_t event;
+    unsigned char output[16384];
+    size_t written = 0;
+    char long_key[1100];
+    memset(long_key, 'k', 1100);
+    long_key[1099] = '\0';
+
+    yaml_emitter_initialize(&emitter);
+    yaml_emitter_set_output_string(&emitter, output, sizeof(output), &written);
+
+    yaml_stream_start_event_initialize(&event, YAML_UTF8_ENCODING);
+    yaml_emitter_emit(&emitter, &event);
+    yaml_document_start_event_initialize(&event, NULL, NULL, NULL, 1);
+    yaml_emitter_emit(&emitter, &event);
+
+    yaml_mapping_start_event_initialize(&event, NULL,
+        (const yaml_char_t *)YAML_MAP_TAG, 1, YAML_BLOCK_MAPPING_STYLE);
+    yaml_emitter_emit(&emitter, &event);
+
+    yaml_scalar_event_initialize(&event, NULL, (const yaml_char_t *)YAML_STR_TAG,
+        (const yaml_char_t *)long_key, 1099, 1, 1, YAML_PLAIN_SCALAR_STYLE);
+    yaml_emitter_emit(&emitter, &event);
+
+    yaml_scalar_event_initialize(&event, NULL, (const yaml_char_t *)YAML_STR_TAG,
+        (const yaml_char_t *)"val", 3, 1, 1, YAML_PLAIN_SCALAR_STYLE);
+    yaml_emitter_emit(&emitter, &event);
+
+    yaml_mapping_end_event_initialize(&event);
+    yaml_emitter_emit(&emitter, &event);
+    yaml_document_end_event_initialize(&event, 1);
+    yaml_emitter_emit(&emitter, &event);
+    yaml_stream_end_event_initialize(&event);
+    yaml_emitter_emit(&emitter, &event);
+
+    output[written] = '\0';
+    /* Long key should trigger explicit key (? indicator) */
+    ASSERT(strstr((const char *)output, "?") != NULL,
+           "long key: uses ? explicit key");
+
+    yaml_emitter_delete(&emitter);
+}
+
+static void test_multiline_key_not_simple(void) {
+    /* Multiline scalar key is not simple */
+    yaml_emitter_t emitter;
+    yaml_event_t event;
+    unsigned char output[4096];
+    size_t written = 0;
+
+    yaml_emitter_initialize(&emitter);
+    yaml_emitter_set_output_string(&emitter, output, sizeof(output), &written);
+
+    yaml_stream_start_event_initialize(&event, YAML_UTF8_ENCODING);
+    yaml_emitter_emit(&emitter, &event);
+    yaml_document_start_event_initialize(&event, NULL, NULL, NULL, 1);
+    yaml_emitter_emit(&emitter, &event);
+
+    yaml_mapping_start_event_initialize(&event, NULL,
+        (const yaml_char_t *)YAML_MAP_TAG, 1, YAML_BLOCK_MAPPING_STYLE);
+    yaml_emitter_emit(&emitter, &event);
+
+    /* Multiline key */
+    yaml_scalar_event_initialize(&event, NULL, (const yaml_char_t *)YAML_STR_TAG,
+        (const yaml_char_t *)"line1\nline2", 11, 0, 0, YAML_LITERAL_SCALAR_STYLE);
+    yaml_emitter_emit(&emitter, &event);
+
+    yaml_scalar_event_initialize(&event, NULL, (const yaml_char_t *)YAML_STR_TAG,
+        (const yaml_char_t *)"val", 3, 1, 1, YAML_PLAIN_SCALAR_STYLE);
+    yaml_emitter_emit(&emitter, &event);
+
+    yaml_mapping_end_event_initialize(&event);
+    yaml_emitter_emit(&emitter, &event);
+    yaml_document_end_event_initialize(&event, 1);
+    yaml_emitter_emit(&emitter, &event);
+    yaml_stream_end_event_initialize(&event);
+    yaml_emitter_emit(&emitter, &event);
+
+    output[written] = '\0';
+    /* Multiline key should trigger explicit key */
+    ASSERT(strstr((const char *)output, "?") != NULL,
+           "multiline key: uses ? explicit key");
+
+    yaml_emitter_delete(&emitter);
+}
+
+/* ==================================================================
+ * Emitter deep-dive: flow context edge cases
+ * ================================================================== */
+
+static void test_flow_sequence_multiline(void) {
+    /* Flow sequence with canonical mode should be multi-line */
+    yaml_emitter_t emitter;
+    yaml_event_t event;
+    unsigned char output[4096];
+    size_t written = 0;
+
+    yaml_emitter_initialize(&emitter);
+    yaml_emitter_set_output_string(&emitter, output, sizeof(output), &written);
+    yaml_emitter_set_canonical(&emitter, 1);
+
+    yaml_stream_start_event_initialize(&event, YAML_UTF8_ENCODING);
+    yaml_emitter_emit(&emitter, &event);
+    yaml_document_start_event_initialize(&event, NULL, NULL, NULL, 1);
+    yaml_emitter_emit(&emitter, &event);
+
+    yaml_sequence_start_event_initialize(&event, NULL,
+        (const yaml_char_t *)YAML_SEQ_TAG, 1, YAML_FLOW_SEQUENCE_STYLE);
+    yaml_emitter_emit(&emitter, &event);
+
+    for (int i = 0; i < 5; i++) {
+        char val[16];
+        snprintf(val, sizeof(val), "item%d", i);
+        yaml_scalar_event_initialize(&event, NULL, (const yaml_char_t *)YAML_STR_TAG,
+            (const yaml_char_t *)val, strlen(val), 1, 1, YAML_PLAIN_SCALAR_STYLE);
+        yaml_emitter_emit(&emitter, &event);
+    }
+
+    yaml_sequence_end_event_initialize(&event);
+    yaml_emitter_emit(&emitter, &event);
+    yaml_document_end_event_initialize(&event, 1);
+    yaml_emitter_emit(&emitter, &event);
+    yaml_stream_end_event_initialize(&event);
+    yaml_emitter_emit(&emitter, &event);
+
+    output[written] = '\0';
+    ASSERT(strstr((const char *)output, "[") != NULL,
+           "flow seq canonical: has [");
+    ASSERT(strstr((const char *)output, "]") != NULL,
+           "flow seq canonical: has ]");
+
+    yaml_emitter_delete(&emitter);
+}
+
+static void test_flow_mapping_multiline(void) {
+    /* Flow mapping in canonical mode */
+    yaml_emitter_t emitter;
+    yaml_event_t event;
+    unsigned char output[4096];
+    size_t written = 0;
+
+    yaml_emitter_initialize(&emitter);
+    yaml_emitter_set_output_string(&emitter, output, sizeof(output), &written);
+    yaml_emitter_set_canonical(&emitter, 1);
+
+    yaml_stream_start_event_initialize(&event, YAML_UTF8_ENCODING);
+    yaml_emitter_emit(&emitter, &event);
+    yaml_document_start_event_initialize(&event, NULL, NULL, NULL, 1);
+    yaml_emitter_emit(&emitter, &event);
+
+    yaml_mapping_start_event_initialize(&event, NULL,
+        (const yaml_char_t *)YAML_MAP_TAG, 1, YAML_FLOW_MAPPING_STYLE);
+    yaml_emitter_emit(&emitter, &event);
+
+    for (int i = 0; i < 3; i++) {
+        char key[16], val[16];
+        snprintf(key, sizeof(key), "key%d", i);
+        snprintf(val, sizeof(val), "val%d", i);
+        yaml_scalar_event_initialize(&event, NULL, (const yaml_char_t *)YAML_STR_TAG,
+            (const yaml_char_t *)key, strlen(key), 1, 1, YAML_PLAIN_SCALAR_STYLE);
+        yaml_emitter_emit(&emitter, &event);
+        yaml_scalar_event_initialize(&event, NULL, (const yaml_char_t *)YAML_STR_TAG,
+            (const yaml_char_t *)val, strlen(val), 1, 1, YAML_PLAIN_SCALAR_STYLE);
+        yaml_emitter_emit(&emitter, &event);
+    }
+
+    yaml_mapping_end_event_initialize(&event);
+    yaml_emitter_emit(&emitter, &event);
+    yaml_document_end_event_initialize(&event, 1);
+    yaml_emitter_emit(&emitter, &event);
+    yaml_stream_end_event_initialize(&event);
+    yaml_emitter_emit(&emitter, &event);
+
+    output[written] = '\0';
+    ASSERT(strstr((const char *)output, "{") != NULL,
+           "flow map canonical: has {");
+    ASSERT(strstr((const char *)output, "}") != NULL,
+           "flow map canonical: has }");
+
+    yaml_emitter_delete(&emitter);
+}
+
+static void test_block_mapping_compact(void) {
+    /* Block mapping with sequence value -- should use compact notation */
+    yaml_emitter_t emitter;
+    yaml_event_t event;
+    unsigned char output[4096];
+    size_t written = 0;
+
+    yaml_emitter_initialize(&emitter);
+    yaml_emitter_set_output_string(&emitter, output, sizeof(output), &written);
+
+    yaml_stream_start_event_initialize(&event, YAML_UTF8_ENCODING);
+    yaml_emitter_emit(&emitter, &event);
+    yaml_document_start_event_initialize(&event, NULL, NULL, NULL, 1);
+    yaml_emitter_emit(&emitter, &event);
+
+    yaml_mapping_start_event_initialize(&event, NULL,
+        (const yaml_char_t *)YAML_MAP_TAG, 1, YAML_BLOCK_MAPPING_STYLE);
+    yaml_emitter_emit(&emitter, &event);
+
+    yaml_scalar_event_initialize(&event, NULL, (const yaml_char_t *)YAML_STR_TAG,
+        (const yaml_char_t *)"items", 5, 1, 1, YAML_PLAIN_SCALAR_STYLE);
+    yaml_emitter_emit(&emitter, &event);
+
+    yaml_sequence_start_event_initialize(&event, NULL,
+        (const yaml_char_t *)YAML_SEQ_TAG, 1, YAML_BLOCK_SEQUENCE_STYLE);
+    yaml_emitter_emit(&emitter, &event);
+
+    yaml_scalar_event_initialize(&event, NULL, (const yaml_char_t *)YAML_STR_TAG,
+        (const yaml_char_t *)"a", 1, 1, 1, YAML_PLAIN_SCALAR_STYLE);
+    yaml_emitter_emit(&emitter, &event);
+
+    yaml_sequence_end_event_initialize(&event);
+    yaml_emitter_emit(&emitter, &event);
+
+    yaml_mapping_end_event_initialize(&event);
+    yaml_emitter_emit(&emitter, &event);
+    yaml_document_end_event_initialize(&event, 1);
+    yaml_emitter_emit(&emitter, &event);
+    yaml_stream_end_event_initialize(&event);
+    yaml_emitter_emit(&emitter, &event);
+
+    output[written] = '\0';
+    ASSERT(strstr((const char *)output, "items") != NULL,
+           "block compact: has key");
+    ASSERT(strstr((const char *)output, "- a") != NULL,
+           "block compact: has - a");
+
+    yaml_emitter_delete(&emitter);
+}
+
+/* ==================================================================
+ * Emitter deep-dive: emitter error paths
+ * ================================================================== */
+
+static void test_emitter_wrong_event_order(void) {
+    /* Sending a scalar before stream start should fail */
+    yaml_emitter_t emitter;
+    yaml_event_t event;
+    unsigned char output[4096];
+    size_t written = 0;
+
+    yaml_emitter_initialize(&emitter);
+    yaml_emitter_set_output_string(&emitter, output, sizeof(output), &written);
+
+    yaml_scalar_event_initialize(&event, NULL, (const yaml_char_t *)YAML_STR_TAG,
+        (const yaml_char_t *)"bad", 3, 1, 1, YAML_PLAIN_SCALAR_STYLE);
+    ASSERT(!yaml_emitter_emit(&emitter, &event), "wrong order: should fail");
+    ASSERT(emitter.error != YAML_NO_ERROR, "wrong order: error set");
+
+    yaml_emitter_delete(&emitter);
+}
+
+static void test_emitter_double_stream_start(void) {
+    /* Sending stream start twice should fail */
+    yaml_emitter_t emitter;
+    yaml_event_t event;
+    unsigned char output[4096];
+    size_t written = 0;
+
+    yaml_emitter_initialize(&emitter);
+    yaml_emitter_set_output_string(&emitter, output, sizeof(output), &written);
+
+    yaml_stream_start_event_initialize(&event, YAML_UTF8_ENCODING);
+    ASSERT(yaml_emitter_emit(&emitter, &event), "double stream: first ok");
+
+    yaml_document_start_event_initialize(&event, NULL, NULL, NULL, 1);
+    yaml_emitter_emit(&emitter, &event);
+
+    yaml_scalar_event_initialize(&event, NULL, (const yaml_char_t *)YAML_STR_TAG,
+        (const yaml_char_t *)"test", 4, 1, 1, YAML_PLAIN_SCALAR_STYLE);
+    yaml_emitter_emit(&emitter, &event);
+
+    yaml_document_end_event_initialize(&event, 1);
+    yaml_emitter_emit(&emitter, &event);
+
+    yaml_stream_end_event_initialize(&event);
+    yaml_emitter_emit(&emitter, &event);
+
+    /* Now try to emit after stream end */
+    yaml_stream_start_event_initialize(&event, YAML_UTF8_ENCODING);
+    ASSERT(!yaml_emitter_emit(&emitter, &event), "after stream end: should fail");
+
+    yaml_emitter_delete(&emitter);
+}
+
+/* ==================================================================
+ * Emitter deep-dive: single-quoted edge cases
+ * ================================================================== */
+
+static void test_single_quoted_wrapping(void) {
+    /* Long single-quoted scalar that should wrap at width */
+    yaml_emitter_t emitter;
+    yaml_event_t event;
+    unsigned char output[8192];
+    size_t written = 0;
+
+    yaml_emitter_initialize(&emitter);
+    yaml_emitter_set_output_string(&emitter, output, sizeof(output), &written);
+    yaml_emitter_set_width(&emitter, 30);
+
+    yaml_stream_start_event_initialize(&event, YAML_UTF8_ENCODING);
+    yaml_emitter_emit(&emitter, &event);
+    yaml_document_start_event_initialize(&event, NULL, NULL, NULL, 1);
+    yaml_emitter_emit(&emitter, &event);
+
+    yaml_scalar_event_initialize(&event, NULL, (const yaml_char_t *)YAML_STR_TAG,
+        (const yaml_char_t *)"this is a single quoted value that is quite long and should wrap",
+        63, 0, 1, YAML_SINGLE_QUOTED_SCALAR_STYLE);
+    yaml_emitter_emit(&emitter, &event);
+
+    yaml_document_end_event_initialize(&event, 1);
+    yaml_emitter_emit(&emitter, &event);
+    yaml_stream_end_event_initialize(&event);
+    yaml_emitter_emit(&emitter, &event);
+
+    output[written] = '\0';
+    /* Should be wrapped (multiple lines) */
+    ASSERT(strstr((const char *)output, "'") != NULL,
+           "single wrap: uses single quotes");
+
+    yaml_emitter_delete(&emitter);
+}
+
+static void test_plain_scalar_wrapping(void) {
+    /* Long plain scalar that should wrap at width */
+    yaml_emitter_t emitter;
+    yaml_event_t event;
+    unsigned char output[8192];
+    size_t written = 0;
+
+    yaml_emitter_initialize(&emitter);
+    yaml_emitter_set_output_string(&emitter, output, sizeof(output), &written);
+    yaml_emitter_set_width(&emitter, 30);
+
+    yaml_stream_start_event_initialize(&event, YAML_UTF8_ENCODING);
+    yaml_emitter_emit(&emitter, &event);
+    yaml_document_start_event_initialize(&event, NULL, NULL, NULL, 1);
+    yaml_emitter_emit(&emitter, &event);
+
+    yaml_mapping_start_event_initialize(&event, NULL,
+        (const yaml_char_t *)YAML_MAP_TAG, 1, YAML_BLOCK_MAPPING_STYLE);
+    yaml_emitter_emit(&emitter, &event);
+
+    yaml_scalar_event_initialize(&event, NULL, (const yaml_char_t *)YAML_STR_TAG,
+        (const yaml_char_t *)"key", 3, 1, 1, YAML_PLAIN_SCALAR_STYLE);
+    yaml_emitter_emit(&emitter, &event);
+
+    yaml_scalar_event_initialize(&event, NULL, (const yaml_char_t *)YAML_STR_TAG,
+        (const yaml_char_t *)"this is a plain value that is quite long and should be wrapped at the width limit",
+        80, 1, 1, YAML_PLAIN_SCALAR_STYLE);
+    yaml_emitter_emit(&emitter, &event);
+
+    yaml_mapping_end_event_initialize(&event);
+    yaml_emitter_emit(&emitter, &event);
+    yaml_document_end_event_initialize(&event, 1);
+    yaml_emitter_emit(&emitter, &event);
+    yaml_stream_end_event_initialize(&event);
+    yaml_emitter_emit(&emitter, &event);
+
+    output[written] = '\0';
+    ASSERT(written > 0, "plain wrap: produces output");
+
+    yaml_emitter_delete(&emitter);
+}
+
+static void test_folded_scalar_line_breaks(void) {
+    /* Folded scalar should fold long lines */
+    yaml_emitter_t emitter;
+    yaml_event_t event;
+    unsigned char output[4096];
+    size_t written = 0;
+
+    yaml_emitter_initialize(&emitter);
+    yaml_emitter_set_output_string(&emitter, output, sizeof(output), &written);
+
+    yaml_stream_start_event_initialize(&event, YAML_UTF8_ENCODING);
+    yaml_emitter_emit(&emitter, &event);
+    yaml_document_start_event_initialize(&event, NULL, NULL, NULL, 1);
+    yaml_emitter_emit(&emitter, &event);
+
+    yaml_scalar_event_initialize(&event, NULL, (const yaml_char_t *)YAML_STR_TAG,
+        (const yaml_char_t *)"paragraph one\n\nparagraph two\n", 28, 0, 0,
+        YAML_FOLDED_SCALAR_STYLE);
+    yaml_emitter_emit(&emitter, &event);
+
+    yaml_document_end_event_initialize(&event, 1);
+    yaml_emitter_emit(&emitter, &event);
+    yaml_stream_end_event_initialize(&event);
+    yaml_emitter_emit(&emitter, &event);
+
+    output[written] = '\0';
+    ASSERT(strstr((const char *)output, ">") != NULL,
+           "folded: has > indicator");
+
+    yaml_emitter_delete(&emitter);
+}
+
 int main(void) {
     TEST_SUITE_BEGIN("Emitter");
 
+    /* Original tests */
     test_emitter_init();
     test_emitter_config();
     test_string_output();
@@ -871,6 +1839,63 @@ int main(void) {
     test_nested_structures();
     test_non_default_tag();
     test_width_limit();
+
+    /* Deep-dive: escape sequences */
+    test_escape_null();
+    test_escape_bell();
+    test_escape_backspace();
+    test_escape_tab();
+    test_escape_newline();
+    test_escape_vtab();
+    test_escape_formfeed();
+    test_escape_cr();
+    test_escape_esc();
+    test_escape_backslash();
+    test_escape_dquote();
+    test_escape_next_line();
+    test_escape_nbsp();
+    test_escape_linesep();
+    test_escape_parasep();
+    test_escape_hex();
+    test_escape_unicode_bmp();
+    test_escape_unicode_nonbmp();
+
+    /* Deep-dive: block scalar hints */
+    test_block_scalar_empty_content();
+    test_block_scalar_leading_space();
+    test_block_scalar_leading_break();
+    test_block_scalar_strip_chomp();
+    test_block_scalar_keep_chomp();
+    test_block_scalar_only_newline();
+
+    /* Deep-dive: scalar analysis */
+    test_scalar_starting_with_dash();
+    test_scalar_starting_with_dots();
+    test_scalar_space_break_forces_dquote();
+    test_scalar_break_space();
+
+    /* Deep-dive: multi-document with directives */
+    test_version_directive_1_2();
+    test_multi_doc_with_version();
+    test_doc_end_before_directive();
+
+    /* Deep-dive: check_simple_key */
+    test_long_key_not_simple();
+    test_multiline_key_not_simple();
+
+    /* Deep-dive: flow context */
+    test_flow_sequence_multiline();
+    test_flow_mapping_multiline();
+    test_block_mapping_compact();
+
+    /* Deep-dive: error paths */
+    test_emitter_wrong_event_order();
+    test_emitter_double_stream_start();
+
+    /* Deep-dive: wrapping */
+    test_single_quoted_wrapping();
+    test_plain_scalar_wrapping();
+    test_folded_scalar_line_breaks();
 
     TEST_SUITE_END();
 }

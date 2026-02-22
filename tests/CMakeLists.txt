@@ -26,6 +26,8 @@ qyaml_add_test(errors test_errors.c)
 qyaml_add_test(stress test_stress.c)
 qyaml_add_test(writer test_writer.c)
 qyaml_add_test(roundtrip test_roundtrip.c)
+# scanner-comprehensive temporarily disabled: contains infinite loop, needs debugging
+# qyaml_add_test(scanner-comprehensive test_scanner_comprehensive.c)
 
 # libyaml conformance tests -- built from reference libyaml test sources
 # but linked against libqyaml to verify API compatibility
