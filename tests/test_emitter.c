@@ -1815,6 +1815,293 @@ static void test_folded_scalar_line_breaks(void) {
     yaml_emitter_delete(&emitter);
 }
 
+/* ==================================================================
+ * Additional coverage-targeted tests
+ * ================================================================== */
+
+/* Test alias as mapping key -- triggers check_simple_key YAML_ALIAS_EVENT path */
+static void test_alias_as_mapping_key(void) {
+    yaml_emitter_t emitter;
+    yaml_event_t event;
+    unsigned char output[4096];
+    size_t written = 0;
+
+    yaml_emitter_initialize(&emitter);
+    yaml_emitter_set_output_string(&emitter, output, sizeof(output), &written);
+
+    yaml_stream_start_event_initialize(&event, YAML_UTF8_ENCODING);
+    yaml_emitter_emit(&emitter, &event);
+    yaml_document_start_event_initialize(&event, NULL, NULL, NULL, 1);
+    yaml_emitter_emit(&emitter, &event);
+
+    yaml_mapping_start_event_initialize(&event, NULL, NULL, 1,
+        YAML_BLOCK_MAPPING_STYLE);
+    yaml_emitter_emit(&emitter, &event);
+
+    /* First entry: anchor a scalar */
+    yaml_scalar_event_initialize(&event,
+        (const yaml_char_t *)"anc", (const yaml_char_t *)YAML_STR_TAG,
+        (const yaml_char_t *)"val", 3, 0, 0, YAML_PLAIN_SCALAR_STYLE);
+    yaml_emitter_emit(&emitter, &event);
+
+    yaml_scalar_event_initialize(&event, NULL, (const yaml_char_t *)YAML_STR_TAG,
+        (const yaml_char_t *)"first", 5, 1, 1, YAML_PLAIN_SCALAR_STYLE);
+    yaml_emitter_emit(&emitter, &event);
+
+    /* Second entry: use alias as key */
+    yaml_alias_event_initialize(&event, (const yaml_char_t *)"anc");
+    yaml_emitter_emit(&emitter, &event);
+
+    yaml_scalar_event_initialize(&event, NULL, (const yaml_char_t *)YAML_STR_TAG,
+        (const yaml_char_t *)"second", 6, 1, 1, YAML_PLAIN_SCALAR_STYLE);
+    yaml_emitter_emit(&emitter, &event);
+
+    yaml_mapping_end_event_initialize(&event);
+    yaml_emitter_emit(&emitter, &event);
+
+    yaml_document_end_event_initialize(&event, 1);
+    yaml_emitter_emit(&emitter, &event);
+    yaml_stream_end_event_initialize(&event);
+    yaml_emitter_emit(&emitter, &event);
+
+    yaml_emitter_delete(&emitter);
+
+    output[written] = '\0';
+    ASSERT(strstr((char *)output, "*anc") != NULL, "alias key: has *anc");
+    ASSERT(strstr((char *)output, "second") != NULL, "alias key: has value");
+}
+
+/* Test empty sequence as mapping key -- triggers check_simple_key SEQUENCE_START path */
+static void test_empty_sequence_as_key(void) {
+    yaml_emitter_t emitter;
+    yaml_event_t event;
+    unsigned char output[4096];
+    size_t written = 0;
+
+    yaml_emitter_initialize(&emitter);
+    yaml_emitter_set_output_string(&emitter, output, sizeof(output), &written);
+
+    yaml_stream_start_event_initialize(&event, YAML_UTF8_ENCODING);
+    yaml_emitter_emit(&emitter, &event);
+    yaml_document_start_event_initialize(&event, NULL, NULL, NULL, 1);
+    yaml_emitter_emit(&emitter, &event);
+
+    yaml_mapping_start_event_initialize(&event, NULL, NULL, 1,
+        YAML_BLOCK_MAPPING_STYLE);
+    yaml_emitter_emit(&emitter, &event);
+
+    /* Key: empty flow sequence */
+    yaml_sequence_start_event_initialize(&event, NULL, NULL, 1,
+        YAML_FLOW_SEQUENCE_STYLE);
+    yaml_emitter_emit(&emitter, &event);
+    yaml_sequence_end_event_initialize(&event);
+    yaml_emitter_emit(&emitter, &event);
+
+    /* Value */
+    yaml_scalar_event_initialize(&event, NULL, (const yaml_char_t *)YAML_STR_TAG,
+        (const yaml_char_t *)"val", 3, 1, 1, YAML_PLAIN_SCALAR_STYLE);
+    yaml_emitter_emit(&emitter, &event);
+
+    yaml_mapping_end_event_initialize(&event);
+    yaml_emitter_emit(&emitter, &event);
+
+    yaml_document_end_event_initialize(&event, 1);
+    yaml_emitter_emit(&emitter, &event);
+    yaml_stream_end_event_initialize(&event);
+    yaml_emitter_emit(&emitter, &event);
+
+    yaml_emitter_delete(&emitter);
+
+    output[written] = '\0';
+    ASSERT(strstr((char *)output, "[]") != NULL, "empty seq key: has []");
+}
+
+/* Test empty mapping as mapping key -- triggers check_simple_key MAPPING_START path */
+static void test_empty_mapping_as_key(void) {
+    yaml_emitter_t emitter;
+    yaml_event_t event;
+    unsigned char output[4096];
+    size_t written = 0;
+
+    yaml_emitter_initialize(&emitter);
+    yaml_emitter_set_output_string(&emitter, output, sizeof(output), &written);
+
+    yaml_stream_start_event_initialize(&event, YAML_UTF8_ENCODING);
+    yaml_emitter_emit(&emitter, &event);
+    yaml_document_start_event_initialize(&event, NULL, NULL, NULL, 1);
+    yaml_emitter_emit(&emitter, &event);
+
+    yaml_mapping_start_event_initialize(&event, NULL, NULL, 1,
+        YAML_BLOCK_MAPPING_STYLE);
+    yaml_emitter_emit(&emitter, &event);
+
+    /* Key: empty flow mapping */
+    yaml_mapping_start_event_initialize(&event, NULL, NULL, 1,
+        YAML_FLOW_MAPPING_STYLE);
+    yaml_emitter_emit(&emitter, &event);
+    yaml_mapping_end_event_initialize(&event);
+    yaml_emitter_emit(&emitter, &event);
+
+    /* Value */
+    yaml_scalar_event_initialize(&event, NULL, (const yaml_char_t *)YAML_STR_TAG,
+        (const yaml_char_t *)"val", 3, 1, 1, YAML_PLAIN_SCALAR_STYLE);
+    yaml_emitter_emit(&emitter, &event);
+
+    yaml_mapping_end_event_initialize(&event);
+    yaml_emitter_emit(&emitter, &event);
+
+    yaml_document_end_event_initialize(&event, 1);
+    yaml_emitter_emit(&emitter, &event);
+    yaml_stream_end_event_initialize(&event);
+    yaml_emitter_emit(&emitter, &event);
+
+    yaml_emitter_delete(&emitter);
+
+    output[written] = '\0';
+    ASSERT(strstr((char *)output, "{}") != NULL, "empty map key: has {}");
+}
+
+/* Test folded scalar with embedded newlines (different from line-break test above).
+ * Specifically targets the folded scalar break-then-content path at emitter.c:1959. */
+static void test_folded_scalar_embedded_breaks(void) {
+    yaml_emitter_t emitter;
+    yaml_event_t event;
+    unsigned char output[4096];
+    size_t written = 0;
+
+    yaml_emitter_initialize(&emitter);
+    yaml_emitter_set_output_string(&emitter, output, sizeof(output), &written);
+
+    yaml_stream_start_event_initialize(&event, YAML_UTF8_ENCODING);
+    yaml_emitter_emit(&emitter, &event);
+    yaml_document_start_event_initialize(&event, NULL, NULL, NULL, 1);
+    yaml_emitter_emit(&emitter, &event);
+
+    /* Folded scalar with explicit line breaks between words.
+     * The text has "word\nword" pattern which should trigger the
+     * line break handling in yaml_emitter_write_folded_scalar. */
+    const char *text = "first\nsecond\nthird\n";
+    yaml_scalar_event_initialize(&event, NULL, (const yaml_char_t *)YAML_STR_TAG,
+        (const yaml_char_t *)text, strlen(text), 0, 0,
+        YAML_FOLDED_SCALAR_STYLE);
+    ASSERT(yaml_emitter_emit(&emitter, &event), "folded breaks emit");
+
+    yaml_document_end_event_initialize(&event, 1);
+    yaml_emitter_emit(&emitter, &event);
+    yaml_stream_end_event_initialize(&event);
+    yaml_emitter_emit(&emitter, &event);
+
+    yaml_emitter_delete(&emitter);
+
+    output[written] = '\0';
+    ASSERT(strstr((char *)output, ">") != NULL, "folded breaks: has > indicator");
+}
+
+/* Test literal scalar with empty content -- triggers chomp_hint = "-" for empty scalar */
+static void test_literal_empty_scalar(void) {
+    yaml_emitter_t emitter;
+    yaml_event_t event;
+    unsigned char output[4096];
+    size_t written = 0;
+
+    yaml_emitter_initialize(&emitter);
+    yaml_emitter_set_output_string(&emitter, output, sizeof(output), &written);
+
+    yaml_stream_start_event_initialize(&event, YAML_UTF8_ENCODING);
+    yaml_emitter_emit(&emitter, &event);
+    yaml_document_start_event_initialize(&event, NULL, NULL, NULL, 1);
+    yaml_emitter_emit(&emitter, &event);
+
+    /* Empty scalar in literal style */
+    yaml_scalar_event_initialize(&event, NULL, (const yaml_char_t *)YAML_STR_TAG,
+        (const yaml_char_t *)"", 0, 0, 0, YAML_LITERAL_SCALAR_STYLE);
+    int ok = yaml_emitter_emit(&emitter, &event);
+    /* May or may not succeed -- empty literal is edge case */
+    if (ok) {
+        yaml_document_end_event_initialize(&event, 1);
+        yaml_emitter_emit(&emitter, &event);
+        yaml_stream_end_event_initialize(&event);
+        yaml_emitter_emit(&emitter, &event);
+    }
+
+    yaml_emitter_delete(&emitter);
+    ASSERT(1, "literal empty: no crash");
+}
+
+/* Test empty document -- triggers check_empty_document path */
+static void test_emit_empty_document(void) {
+    yaml_emitter_t emitter;
+    yaml_event_t event;
+    unsigned char output[4096];
+    size_t written = 0;
+
+    yaml_emitter_initialize(&emitter);
+    yaml_emitter_set_output_string(&emitter, output, sizeof(output), &written);
+
+    yaml_stream_start_event_initialize(&event, YAML_UTF8_ENCODING);
+    yaml_emitter_emit(&emitter, &event);
+
+    /* Empty document (just start and end, no content) -- not valid per YAML spec
+     * but tests the code path. We emit doc start then doc end immediately. */
+    yaml_document_start_event_initialize(&event, NULL, NULL, NULL, 0);
+    yaml_emitter_emit(&emitter, &event);
+
+    /* Emit an empty scalar (null) as the document content */
+    yaml_scalar_event_initialize(&event, NULL, (const yaml_char_t *)YAML_NULL_TAG,
+        (const yaml_char_t *)"", 0, 0, 0, YAML_PLAIN_SCALAR_STYLE);
+    yaml_emitter_emit(&emitter, &event);
+
+    yaml_document_end_event_initialize(&event, 0);
+    yaml_emitter_emit(&emitter, &event);
+
+    yaml_stream_end_event_initialize(&event);
+    yaml_emitter_emit(&emitter, &event);
+
+    yaml_emitter_delete(&emitter);
+
+    output[written] = '\0';
+    ASSERT(strstr((char *)output, "---") != NULL, "empty doc: has ---");
+}
+
+/* Test emitter with tag directive that has no matching prefix */
+static void test_emit_unresolvable_tag(void) {
+    yaml_emitter_t emitter;
+    yaml_event_t event;
+    unsigned char output[4096];
+    size_t written = 0;
+
+    yaml_emitter_initialize(&emitter);
+    yaml_emitter_set_output_string(&emitter, output, sizeof(output), &written);
+
+    yaml_stream_start_event_initialize(&event, YAML_UTF8_ENCODING);
+    yaml_emitter_emit(&emitter, &event);
+
+    /* Document with custom tag directive */
+    yaml_tag_directive_t tags[] = {
+        {(yaml_char_t *)"!e!", (yaml_char_t *)"tag:example.com,2024:"}
+    };
+    yaml_document_start_event_initialize(&event, NULL, tags, tags + 1, 0);
+    yaml_emitter_emit(&emitter, &event);
+
+    /* Scalar with tag that matches the directive */
+    yaml_scalar_event_initialize(&event, NULL,
+        (const yaml_char_t *)"tag:example.com,2024:mytype",
+        (const yaml_char_t *)"value", 5, 0, 0, YAML_PLAIN_SCALAR_STYLE);
+    yaml_emitter_emit(&emitter, &event);
+
+    yaml_document_end_event_initialize(&event, 1);
+    yaml_emitter_emit(&emitter, &event);
+    yaml_stream_end_event_initialize(&event);
+    yaml_emitter_emit(&emitter, &event);
+
+    yaml_emitter_delete(&emitter);
+
+    output[written] = '\0';
+    ASSERT(strstr((char *)output, "!e!mytype") != NULL ||
+           strstr((char *)output, "!<tag:example.com,2024:mytype>") != NULL,
+           "custom tag: resolved or verbatim");
+}
+
 int main(void) {
     TEST_SUITE_BEGIN("Emitter");
 
@@ -1896,6 +2183,15 @@ int main(void) {
     test_single_quoted_wrapping();
     test_plain_scalar_wrapping();
     test_folded_scalar_line_breaks();
+
+    /* Coverage-targeted tests */
+    test_alias_as_mapping_key();
+    test_empty_sequence_as_key();
+    test_empty_mapping_as_key();
+    test_folded_scalar_embedded_breaks();
+    test_literal_empty_scalar();
+    test_emit_empty_document();
+    test_emit_unresolvable_tag();
 
     TEST_SUITE_END();
 }

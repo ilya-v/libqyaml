@@ -1153,6 +1153,132 @@ static void test_doc_with_all_directives(void) {
     yaml_parser_delete(&parser);
 }
 
+/* ==================================================================
+ * Coverage-targeted parser tests
+ * ================================================================== */
+
+/* Test anchor-before-tag (anchor first, then tag) -- parser.c:586-591 */
+static void test_anchor_then_tag_on_scalar(void) {
+    yaml_parser_t parser;
+    yaml_event_t event;
+    /* Anchor then tag: &anc !!str value */
+    const char *yaml = "&anc !!str value\n";
+
+    ASSERT(yaml_parser_initialize(&parser), "anchor-tag init");
+    yaml_parser_set_input_string(&parser, (const unsigned char *)yaml, strlen(yaml));
+
+    int found_scalar = 0;
+    while (1) {
+        if (!yaml_parser_parse(&parser, &event)) break;
+        if (event.type == YAML_SCALAR_EVENT) {
+            found_scalar = 1;
+            ASSERT_NOT_NULL(event.data.scalar.anchor, "anchor-tag: has anchor");
+            ASSERT_NOT_NULL(event.data.scalar.tag, "anchor-tag: has tag");
+            ASSERT_EQ_STR(event.data.scalar.anchor, "anc", "anchor-tag: anchor=anc");
+            ASSERT_EQ_STR(event.data.scalar.value, "value", "anchor-tag: value");
+        }
+        if (event.type == YAML_STREAM_END_EVENT) {
+            yaml_event_delete(&event);
+            break;
+        }
+        yaml_event_delete(&event);
+    }
+    ASSERT(found_scalar, "anchor-tag: found scalar");
+    yaml_parser_delete(&parser);
+}
+
+/* Test indentless sequence with empty entry -- parser.c:844-845 */
+static void test_indentless_seq_empty_entry(void) {
+    yaml_parser_t parser;
+    yaml_event_t event;
+    /* An indentless sequence under a mapping key, with empty entries:
+     * key:
+     * -
+     * - val
+     * The first "- " with nothing produces an empty scalar */
+    const char *yaml = "key:\n-\n- val\n";
+
+    ASSERT(yaml_parser_initialize(&parser), "indentless empty init");
+    yaml_parser_set_input_string(&parser, (const unsigned char *)yaml, strlen(yaml));
+
+    int empty_count = 0, found_val = 0;
+    while (1) {
+        if (!yaml_parser_parse(&parser, &event)) break;
+        if (event.type == YAML_SCALAR_EVENT) {
+            if (event.data.scalar.length == 0) empty_count++;
+            if (strcmp((const char *)event.data.scalar.value, "val") == 0)
+                found_val = 1;
+        }
+        if (event.type == YAML_STREAM_END_EVENT) {
+            yaml_event_delete(&event);
+            break;
+        }
+        yaml_event_delete(&event);
+    }
+    ASSERT(empty_count >= 1, "indentless empty: has empty scalar");
+    ASSERT(found_val, "indentless empty: found val");
+    yaml_parser_delete(&parser);
+}
+
+/* Test block mapping with key but missing value -- parser.c:965-966 */
+static void test_block_map_missing_value(void) {
+    yaml_parser_t parser;
+    yaml_event_t event;
+    /* A block mapping where a key has no value (next token is another key):
+     * key1:
+     * key2: val2 */
+    const char *yaml = "key1:\nkey2: val2\n";
+
+    ASSERT(yaml_parser_initialize(&parser), "missing value init");
+    yaml_parser_set_input_string(&parser, (const unsigned char *)yaml, strlen(yaml));
+
+    int empty_count = 0, found_val2 = 0;
+    while (1) {
+        if (!yaml_parser_parse(&parser, &event)) break;
+        if (event.type == YAML_SCALAR_EVENT) {
+            if (event.data.scalar.length == 0) empty_count++;
+            if (strcmp((const char *)event.data.scalar.value, "val2") == 0)
+                found_val2 = 1;
+        }
+        if (event.type == YAML_STREAM_END_EVENT) {
+            yaml_event_delete(&event);
+            break;
+        }
+        yaml_event_delete(&event);
+    }
+    ASSERT(empty_count >= 1, "missing value: has empty scalar");
+    ASSERT(found_val2, "missing value: found val2");
+    yaml_parser_delete(&parser);
+}
+
+/* Test flow mapping with empty value at end -- parser.c related */
+static void test_flow_seq_entry_mapping_end(void) {
+    yaml_parser_t parser;
+    yaml_event_t event;
+    /* Flow mapping where last key has no value */
+    const char *yaml = "{a: b, c: }";
+
+    ASSERT(yaml_parser_initialize(&parser), "flow map empty val init");
+    yaml_parser_set_input_string(&parser, (const unsigned char *)yaml, strlen(yaml));
+
+    int scalar_count = 0, empty_count = 0;
+    while (1) {
+        if (!yaml_parser_parse(&parser, &event)) break;
+        if (event.type == YAML_SCALAR_EVENT) {
+            scalar_count++;
+            if (event.data.scalar.length == 0) empty_count++;
+        }
+        if (event.type == YAML_STREAM_END_EVENT) {
+            yaml_event_delete(&event);
+            break;
+        }
+        yaml_event_delete(&event);
+    }
+    ASSERT_EQ_INT(scalar_count, 4, "flow map empty val: 4 scalars (a,b,c,empty)");
+    ASSERT(empty_count >= 1, "flow map empty val: has empty value");
+    yaml_parser_delete(&parser);
+}
+
 int main(void) {
     TEST_SUITE_BEGIN("Parser");
 
@@ -1220,6 +1346,15 @@ int main(void) {
 
     /* Deep-dive: full directive parsing */
     test_doc_with_all_directives();
+
+    /* Coverage-targeted: anchor-before-tag */
+    test_anchor_then_tag_on_scalar();
+    /* Coverage-targeted: indentless seq empty value */
+    test_indentless_seq_empty_entry();
+    /* Coverage-targeted: block map missing value */
+    test_block_map_missing_value();
+    /* Coverage-targeted: flow seq entry mapping end */
+    test_flow_seq_entry_mapping_end();
 
     TEST_SUITE_END();
 }
