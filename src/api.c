@@ -2,6 +2,13 @@
 #include "yaml_private.h"
 
 /*
+ * Static default tag strings shared between loader.c and api.c.
+ */
+const yaml_char_t yaml_default_scalar_tag[] = YAML_DEFAULT_SCALAR_TAG;
+const yaml_char_t yaml_default_sequence_tag[] = YAML_DEFAULT_SEQUENCE_TAG;
+const yaml_char_t yaml_default_mapping_tag[] = YAML_DEFAULT_MAPPING_TAG;
+
+/*
  * Get the library version.
  */
 
@@ -74,12 +81,14 @@ YAML_DECLARE(int)
 yaml_string_extend(yaml_char_t **start,
         yaml_char_t **pointer, yaml_char_t **end)
 {
-    yaml_char_t *new_start = (yaml_char_t *)yaml_realloc((void*)*start, (*end - *start)*2);
+    size_t old_size = *end - *start;
+    yaml_char_t *new_start = (yaml_char_t *)yaml_realloc((void*)*start, old_size*2);
 
     if (!new_start) return 0;
 
+    memset(new_start + old_size, 0, old_size);
     *pointer = new_start + (*pointer - *start);
-    *end = new_start + (*end - *start)*2;
+    *end = new_start + old_size*2;
     *start = new_start;
 
     return 1;
@@ -1126,7 +1135,8 @@ yaml_document_delete(yaml_document_t *document)
 
     while (!STACK_EMPTY(&context, document->nodes)) {
         yaml_node_t node = POP(&context, document->nodes);
-        yaml_free(node.tag);
+        if (!yaml_tag_is_default(node.tag))
+            yaml_free(node.tag);
         switch (node.type) {
             case YAML_SCALAR_NODE:
                 yaml_free(node.data.scalar.value);

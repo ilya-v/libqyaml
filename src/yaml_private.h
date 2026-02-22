@@ -683,5 +683,21 @@ yaml_queue_extend(void **start, void **head, void **tail, void **end);
 #  define UNUSED_PARAM(a) /*@-noeffect*/if (0) (void)(a)/*@=noeffect*/;
 #endif
 
+/*
+ * Static default tag strings to avoid per-node strdup in the loader.
+ * yaml_document_delete checks for these before calling yaml_free.
+ */
+extern const yaml_char_t yaml_default_scalar_tag[];
+extern const yaml_char_t yaml_default_sequence_tag[];
+extern const yaml_char_t yaml_default_mapping_tag[];
+
+static inline int
+yaml_tag_is_default(const yaml_char_t *tag)
+{
+    return tag == yaml_default_scalar_tag
+        || tag == yaml_default_sequence_tag
+        || tag == yaml_default_mapping_tag;
+}
+
 #define YAML_MALLOC_STATIC(type) (type*)yaml_malloc(sizeof(type))
 #define YAML_MALLOC(size)        (yaml_char_t *)yaml_malloc(size)

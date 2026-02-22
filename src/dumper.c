@@ -178,7 +178,8 @@ yaml_emitter_delete_document_and_anchors(yaml_emitter_t *emitter)
             < emitter->document->nodes.top; index ++) {
         yaml_node_t node = emitter->document->nodes.start[index];
         if (!emitter->anchors[index].serialized) {
-            yaml_free(node.tag);
+            if (!yaml_tag_is_default(node.tag))
+                yaml_free(node.tag);
             if (node.type == YAML_SCALAR_NODE) {
                 yaml_free(node.data.scalar.value);
             }
