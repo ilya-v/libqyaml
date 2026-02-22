@@ -486,6 +486,248 @@ static void test_diff_utf8_bom(void) {
            "utf8_bom: event streams match libyaml");
 }
 
+/* ================================================================
+ * Optimization boundary tests
+ *
+ * These tests specifically target the batch-skip and batch-copy
+ * optimizations in libqyaml's scanner and reader. The optimizations
+ * process consecutive ASCII bytes in bulk, so the critical boundaries
+ * are transitions between ASCII and multi-byte UTF-8, and edge
+ * characters at the ASCII/non-ASCII border.
+ * ================================================================ */
+
+/* Test: ASCII-to-UTF8 transition in plain scalar values.
+ * Exercises scanner.c batch-copy for plain scalars (line ~2963). */
+static void test_diff_opt_plain_ascii_to_utf8(void) {
+    /* ASCII prefix then 2-byte UTF-8 */
+    DIFF_TEST("opt_plain_a2u_2byte",
+        "key: abcdefghijklmnop\xC3\xA9rest\n");
+    /* ASCII prefix then 3-byte UTF-8 (CJK) */
+    DIFF_TEST("opt_plain_a2u_3byte",
+        "key: abcdefghijklmnop\xE4\xB8\xADrest\n");
+    /* ASCII prefix then 4-byte UTF-8 (emoji) */
+    DIFF_TEST("opt_plain_a2u_4byte",
+        "key: abcdefghijklmnop\xF0\x9F\x98\x80rest\n");
+    /* Single ASCII char before UTF-8 (below batch threshold) */
+    DIFF_TEST("opt_plain_short_then_utf8",
+        "key: a\xC3\xA9\n");
+    /* Exactly 4 ASCII chars (batch threshold) before UTF-8 */
+    DIFF_TEST("opt_plain_threshold_utf8",
+        "key: abcd\xC3\xA9\n");
+    /* UTF-8 at start, ASCII after */
+    DIFF_TEST("opt_plain_utf8_then_ascii",
+        "key: \xC3\xA9" "abcdefghijklmnop\n");
+    /* Alternating ASCII and UTF-8 */
+    DIFF_TEST("opt_plain_alternating",
+        "key: ab\xC3\xA9" "cd\xE4\xB8\xAD" "ef\xF0\x9F\x98\x80gh\n");
+}
+
+/* Test: ASCII-to-UTF8 transition in double-quoted strings.
+ * Exercises scanner.c batch-copy for quoted strings (line ~3364). */
+static void test_diff_opt_quoted_ascii_to_utf8(void) {
+    DIFF_TEST("opt_dquote_a2u",
+        "key: \"abcdefghijklmnop\xC3\xA9rest\"\n");
+    DIFF_TEST("opt_squote_a2u",
+        "key: 'abcdefghijklmnop\xC3\xA9rest'\n");
+    /* Escape sequence followed by UTF-8 */
+    DIFF_TEST("opt_dquote_escape_utf8",
+        "key: \"abc\\ndef\xC3\xA9ghi\"\n");
+    /* UTF-8 followed by escape sequence */
+    DIFF_TEST("opt_dquote_utf8_escape",
+        "key: \"abc\xC3\xA9" "def\\nghi\"\n");
+    /* Long quoted with multiple UTF-8 islands */
+    DIFF_TEST("opt_dquote_multi_utf8",
+        "key: \"aaaa\xC3\xA9" "bbbb\xE4\xB8\xAD" "cccc\xF0\x9F\x98\x80" "dddd\"\n");
+    /* Single quotes with UTF-8 and '' escape */
+    DIFF_TEST("opt_squote_utf8_escape",
+        "key: 'abc\xC3\xA9" "d''e\xE4\xB8\xAD" "f'\n");
+}
+
+/* Test: ASCII-to-UTF8 transition in flow scalars.
+ * Exercises scanner.c batch-copy for flow plain scalars (line ~3644/3651). */
+static void test_diff_opt_flow_ascii_to_utf8(void) {
+    DIFF_TEST("opt_flow_a2u_seq",
+        "[abcdefgh\xC3\xA9ijk, lmnop\xE4\xB8\xADqrs]\n");
+    DIFF_TEST("opt_flow_a2u_map",
+        "{abcdefgh\xC3\xA9ijk: lmnop\xE4\xB8\xADqrs}\n");
+    /* Nested flow with UTF-8 */
+    DIFF_TEST("opt_flow_nested_utf8",
+        "{a: [b\xC3\xA9, c\xE4\xB8\xAD], d\xF0\x9F\x98\x80: e}\n");
+    /* Flow scalar ending right after UTF-8 */
+    DIFF_TEST("opt_flow_utf8_at_end",
+        "[abc\xC3\xA9]\n");
+    /* Flow indicators after UTF-8 */
+    DIFF_TEST("opt_flow_utf8_before_comma",
+        "[abc\xC3\xA9, def]\n");
+}
+
+/* Test: whitespace batch-skip with adjacent non-ASCII.
+ * Exercises scanner.c whitespace batch-skip (line ~1943). */
+static void test_diff_opt_whitespace_boundaries(void) {
+    /* Many spaces before a UTF-8 value */
+    DIFF_TEST("opt_ws_before_utf8",
+        "key:                    \xC3\xA9value\n");
+    /* Many spaces in indentation before UTF-8 */
+    DIFF_TEST("opt_ws_indent_utf8",
+        "parent:\n"
+        "          \xC3\xA9" "child: value\n");
+    /* Tab mixed with spaces (tabs are handled differently) */
+    DIFF_TEST("opt_ws_tab_space_mix",
+        "key: value\n"
+        "key2:  \tvalue2\n");
+    /* Long sequence of spaces */
+    DIFF_TEST("opt_ws_long_spaces",
+        "key:                                                            value\n");
+}
+
+/* Test: comment batch-skip with adjacent non-ASCII.
+ * Exercises scanner.c comment batch-skip (line ~1973). */
+static void test_diff_opt_comment_boundaries(void) {
+    /* Comment with UTF-8 characters */
+    DIFF_TEST("opt_comment_utf8",
+        "key: value # This is a comment with \xC3\xA9\n"
+        "key2: value2\n");
+    /* Long ASCII comment then UTF-8 */
+    DIFF_TEST("opt_comment_long_ascii_utf8",
+        "key: value # aaaaaaaaaaaaaaaaaaaaaaaaa\xC3\xA9\n"
+        "key2: value2\n");
+    /* Comment with only UTF-8 */
+    DIFF_TEST("opt_comment_only_utf8",
+        "key: value #\xC3\xA9\xE4\xB8\xAD\xF0\x9F\x98\x80\n"
+        "key2: value2\n");
+    /* Multi-byte at comment start */
+    DIFF_TEST("opt_comment_utf8_start",
+        "# \xC3\xA9 heading\nkey: value\n");
+}
+
+/* Test: reader batch processing at UTF-8 boundaries.
+ * Exercises reader.c batch-copy (line ~243). */
+static void test_diff_opt_reader_utf8_boundaries(void) {
+    /* 0x7E and 0x7F boundary (printable ASCII limit) */
+    DIFF_TEST("opt_reader_7e",
+        "key: abc~def\n");
+    /* DEL (0x7F) in quoted string -- should be rejected by reader */
+
+    /* Control chars that ARE allowed: TAB (0x09) */
+    DIFF_TEST("opt_reader_tab",
+        "key: \"abc\tdef\"\n");
+
+    /* Long ASCII block to stress batch processing */
+    DIFF_TEST("opt_reader_long_ascii",
+        "key: abcdefghijklmnopqrstuvwxyz0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+        "abcdefghijklmnopqrstuvwxyz0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ\n");
+
+    /* Long ASCII then sudden UTF-8 multi-byte */
+    DIFF_TEST("opt_reader_long_then_utf8",
+        "key: abcdefghijklmnopqrstuvwxyz0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+        "\xC3\xA9\xE4\xB8\xAD\xF0\x9F\x98\x80"
+        "abcdefghijklmnopqrstuvwxyz\n");
+
+    /* All 2-byte UTF-8 sequence (Latin Extended) */
+    DIFF_TEST("opt_reader_all_2byte",
+        "key: \xC3\xA0\xC3\xA1\xC3\xA2\xC3\xA3\xC3\xA4\xC3\xA5\xC3\xA6\xC3\xA7\n");
+
+    /* All 3-byte UTF-8 sequence (CJK) */
+    DIFF_TEST("opt_reader_all_3byte",
+        "key: \xE4\xB8\x80\xE4\xBA\x8C\xE4\xB8\x89\xE5\x9B\x9B\xE4\xBA\x94\n");
+}
+
+/* Test: plain scalar special char boundaries.
+ * '#' and ':' end batch-copy in plain scalars. */
+static void test_diff_opt_plain_special_chars(void) {
+    /* '#' after space ends plain scalar (comment) */
+    DIFF_TEST("opt_plain_hash_comment",
+        "key: abcdefghijklmnop #comment\n");
+    /* '#' without preceding space (not a comment) */
+    DIFF_TEST("opt_plain_hash_inline",
+        "key: abcdefghijklmnop#notcomment\n");
+    /* ':' followed by space ends mapping value */
+    DIFF_TEST("opt_plain_colon_space",
+        "key: abcdefghijklmnop: value\n");
+    /* ':' without following space */
+    DIFF_TEST("opt_plain_colon_inline",
+        "key: abcdefghijklmnop:notkey\n");
+    /* Mix of special chars */
+    DIFF_TEST("opt_plain_special_mix",
+        "key: abc#def:ghi jkl\n");
+}
+
+/* Test: block scalar (literal/folded) with UTF-8.
+ * Block scalars read lines byte-by-byte but reader uses batch. */
+static void test_diff_opt_block_scalar_utf8(void) {
+    DIFF_TEST("opt_literal_utf8",
+        "key: |\n"
+        "  line one with \xC3\xA9\n"
+        "  line two with \xE4\xB8\xAD\n"
+        "  line three with \xF0\x9F\x98\x80\n");
+    DIFF_TEST("opt_folded_utf8",
+        "key: >\n"
+        "  paragraph one \xC3\xA9\n"
+        "  continues here\n"
+        "\n"
+        "  paragraph two \xE4\xB8\xAD\n");
+    /* Long lines in block scalar to stress batch reader */
+    DIFF_TEST("opt_literal_long_lines",
+        "key: |\n"
+        "  abcdefghijklmnopqrstuvwxyz0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+        "abcdefghijklmnopqrstuvwxyz0123456789\xC3\xA9\n"
+        "  another long line here with plenty of ASCII characters\n");
+}
+
+/* Test: multiple documents with UTF-8 at boundaries. */
+static void test_diff_opt_multi_doc_utf8(void) {
+    DIFF_TEST("opt_multidoc_utf8",
+        "---\n"
+        "doc1: \xC3\xA9\n"
+        "...\n"
+        "---\n"
+        "doc2: \xE4\xB8\xAD\n"
+        "...\n");
+    /* Directive with UTF-8 in value */
+    DIFF_TEST("opt_directive_utf8_value",
+        "%TAG !e! tag:example.com,2000:\n"
+        "---\n"
+        "key: \xC3\xA9value\n");
+}
+
+/* Test: anchors and aliases with UTF-8 values. */
+static void test_diff_opt_anchor_utf8(void) {
+    DIFF_TEST("opt_anchor_utf8_value",
+        "- &ref \xC3\xA9hello\xE4\xB8\xAD\n"
+        "- *ref\n");
+    DIFF_TEST("opt_anchor_utf8_map",
+        "defaults: &def\n"
+        "  name: \xC3\xA9test\n"
+        "prod:\n"
+        "  <<: *def\n"
+        "  extra: \xE4\xB8\xAD\n");
+}
+
+/* Test: very long values to ensure batch copy handles large chunks. */
+static void test_diff_opt_long_values(void) {
+    /* 256-byte plain scalar (pure ASCII) */
+    DIFF_TEST("opt_long_plain_ascii",
+        "key: "
+        "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+        "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB"
+        "CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC"
+        "DDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDD\n");
+    /* 256-byte double quoted (pure ASCII) */
+    DIFF_TEST("opt_long_dquote_ascii",
+        "key: \""
+        "AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+        "BBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBBB"
+        "CCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCCC"
+        "DDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDDD\"\n");
+    /* Long value with UTF-8 scattered throughout */
+    DIFF_TEST("opt_long_mixed_utf8",
+        "key: "
+        "AAAA\xC3\xA9" "BBBB\xE4\xB8\xAD" "CCCC\xF0\x9F\x98\x80"
+        "DDDD\xC3\xA9" "EEEE\xE4\xB8\xAD" "FFFF\xF0\x9F\x98\x80"
+        "GGGG\xC3\xA9" "HHHH\xE4\xB8\xAD" "IIII\xF0\x9F\x98\x80"
+        "JJJJ\xC3\xA9" "KKKK\xE4\xB8\xAD" "LLLL\xF0\x9F\x98\x80\n");
+}
+
 int main(void) {
     TEST_SUITE_BEGIN("Differential (vs libyaml)");
 
@@ -541,6 +783,19 @@ int main(void) {
     test_diff_mapping_many_keys();
     test_diff_sequence_many_items();
     test_diff_utf8_bom();
+
+    /* Optimization boundary tests */
+    test_diff_opt_plain_ascii_to_utf8();
+    test_diff_opt_quoted_ascii_to_utf8();
+    test_diff_opt_flow_ascii_to_utf8();
+    test_diff_opt_whitespace_boundaries();
+    test_diff_opt_comment_boundaries();
+    test_diff_opt_reader_utf8_boundaries();
+    test_diff_opt_plain_special_chars();
+    test_diff_opt_block_scalar_utf8();
+    test_diff_opt_multi_doc_utf8();
+    test_diff_opt_anchor_utf8();
+    test_diff_opt_long_values();
 
     unload_libyaml();
 
