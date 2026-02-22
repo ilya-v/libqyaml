@@ -318,7 +318,8 @@ yaml_parser_update_buffer(yaml_parser_t *parser, size_t length)
 
                     /* Check the length of the sequence against the value. */
 
-                    if (!((width == 2 && value >= 0x80) ||
+                    if (!((width == 1) ||
+                            (width == 2 && value >= 0x80) ||
                             (width == 3 && value >= 0x800) ||
                             (width == 4 && value >= 0x10000)))
                         return yaml_parser_set_reader_error(parser,
