@@ -69,12 +69,31 @@ if(EXISTS "${LIBYAML_TESTS_DIR}")
     qyaml_add_conformance_test(run-emitter run-emitter.c)
     qyaml_add_conformance_test(run-dumper run-dumper.c)
 
+    # YAML spec test suite tools
+    if(EXISTS "${LIBYAML_TESTS_DIR}/run-parser-test-suite.c")
+        qyaml_add_conformance_test(run-parser-test-suite run-parser-test-suite.c)
+    endif()
+    if(EXISTS "${LIBYAML_TESTS_DIR}/run-emitter-test-suite.c")
+        qyaml_add_conformance_test(run-emitter-test-suite run-emitter-test-suite.c)
+    endif()
+
     # Collect example YAML files for file-argument tests
     file(GLOB YAML_EXAMPLES "${LIBYAML_EXAMPLES_DIR}/*.yaml")
 
     # Tests that take no arguments
     add_test(NAME conformance-test-version COMMAND conformance-test-version)
     add_test(NAME conformance-test-reader COMMAND conformance-test-reader)
+
+    # YAML spec test suite (yaml-test-suite project)
+    set(YAML_TEST_DATA "${CMAKE_SOURCE_DIR}/reference/yaml-test-data")
+    set(YAML_TEST_KNOWN_FAILURES "${CMAKE_SOURCE_DIR}/tests/yaml-test-suite-known-failures.txt")
+    if(EXISTS "${YAML_TEST_DATA}" AND EXISTS "${LIBYAML_TESTS_DIR}/run-parser-test-suite.c")
+        add_test(NAME yaml-test-suite-parser
+            COMMAND ${CMAKE_SOURCE_DIR}/tests/run_yaml_test_suite.sh
+                $<TARGET_FILE:conformance-run-parser-test-suite>
+                ${YAML_TEST_DATA}
+                ${YAML_TEST_KNOWN_FAILURES})
+    endif()
 
     # Tests that take YAML files as arguments
     add_test(NAME conformance-run-scanner COMMAND conformance-run-scanner ${YAML_EXAMPLES})
