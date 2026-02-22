@@ -496,7 +496,8 @@
      (parser->mark.index ++,                                                    \
       parser->mark.column ++,                                                   \
       parser->unread --,                                                        \
-      parser->buffer.pointer += WIDTH(parser->buffer))
+      parser->buffer.pointer +=                                                 \
+        (*(parser->buffer.pointer) & 0x80) == 0 ? 1 : WIDTH(parser->buffer))
 
 #define SKIP_LINE(parser)                                                       \
      (IS_CRLF(parser->buffer) ?                                                 \
@@ -2157,6 +2158,7 @@ yaml_parser_scan_directive_name(yaml_parser_t *parser,
         goto error;
     }
 
+    *string.pointer = '\0';
     *name = string.start;
 
     return 1;
@@ -2380,6 +2382,7 @@ yaml_parser_scan_anchor(yaml_parser_t *parser, yaml_token_t *token,
 
     /* Create a token. */
 
+    *string.pointer = '\0';
     if (type == YAML_ANCHOR_TOKEN) {
         ANCHOR_TOKEN_INIT(*token, string.start, start_mark, end_mark);
     }
@@ -2562,6 +2565,7 @@ yaml_parser_scan_tag_handle(yaml_parser_t *parser, int directive,
          * URI.
          */
 
+        *string.pointer = '\0';
         if (directive && !(string.start[0] == '!' && string.start[1] == '\0')) {
             yaml_parser_set_scanner_error(parser, "while parsing a tag directive",
                     start_mark, "did not find expected '!'");
@@ -2569,6 +2573,7 @@ yaml_parser_scan_tag_handle(yaml_parser_t *parser, int directive,
         }
     }
 
+    *string.pointer = '\0';
     *handle = string.start;
 
     return 1;
@@ -2670,6 +2675,7 @@ yaml_parser_scan_tag_uri(yaml_parser_t *parser, int uri_char, int directive,
         goto error;
     }
 
+    *string.pointer = '\0';
     *uri = string.start;
 
     return 1;
@@ -2982,6 +2988,7 @@ yaml_parser_scan_block_scalar(yaml_parser_t *parser, yaml_token_t *token,
 
     /* Create a token. */
 
+    *string.pointer = '\0';
     SCALAR_TOKEN_INIT(*token, string.start, string.pointer-string.start,
             literal ? YAML_LITERAL_SCALAR_STYLE : YAML_FOLDED_SCALAR_STYLE,
             start_mark, end_mark);
@@ -3452,6 +3459,7 @@ yaml_parser_scan_flow_scalar(yaml_parser_t *parser, yaml_token_t *token,
 
     /* Create a token. */
 
+    *string.pointer = '\0';
     SCALAR_TOKEN_INIT(*token, string.start, string.pointer-string.start,
             single ? YAML_SINGLE_QUOTED_SCALAR_STYLE : YAML_DOUBLE_QUOTED_SCALAR_STYLE,
             start_mark, end_mark);
@@ -3704,6 +3712,7 @@ yaml_parser_scan_plain_scalar(yaml_parser_t *parser, yaml_token_t *token)
 
     /* Create a token. */
 
+    *string.pointer = '\0';
     SCALAR_TOKEN_INIT(*token, string.start, string.pointer-string.start,
             YAML_PLAIN_SCALAR_STYLE, start_mark, end_mark);
 

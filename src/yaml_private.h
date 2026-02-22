@@ -133,7 +133,7 @@ yaml_string_join(
     (((string).start = YAML_MALLOC(size)) ?                                     \
         ((string).pointer = (string).start,                                     \
          (string).end = (string).start+(size),                                  \
-         memset((string).start, 0, (size)),                                     \
+         *(string).start = '\0',                                                \
          1) :                                                                   \
         ((context)->error = YAML_MEMORY_ERROR,                                  \
          0))
@@ -152,7 +152,7 @@ yaml_string_join(
 
 #define CLEAR(context,string)                                                   \
     ((string).pointer = (string).start,                                         \
-     memset((string).start, 0, (string).end-(string).start))
+     *(string).start = '\0')
 
 #define JOIN(context,string_a,string_b)                                         \
     ((yaml_string_join(&(string_a).start, &(string_a).pointer,                  \
