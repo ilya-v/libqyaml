@@ -901,6 +901,18 @@ yaml_parser_parse_block_mapping_key(yaml_parser_t *parser,
         if (token->type != YAML_KEY_TOKEN &&
                 token->type != YAML_VALUE_TOKEN &&
                 token->type != YAML_BLOCK_END_TOKEN) {
+            /* Fast path: plain scalar without anchor or tag.
+             * Avoids parse_node's anchor/tag dispatch overhead. */
+            if (token->type == YAML_SCALAR_TOKEN
+                    && token->data.scalar.style == YAML_PLAIN_SCALAR_STYLE) {
+                parser->state = YAML_PARSE_BLOCK_MAPPING_VALUE_STATE;
+                SCALAR_EVENT_INIT(*event, NULL, NULL,
+                        token->data.scalar.value, token->data.scalar.length,
+                        1, 0, token->data.scalar.style,
+                        token->start_mark, token->end_mark);
+                SKIP_TOKEN(parser);
+                return 1;
+            }
             if (!PUSH(parser, parser->states,
                         YAML_PARSE_BLOCK_MAPPING_VALUE_STATE))
                 return 0;
@@ -958,6 +970,17 @@ yaml_parser_parse_block_mapping_value(yaml_parser_t *parser,
         if (token->type != YAML_KEY_TOKEN &&
                 token->type != YAML_VALUE_TOKEN &&
                 token->type != YAML_BLOCK_END_TOKEN) {
+            /* Fast path: plain scalar without anchor or tag. */
+            if (token->type == YAML_SCALAR_TOKEN
+                    && token->data.scalar.style == YAML_PLAIN_SCALAR_STYLE) {
+                parser->state = YAML_PARSE_BLOCK_MAPPING_KEY_STATE;
+                SCALAR_EVENT_INIT(*event, NULL, NULL,
+                        token->data.scalar.value, token->data.scalar.length,
+                        1, 0, token->data.scalar.style,
+                        token->start_mark, token->end_mark);
+                SKIP_TOKEN(parser);
+                return 1;
+            }
             if (!PUSH(parser, parser->states,
                         YAML_PARSE_BLOCK_MAPPING_KEY_STATE))
                 return 0;
@@ -1030,6 +1053,17 @@ yaml_parser_parse_flow_sequence_entry(yaml_parser_t *parser,
         }
 
         else if (token->type != YAML_FLOW_SEQUENCE_END_TOKEN) {
+            /* Fast path: plain scalar without anchor or tag. */
+            if (token->type == YAML_SCALAR_TOKEN
+                    && token->data.scalar.style == YAML_PLAIN_SCALAR_STYLE) {
+                parser->state = YAML_PARSE_FLOW_SEQUENCE_ENTRY_STATE;
+                SCALAR_EVENT_INIT(*event, NULL, NULL,
+                        token->data.scalar.value, token->data.scalar.length,
+                        1, 0, token->data.scalar.style,
+                        token->start_mark, token->end_mark);
+                SKIP_TOKEN(parser);
+                return 1;
+            }
             if (!PUSH(parser, parser->states,
                         YAML_PARSE_FLOW_SEQUENCE_ENTRY_STATE))
                 return 0;
