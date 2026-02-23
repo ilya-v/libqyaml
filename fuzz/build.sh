@@ -26,4 +26,5 @@ echo "  Built fuzz_load"
 $CC $CFLAGS "${SCRIPT_DIR}/fuzz_parse_structured.c" $SOURCES -o "${SCRIPT_DIR}/fuzz_parse_structured"
 echo "  Built fuzz_parse_structured (structure-aware)"
 
-echo "Done. Run with: ./fuzz/<harness> fuzz/seeds/ -max_total_time=300"
+echo "Done. Run with: ./fuzz/run_fuzz.sh [harness] [max_total_time]"
+echo "  All output goes to test-output/fuzz/"
