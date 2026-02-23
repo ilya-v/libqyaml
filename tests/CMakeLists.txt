@@ -40,6 +40,7 @@ qyaml_add_test(resource-constrained test_resource_constrained.c)
 qyaml_add_test(regression-fuzz test_regression_fuzz.c)
 qyaml_add_test(coverage-gaps test_coverage_gaps.c)
 qyaml_add_test(conformance-yaml test_conformance_yaml.c)
+qyaml_add_test(loader-error-propagation test_loader_error_propagation.c)
 
 # OOM injection test: requires --wrap linker flag (Linux/GNU ld)
 # Tests that all allocation failure paths return errors cleanly
