@@ -502,6 +502,23 @@ yaml_queue_extend(void **start, void **head, void **tail, void **end);
         ((context)->error = YAML_MEMORY_ERROR,                                  \
          0))
 
+/*
+ * Reserve space at the tail of a queue for direct writes, avoiding an
+ * extra copy. Returns 1 on success (queue.tail is writable), 0 on OOM.
+ * Must be followed by ENQUEUE_COMMIT after the slot is populated.
+ */
+
+#define ENQUEUE_RESERVE(context,queue)                                          \
+    (__builtin_expect((queue).tail != (queue).end, 1)                           \
+      || yaml_queue_extend((void **)&(queue).start, (void **)&(queue).head,     \
+            (void **)&(queue).tail, (void **)&(queue).end) ?                    \
+        1 :                                                                     \
+        ((context)->error = YAML_MEMORY_ERROR,                                  \
+         0))
+
+#define ENQUEUE_COMMIT(queue)                                                   \
+    ((queue).tail++)
+
 #define DEQUEUE(context,queue)                                                  \
     (*((queue).head++))
 

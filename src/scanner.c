@@ -1925,8 +1925,6 @@ yaml_parser_fetch_value(yaml_parser_t *parser)
 static int
 yaml_parser_fetch_anchor(yaml_parser_t *parser, yaml_token_type_t type)
 {
-    yaml_token_t token;
-
     /* An anchor or an alias could be a simple key. */
 
     if (!yaml_parser_save_simple_key(parser))
@@ -1936,15 +1934,15 @@ yaml_parser_fetch_anchor(yaml_parser_t *parser, yaml_token_type_t type)
 
     parser->simple_key_allowed = 0;
 
-    /* Create the ALIAS or ANCHOR token and append it to the queue. */
+    /* Reserve queue space and scan directly into the tail slot. */
 
-    if (!yaml_parser_scan_anchor(parser, &token, type))
+    if (!ENQUEUE_RESERVE(parser, parser->tokens))
         return 0;
 
-    if (!ENQUEUE(parser, parser->tokens, token)) {
-        yaml_token_delete(&token);
+    if (!yaml_parser_scan_anchor(parser, parser->tokens.tail, type))
         return 0;
-    }
+
+    ENQUEUE_COMMIT(parser->tokens);
     return 1;
 }
 
@@ -1955,8 +1953,6 @@ yaml_parser_fetch_anchor(yaml_parser_t *parser, yaml_token_type_t type)
 static int
 yaml_parser_fetch_tag(yaml_parser_t *parser)
 {
-    yaml_token_t token;
-
     /* A tag could be a simple key. */
 
     if (!yaml_parser_save_simple_key(parser))
@@ -1966,15 +1962,15 @@ yaml_parser_fetch_tag(yaml_parser_t *parser)
 
     parser->simple_key_allowed = 0;
 
-    /* Create the TAG token and append it to the queue. */
+    /* Reserve queue space and scan directly into the tail slot. */
 
-    if (!yaml_parser_scan_tag(parser, &token))
+    if (!ENQUEUE_RESERVE(parser, parser->tokens))
         return 0;
 
-    if (!ENQUEUE(parser, parser->tokens, token)) {
-        yaml_token_delete(&token);
+    if (!yaml_parser_scan_tag(parser, parser->tokens.tail))
         return 0;
-    }
+
+    ENQUEUE_COMMIT(parser->tokens);
 
     return 1;
 }
@@ -1986,8 +1982,6 @@ yaml_parser_fetch_tag(yaml_parser_t *parser)
 static int
 yaml_parser_fetch_block_scalar(yaml_parser_t *parser, int literal)
 {
-    yaml_token_t token;
-
     /* Remove any potential simple keys. */
 
     if (!yaml_parser_remove_simple_key(parser))
@@ -1997,15 +1991,15 @@ yaml_parser_fetch_block_scalar(yaml_parser_t *parser, int literal)
 
     parser->simple_key_allowed = 1;
 
-    /* Create the SCALAR token and append it to the queue. */
+    /* Reserve queue space and scan directly into the tail slot. */
 
-    if (!yaml_parser_scan_block_scalar(parser, &token, literal))
+    if (!ENQUEUE_RESERVE(parser, parser->tokens))
         return 0;
 
-    if (!ENQUEUE(parser, parser->tokens, token)) {
-        yaml_token_delete(&token);
+    if (!yaml_parser_scan_block_scalar(parser, parser->tokens.tail, literal))
         return 0;
-    }
+
+    ENQUEUE_COMMIT(parser->tokens);
 
     return 1;
 }
@@ -2017,8 +2011,6 @@ yaml_parser_fetch_block_scalar(yaml_parser_t *parser, int literal)
 static int
 yaml_parser_fetch_flow_scalar(yaml_parser_t *parser, int single)
 {
-    yaml_token_t token;
-
     /* A plain scalar could be a simple key. */
 
     if (!yaml_parser_save_simple_key(parser))
@@ -2028,15 +2020,15 @@ yaml_parser_fetch_flow_scalar(yaml_parser_t *parser, int single)
 
     parser->simple_key_allowed = 0;
 
-    /* Create the SCALAR token and append it to the queue. */
+    /* Reserve queue space and scan directly into the tail slot. */
 
-    if (!yaml_parser_scan_flow_scalar(parser, &token, single))
+    if (!ENQUEUE_RESERVE(parser, parser->tokens))
         return 0;
 
-    if (!ENQUEUE(parser, parser->tokens, token)) {
-        yaml_token_delete(&token);
+    if (!yaml_parser_scan_flow_scalar(parser, parser->tokens.tail, single))
         return 0;
-    }
+
+    ENQUEUE_COMMIT(parser->tokens);
 
     return 1;
 }
@@ -2048,8 +2040,6 @@ yaml_parser_fetch_flow_scalar(yaml_parser_t *parser, int single)
 static int
 yaml_parser_fetch_plain_scalar(yaml_parser_t *parser)
 {
-    yaml_token_t token;
-
     /* A plain scalar could be a simple key. */
 
     if (!yaml_parser_save_simple_key(parser))
@@ -2059,15 +2049,17 @@ yaml_parser_fetch_plain_scalar(yaml_parser_t *parser)
 
     parser->simple_key_allowed = 0;
 
-    /* Create the SCALAR token and append it to the queue. */
+    /* Reserve queue space and scan directly into the tail slot,
+     * avoiding an 80-byte copy from a stack temporary. */
 
-    if (!yaml_parser_scan_plain_scalar(parser, &token))
+    if (!ENQUEUE_RESERVE(parser, parser->tokens))
         return 0;
 
-    if (!ENQUEUE(parser, parser->tokens, token)) {
-        yaml_token_delete(&token);
+    if (!yaml_parser_scan_plain_scalar(parser, parser->tokens.tail)) {
         return 0;
     }
+
+    ENQUEUE_COMMIT(parser->tokens);
 
     return 1;
 }
