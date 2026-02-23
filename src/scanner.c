@@ -664,7 +664,7 @@ yaml_scan_block_scalar_sse2(const yaml_char_t *src, size_t len)
  */
 
 #define CACHE(parser,length)                                                    \
-    (parser->unread >= (length)                                                 \
+    (__builtin_expect(parser->unread >= (length), 1)                            \
         ? 1                                                                     \
         : yaml_parser_update_buffer(parser, (length)))
 
@@ -677,7 +677,8 @@ yaml_scan_block_scalar_sse2(const yaml_char_t *src, size_t len)
       parser->mark.column ++,                                                   \
       parser->unread --,                                                        \
       parser->buffer.pointer +=                                                 \
-        (*(parser->buffer.pointer) & 0x80) == 0 ? 1 : WIDTH(parser->buffer))
+        __builtin_expect((*(parser->buffer.pointer) & 0x80) == 0, 1)            \
+        ? 1 : WIDTH(parser->buffer))
 
 #define SKIP_LINE(parser)                                                       \
      (IS_CRLF(parser->buffer) ?                                                 \

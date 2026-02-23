@@ -154,7 +154,7 @@ yaml_string_join(
      (string).start = (string).pointer = (string).end = 0)
 
 #define STRING_EXTEND(context,string)                                           \
-    ((((string).pointer+5 < (string).end)                                       \
+    ((__builtin_expect((string).pointer+5 < (string).end, 1)                    \
         || yaml_string_extend(&(string).start,                                  \
             &(string).pointer, &(string).end)) ?                                \
          1 :                                                                    \
@@ -453,7 +453,7 @@ yaml_queue_extend(void **start, void **head, void **tail, void **end);
          0))
 
 #define PUSH(context,stack,value)                                               \
-    (((stack).top != (stack).end                                                \
+    ((__builtin_expect((stack).top != (stack).end, 1)                           \
       || yaml_stack_extend((void **)&(stack).start,                             \
               (void **)&(stack).top, (void **)&(stack).end)) ?                  \
         (*((stack).top++) = value,                                              \
@@ -480,7 +480,7 @@ yaml_queue_extend(void **start, void **head, void **tail, void **end);
     ((queue).head == (queue).tail)
 
 #define ENQUEUE(context,queue,value)                                            \
-    (((queue).tail != (queue).end                                               \
+    ((__builtin_expect((queue).tail != (queue).end, 1)                          \
       || yaml_queue_extend((void **)&(queue).start, (void **)&(queue).head,     \
             (void **)&(queue).tail, (void **)&(queue).end)) ?                   \
         (*((queue).tail++) = value,                                             \
