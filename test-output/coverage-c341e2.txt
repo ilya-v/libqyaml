@@ -1,0 +1,21 @@
+Coverage Report: c341e2a
+Date: 2026-02-23
+
+Summary:
+  Lines:     89.5% (3996/4466)
+  Functions: 100.0% (201/201)
+  Branches:  57.4% (4044/7042)
+
+Per-file breakdown:
+  api.c      85.6% lines, 61.0% branches
+  dumper.c   93.2% lines, 63.0% branches
+  emitter.c  87.0% lines, 56.7% branches
+  loader.c   83.3% lines, 63.5% branches
+  parser.c   91.5% lines, 73.1% branches
+  reader.c   93.0% lines, 88.2% branches
+  scanner.c  92.4% lines, 51.5% branches
+  writer.c   85.2% lines, 72.2% branches
+
+Notes:
+- OOM test excluded (gcov conflicts with --wrap malloc)
+- Uncovered lines are primarily OOM error paths and rare emitter edge cases
