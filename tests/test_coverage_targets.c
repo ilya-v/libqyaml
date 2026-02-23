@@ -934,6 +934,37 @@ static void test_document_builder_api(void) {
     yaml_document_delete(&doc);
 }
 
+/* Regression test: double-free when yaml_parser_load fails and caller
+ * also calls yaml_document_delete. Found by fuzz_load harness.
+ * Input triggers a parse error mid-stream; yaml_parser_load calls
+ * yaml_document_delete on its error path (loader.c:141), then the caller
+ * calls it again. This is safe in libyaml because yaml_document_delete
+ * memsets the document to zero, making it idempotent. */
+static void test_document_delete_after_load_failure(void) {
+    const char *input = "-:\n%YAML 1.1\n---\niVc:\n%YAML 0";
+    yaml_parser_t parser;
+    yaml_document_t document;
+
+    yaml_parser_initialize(&parser);
+    yaml_parser_set_input_string(&parser, (const unsigned char *)input, strlen(input));
+
+    while (1) {
+        if (!yaml_parser_load(&parser, &document)) {
+            /* This second delete must be safe (idempotent) */
+            yaml_document_delete(&document);
+            break;
+        }
+        if (!yaml_document_get_root_node(&document)) {
+            yaml_document_delete(&document);
+            break;
+        }
+        yaml_document_delete(&document);
+    }
+
+    yaml_parser_delete(&parser);
+    ASSERT(1, "Double yaml_document_delete after load failure should not crash");
+}
+
 /* Test special YAML values */
 static void test_special_yaml_values(void) {
     /* Null values */
@@ -987,6 +1018,7 @@ int main(void) {
     printf("  Loader tests:\n");
     test_loader_alias();
     test_loader_nested_structures();
+    test_document_delete_after_load_failure();
 
     printf("  API tests:\n");
     test_custom_allocator();
