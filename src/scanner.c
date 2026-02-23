@@ -1935,6 +1935,88 @@ yaml_parser_fetch_flow_collection_end(yaml_parser_t *parser,
  */
 
 static int
+yaml_parser_fetch_flow_entry_scalar(yaml_parser_t *parser)
+{
+    yaml_char_t *ptr = parser->buffer.pointer + 1;
+    unsigned char ch = *ptr;
+    /* Quick check for plain scalar start (excludes flow indicators,
+     * whitespace, comments, and other special chars). */
+    if (ch <= 0x20 || ch >= 0x80
+            || ch == '#' || ch == ':' || ch == ',' || ch == '-'
+            || ch == '?' || ch == '*' || ch == '&' || ch == '!'
+            || ch == '|' || ch == '>' || ch == '\'' || ch == '"'
+            || ch == '@' || ch == '`' || ch == '%'
+            || ch == '[' || ch == ']' || ch == '{' || ch == '}')
+        return 1;
+
+    /* Scan the scalar using SIMD if available. */
+    size_t avail = parser->unread - 2;
+    size_t n;
+#ifdef HAVE_SIMD_SCAN
+    n = yaml_scan_plain_flow_sse2(ptr, avail);
+#else
+    {
+        yaml_char_t *p = ptr;
+        yaml_char_t *lim = ptr + avail;
+        while (p < lim) {
+            unsigned char c = *p;
+            if (c <= 0x20 || c == '#' || c == ':' || c >= 0x80
+                || c == ',' || c == '[' || c == ']'
+                || c == '{' || c == '}')
+                break;
+            p++;
+        }
+        n = (size_t)(p - ptr);
+    }
+#endif
+    /* Check terminator: must be a definitive flow terminator.
+     * Only handle cases where the scalar is clearly a VALUE,
+     * not a potential mapping KEY (avoid ':' terminators). */
+    if (n == 0)
+        return 1;
+
+    yaml_char_t term = ptr[n];
+    if (term != ',' && term != ']' && term != '}' && term != '\0')
+        return 1;
+
+    /* Skip the space after comma. */
+    parser->buffer.pointer++;
+    parser->mark.index++;
+    parser->mark.column++;
+    parser->unread--;
+
+    yaml_mark_t sc_start = parser->mark;
+    yaml_char_t *value = (yaml_char_t *)yaml_malloc_internal(n + 1);
+    if (!value) {
+        parser->error = YAML_MEMORY_ERROR;
+        return 0;
+    }
+    memcpy(value, ptr, n);
+    value[n] = '\0';
+
+    parser->buffer.pointer += n;
+    parser->mark.index += n;
+    parser->mark.column += n;
+    parser->unread -= n;
+    yaml_mark_t sc_end = parser->mark;
+
+    /* Emit SCALAR token. */
+    if (!ENQUEUE_RESERVE(parser, parser->tokens)) {
+        yaml_free(value);
+        return 0;
+    }
+    SCALAR_TOKEN_INIT(*parser->tokens.tail, value,
+            n, YAML_PLAIN_SCALAR_STYLE,
+            sc_start, sc_end);
+    ENQUEUE_COMMIT(parser->tokens);
+
+    /* After emitting a scalar, simple keys are no longer allowed. */
+    parser->simple_key_allowed = 0;
+
+    return 1;
+}
+
+static int
 yaml_parser_fetch_flow_entry(yaml_parser_t *parser)
 {
     yaml_mark_t start_mark, end_mark;
@@ -1961,6 +2043,11 @@ yaml_parser_fetch_flow_entry(yaml_parser_t *parser)
 
     if (!ENQUEUE(parser, parser->tokens, token))
         return 0;
+
+    /* Fast path: if a space follows the comma and there's enough data,
+     * try to emit the following plain scalar in one shot. */
+    if (parser->unread >= 3 && parser->buffer.pointer[0] == ' ')
+        return yaml_parser_fetch_flow_entry_scalar(parser);
 
     return 1;
 }
