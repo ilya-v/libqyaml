@@ -2,6 +2,53 @@
 #include "yaml_private.h"
 
 /*
+ * SSE2-accelerated ASCII scanning for the reader's fast path.
+ * Scans for printable ASCII bytes (0x20-0x7E) which are always valid in YAML.
+ * Stops at whitespace (tab/LF/CR), control chars, and high bytes, letting the
+ * scalar fallback handle those (they're valid but uncommon in the middle of
+ * content).
+ */
+
+#if defined(__SSE2__) && defined(__x86_64__)
+#include <immintrin.h>
+
+static inline size_t
+yaml_reader_scan_ascii_sse2(const unsigned char *src, size_t len)
+{
+    const unsigned char *p = src;
+    const __m128i v_lo = _mm_set1_epi8(0x1F);  /* below printable */
+    const __m128i v_del = _mm_set1_epi8(0x7F);  /* DEL character */
+
+    while (len >= 16) {
+        __m128i data = _mm_loadu_si128((const __m128i *)p);
+        /* ch <= 0x1F: unsigned compare via max(ch, 0x1F) == 0x1F */
+        __m128i le_ctrl = _mm_cmpeq_epi8(_mm_max_epu8(data, v_lo), v_lo);
+        /* ch == 0x7F */
+        __m128i eq_del = _mm_cmpeq_epi8(data, v_del);
+        /* ch >= 0x80: sign bit set */
+        int hi_mask = _mm_movemask_epi8(data);
+        int stop_mask = _mm_movemask_epi8(_mm_or_si128(le_ctrl, eq_del));
+        stop_mask |= hi_mask;
+        if (stop_mask) {
+            return (size_t)(p - src) + (size_t)__builtin_ctz((unsigned)stop_mask);
+        }
+        p += 16;
+        len -= 16;
+    }
+    /* Scalar tail: same printable ASCII check */
+    while (len > 0) {
+        unsigned char ch = *p;
+        if (ch < 0x20 || ch >= 0x7F) break;
+        p++;
+        len--;
+    }
+    return (size_t)(p - src);
+}
+
+#define HAVE_READER_SIMD 1
+#endif /* __SSE2__ && __x86_64__ */
+
+/*
  * Declarations.
  */
 
@@ -202,25 +249,37 @@ yaml_parser_update_buffer(yaml_parser_t *parser, size_t length)
                 return 1;
             }
 
-            /* Scan for valid ASCII run directly in the input string */
+            /* Scan for valid ASCII run directly in the input string.
+             * Uses SIMD when available for printable ASCII (0x20-0x7E),
+             * then scalar fallback picks up whitespace chars (tab/LF/CR). */
             {
                 const unsigned char *run_start = src;
                 size_t buf_avail = (size_t)(parser->buffer.end
                                     - parser->buffer.last);
-                const unsigned char *scan_end = src_end;
-                if ((size_t)(scan_end - src) > buf_avail)
-                    scan_end = src + buf_avail;
+                size_t src_avail = (size_t)(src_end - src);
+                size_t avail = src_avail < buf_avail ? src_avail : buf_avail;
 
-                while (src < scan_end) {
-                    unsigned char c = *src;
-                    if (c >= 0x20) {
-                        if (c <= 0x7E) { src++; continue; }
-                        break; /* c == 0x7F or c >= 0x80 */
+#ifdef HAVE_READER_SIMD
+                /* SIMD: scan printable ASCII in bulk */
+                {
+                    size_t n = yaml_reader_scan_ascii_sse2(src, avail);
+                    src += n;
+                }
+                /* Scalar tail: pick up whitespace chars that SIMD skipped */
+#endif
+                {
+                    const unsigned char *scan_end = run_start + avail;
+                    while (src < scan_end) {
+                        unsigned char c = *src;
+                        if (c >= 0x20) {
+                            if (c <= 0x7E) { src++; continue; }
+                            break; /* c == 0x7F or c >= 0x80 */
+                        }
+                        if (c == 0x0A || c == 0x0D || c == 0x09) {
+                            src++; continue;
+                        }
+                        break; /* control character or non-ASCII */
                     }
-                    if (c == 0x0A || c == 0x0D || c == 0x09) {
-                        src++; continue;
-                    }
-                    break; /* control character or non-ASCII */
                 }
 
                 if (src > run_start) {
@@ -320,6 +379,15 @@ yaml_parser_update_buffer(yaml_parser_t *parser, size_t length)
                             rl = rp + buf_avail;
                         }
 
+#ifdef HAVE_READER_SIMD
+                        /* SIMD: bulk scan printable ASCII (0x20-0x7E) */
+                        {
+                            size_t avail = (size_t)(rl - rp);
+                            size_t n = yaml_reader_scan_ascii_sse2(rp, avail);
+                            rp += n;
+                        }
+                        /* Scalar tail: pick up whitespace (tab/LF/CR) */
+#endif
                         while (rp < rl) {
                             unsigned char c = *rp;
                             if (c >= 0x20) {

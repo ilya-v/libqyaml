@@ -2122,24 +2122,34 @@ yaml_parser_scan_to_next_token(yaml_parser_t *parser)
         /* Eat a comment until a line break. */
 
         if (CHECK(parser->buffer, '#')) {
-            /* Batch-skip ASCII comment content.
+            /* Batch-skip ASCII comment content using SIMD when available.
              * Stop at any non-ASCII byte (>= 0x80) so that
              * unread (which counts characters) is decremented
              * correctly -- within the ASCII region, bytes == chars.
              */
             {
                 yaml_char_t *ptr = parser->buffer.pointer;
-                yaml_char_t *limit = ptr + parser->unread;
-                while (ptr < limit) {
-                    unsigned char ch = *ptr;
-                    if (ch == '\r' || ch == '\n' || ch == '\0'
-                            || (ch & 0x80))
-                        break;
-                    ptr++;
+                size_t avail = parser->unread;
+                size_t n;
+
+#ifdef HAVE_SIMD_SCAN
+                n = yaml_scan_block_scalar_sse2(ptr, avail);
+#else
+                {
+                    yaml_char_t *p = ptr;
+                    yaml_char_t *limit = ptr + avail;
+                    while (p < limit) {
+                        unsigned char ch = *p;
+                        if (ch == '\r' || ch == '\n' || ch == '\0'
+                                || (ch & 0x80))
+                            break;
+                        p++;
+                    }
+                    n = (size_t)(p - ptr);
                 }
-                if (ptr > parser->buffer.pointer) {
-                    size_t n = (size_t)(ptr - parser->buffer.pointer);
-                    parser->buffer.pointer = ptr;
+#endif
+                if (n > 0) {
+                    parser->buffer.pointer += n;
                     parser->mark.index += n;
                     parser->mark.column += n;
                     parser->unread -= n;
