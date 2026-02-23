@@ -1166,9 +1166,9 @@ yaml_parser_fetch_kv_pair_batch(yaml_parser_t *parser)
     /* All conditions met. Emit tokens in batch. */
     yaml_mark_t key_start = parser->mark;
     yaml_mark_t key_end;
+    yaml_mark_t colon_mark;
     yaml_mark_t val_start;
     yaml_mark_t val_end_mark;
-    yaml_token_t token;
 
     /* 1) BLOCK-MAPPING-START if indent needs rolling */
     if (parser->indent < (ptrdiff_t)parser->mark.column) {
@@ -1179,80 +1179,84 @@ yaml_parser_fetch_kv_pair_batch(yaml_parser_t *parser)
             return -1;
     }
 
-    /* 2) KEY token */
-    TOKEN_INIT(token, YAML_KEY_TOKEN, key_start, key_start);
-    if (!ENQUEUE(parser, parser->tokens, token))
+    /* Allocate key and value strings. */
+    yaml_char_t *kval = (yaml_char_t *)yaml_malloc_internal(key_len + 1);
+    if (!kval) {
+        parser->error = YAML_MEMORY_ERROR;
         return -1;
-
-    /* 3) SCALAR(key) -- allocate and copy */
-    {
-        yaml_char_t *kval = (yaml_char_t *)yaml_malloc_internal(key_len + 1);
-        if (!kval) {
-            parser->error = YAML_MEMORY_ERROR;
-            return -1;
-        }
-        memcpy(kval, src, key_len);
-        kval[key_len] = '\0';
-
-        /* Advance parser past key */
-        parser->buffer.pointer += key_len;
-        parser->mark.index += key_len;
-        parser->mark.column += key_len;
-        parser->unread -= key_len;
-        key_end = parser->mark;
-
-        if (!ENQUEUE_RESERVE(parser, parser->tokens))
-            { yaml_free(kval); return -1; }
-        SCALAR_TOKEN_INIT(*parser->tokens.tail, kval,
-                key_len, YAML_PLAIN_SCALAR_STYLE,
-                key_start, key_end);
-        ENQUEUE_COMMIT(parser->tokens);
+    }
+    yaml_char_t *vval = (yaml_char_t *)yaml_malloc_internal(val_len + 1);
+    if (!vval) {
+        yaml_free(kval);
+        parser->error = YAML_MEMORY_ERROR;
+        return -1;
     }
 
-    /* 4) VALUE token -- skip ": " */
-    {
-        yaml_mark_t vmark = parser->mark;
-        parser->buffer.pointer += 1; /* skip ':' */
-        parser->mark.index += 1;
-        parser->mark.column += 1;
-        parser->unread -= 1;
-        yaml_mark_t vmark_end = parser->mark;
+    memcpy(kval, src, key_len);
+    kval[key_len] = '\0';
+    memcpy(vval, src + key_len + 2, val_len);
+    vval[val_len] = '\0';
 
-        TOKEN_INIT(token, YAML_VALUE_TOKEN, vmark, vmark_end);
+    /* Compute all marks up front. */
+    key_end.index = key_start.index + key_len;
+    key_end.line = key_start.line;
+    key_end.column = key_start.column + key_len;
+
+    colon_mark.index = key_end.index;
+    colon_mark.line = key_end.line;
+    colon_mark.column = key_end.column;
+
+    val_start.index = key_end.index + 2; /* past ": " */
+    val_start.line = key_end.line;
+    val_start.column = key_end.column + 2;
+
+    val_end_mark.index = val_start.index + val_len;
+    val_end_mark.line = val_start.line;
+    val_end_mark.column = val_start.column + val_len;
+
+    /* Advance parser past "key: value" in one step. */
+    {
+        size_t total = key_len + 2 + val_len;
+        parser->buffer.pointer += total;
+        parser->mark = val_end_mark;
+        parser->unread -= total;
+    }
+
+    /* 2) KEY token */
+    {
+        yaml_token_t token;
+        TOKEN_INIT(token, YAML_KEY_TOKEN, key_start, key_start);
+        if (!ENQUEUE(parser, parser->tokens, token))
+            { yaml_free(kval); yaml_free(vval); return -1; }
+    }
+
+    /* 3) SCALAR(key) */
+    if (!ENQUEUE_RESERVE(parser, parser->tokens))
+        { yaml_free(kval); yaml_free(vval); return -1; }
+    SCALAR_TOKEN_INIT(*parser->tokens.tail, kval,
+            key_len, YAML_PLAIN_SCALAR_STYLE,
+            key_start, key_end);
+    ENQUEUE_COMMIT(parser->tokens);
+
+    /* 4) VALUE token */
+    {
+        yaml_mark_t colon_end;
+        colon_end.index = colon_mark.index + 1;
+        colon_end.line = colon_mark.line;
+        colon_end.column = colon_mark.column + 1;
+        yaml_token_t token;
+        TOKEN_INIT(token, YAML_VALUE_TOKEN, colon_mark, colon_end);
         if (!ENQUEUE(parser, parser->tokens, token))
             return -1;
-
-        /* skip ' ' */
-        parser->buffer.pointer += 1;
-        parser->mark.index += 1;
-        parser->mark.column += 1;
-        parser->unread -= 1;
     }
 
-    /* 5) SCALAR(value) -- allocate and copy */
-    {
-        yaml_char_t *vval = (yaml_char_t *)yaml_malloc_internal(val_len + 1);
-        if (!vval) {
-            parser->error = YAML_MEMORY_ERROR;
-            return -1;
-        }
-        val_start = parser->mark;
-        memcpy(vval, parser->buffer.pointer, val_len);
-        vval[val_len] = '\0';
-
-        parser->buffer.pointer += val_len;
-        parser->mark.index += val_len;
-        parser->mark.column += val_len;
-        parser->unread -= val_len;
-        val_end_mark = parser->mark;
-
-        if (!ENQUEUE_RESERVE(parser, parser->tokens))
-            { yaml_free(vval); return -1; }
-        SCALAR_TOKEN_INIT(*parser->tokens.tail, vval,
-                val_len, YAML_PLAIN_SCALAR_STYLE,
-                val_start, val_end_mark);
-        ENQUEUE_COMMIT(parser->tokens);
-    }
+    /* 5) SCALAR(value) */
+    if (!ENQUEUE_RESERVE(parser, parser->tokens))
+        { yaml_free(vval); return -1; }
+    SCALAR_TOKEN_INIT(*parser->tokens.tail, vval,
+            val_len, YAML_PLAIN_SCALAR_STYLE,
+            val_start, val_end_mark);
+    ENQUEUE_COMMIT(parser->tokens);
 
     /* Reset simple key state: after a value, no simple key is active. */
     parser->simple_key_allowed = 0;
