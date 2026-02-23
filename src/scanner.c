@@ -3425,7 +3425,7 @@ yaml_parser_scan_flow_scalar(yaml_parser_t *parser, yaml_token_t *token,
          * For single-quoted strings, reject '' escape pairs. */
         if (n < avail && src[n] == quote_ch
                 && !(single && n + 1 < avail && src[n + 1] == '\'')) {
-            yaml_char_t *value = (yaml_char_t *)yaml_malloc(n + 1);
+            yaml_char_t *value = (yaml_char_t *)yaml_malloc_internal(n + 1);
             if (!value) {
                 parser->error = YAML_MEMORY_ERROR;
                 return 0;
@@ -3965,7 +3965,7 @@ yaml_parser_scan_plain_scalar(yaml_parser_t *parser, yaml_token_t *token)
 
             if (is_end) {
                 /* Fast path: single-line scalar, all content in buffer */
-                yaml_char_t *value = (yaml_char_t *)yaml_malloc(n + 1);
+                yaml_char_t *value = (yaml_char_t *)yaml_malloc_internal(n + 1);
                 if (!value) {
                     parser->error = YAML_MEMORY_ERROR;
                     return 0;

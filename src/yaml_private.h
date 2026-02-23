@@ -21,6 +21,19 @@ yaml_realloc(void *ptr, size_t size);
 YAML_DECLARE(void)
 yaml_free(void *ptr);
 
+/*
+ * Inline wrappers for internal use. Bypass the public yaml_malloc/yaml_free
+ * functions to avoid function call overhead (the public API does size==0
+ * and NULL checks that internal callers never need).
+ */
+static inline void *yaml_malloc_internal(size_t size) {
+    return malloc(size);
+}
+
+static inline void yaml_free_internal(void *ptr) {
+    free(ptr);
+}
+
 YAML_DECLARE(yaml_char_t *)
 yaml_strdup(const yaml_char_t *);
 
@@ -112,7 +125,7 @@ yaml_parser_fetch_more_tokens(yaml_parser_t *parser);
  */
 
 #define BUFFER_INIT(context,buffer,size)                                        \
-  (((buffer).start = (yaml_char_t *)yaml_malloc(size)) ?                        \
+  (((buffer).start = (yaml_char_t *)yaml_malloc_internal(size)) ?               \
         ((buffer).last = (buffer).pointer = (buffer).start,                     \
          (buffer).end = (buffer).start+(size),                                  \
          1) :                                                                   \
@@ -120,7 +133,7 @@ yaml_parser_fetch_more_tokens(yaml_parser_t *parser);
          0))
 
 #define BUFFER_DEL(context,buffer)                                              \
-    (yaml_free((buffer).start),                                                 \
+    (yaml_free_internal((buffer).start),                                        \
      (buffer).start = (buffer).pointer = (buffer).end = 0)
 
 /*
@@ -152,7 +165,7 @@ yaml_string_join(
      (value).pointer = (string))
 
 #define STRING_INIT(context,string,size)                                        \
-    (((string).start = YAML_MALLOC(size)) ?                                     \
+    (((string).start = (yaml_char_t *)yaml_malloc_internal(size)) ?             \
         ((string).pointer = (string).start,                                     \
          (string).end = (string).start+(size),                                  \
          *(string).start = '\0',                                                \
@@ -164,7 +177,7 @@ yaml_string_join(
     ((string).start ? 1 : STRING_INIT((context),(string),(size)))
 
 #define STRING_DEL(context,string)                                              \
-    (yaml_free((string).start),                                                 \
+    (yaml_free_internal((string).start),                                        \
      (string).start = (string).pointer = (string).end = 0)
 
 #define STRING_EXTEND(context,string)                                           \
@@ -446,7 +459,7 @@ YAML_DECLARE(int)
 yaml_queue_extend(void **start, void **head, void **tail, void **end);
 
 #define STACK_INIT(context,stack,type)                                     \
-  (((stack).start = (type)yaml_malloc(INITIAL_STACK_SIZE*sizeof(*(stack).start))) ? \
+  (((stack).start = (type)yaml_malloc_internal(INITIAL_STACK_SIZE*sizeof(*(stack).start))) ? \
         ((stack).top = (stack).start,                                           \
          (stack).end = (stack).start+INITIAL_STACK_SIZE,                        \
          1) :                                                                   \
@@ -454,7 +467,7 @@ yaml_queue_extend(void **start, void **head, void **tail, void **end);
          0))
 
 #define STACK_DEL(context,stack)                                                \
-    (yaml_free((stack).start),                                                  \
+    (yaml_free_internal((stack).start),                                         \
      (stack).start = (stack).top = (stack).end = 0)
 
 #define STACK_EMPTY(context,stack)                                              \
@@ -479,7 +492,7 @@ yaml_queue_extend(void **start, void **head, void **tail, void **end);
     (*(--(stack).top))
 
 #define QUEUE_INIT(context,queue,size,type)                                     \
-  (((queue).start = (type)yaml_malloc((size)*sizeof(*(queue).start))) ?         \
+  (((queue).start = (type)yaml_malloc_internal((size)*sizeof(*(queue).start))) ? \
         ((queue).head = (queue).tail = (queue).start,                           \
          (queue).end = (queue).start+(size),                                    \
          1) :                                                                   \
@@ -487,7 +500,7 @@ yaml_queue_extend(void **start, void **head, void **tail, void **end);
          0))
 
 #define QUEUE_DEL(context,queue)                                                \
-    (yaml_free((queue).start),                                                  \
+    (yaml_free_internal((queue).start),                                         \
      (queue).start = (queue).head = (queue).tail = (queue).end = 0)
 
 #define QUEUE_EMPTY(context,queue)                                              \
@@ -720,5 +733,5 @@ yaml_queue_extend(void **start, void **head, void **tail, void **end);
 #  define UNUSED_PARAM(a) /*@-noeffect*/if (0) (void)(a)/*@=noeffect*/;
 #endif
 
-#define YAML_MALLOC_STATIC(type) (type*)yaml_malloc(sizeof(type))
-#define YAML_MALLOC(size)        (yaml_char_t *)yaml_malloc(size)
+#define YAML_MALLOC_STATIC(type) (type*)yaml_malloc_internal(sizeof(type))
+#define YAML_MALLOC(size)        (yaml_char_t *)yaml_malloc_internal(size)

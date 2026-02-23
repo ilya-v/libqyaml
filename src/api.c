@@ -1130,10 +1130,10 @@ yaml_document_delete(yaml_document_t *document)
     while (!STACK_EMPTY(&context, document->nodes)) {
         yaml_node_t node = POP(&context, document->nodes);
         if (!YAML_TAG_IS_INTERNED(node.tag))
-            yaml_free(node.tag);
+            yaml_free_internal(node.tag);
         switch (node.type) {
             case YAML_SCALAR_NODE:
-                yaml_free(node.data.scalar.value);
+                yaml_free_internal(node.data.scalar.value);
                 break;
             case YAML_SEQUENCE_NODE:
                 STACK_DEL(&context, node.data.sequence.items);
@@ -1147,16 +1147,14 @@ yaml_document_delete(yaml_document_t *document)
     }
     STACK_DEL(&context, document->nodes);
 
-    yaml_free(document->version_directive);
+    yaml_free_internal(document->version_directive);
     for (tag_directive = document->tag_directives.start;
             tag_directive != document->tag_directives.end;
             tag_directive++) {
-        yaml_free(tag_directive->handle);
-        yaml_free(tag_directive->prefix);
+        yaml_free_internal(tag_directive->handle);
+        yaml_free_internal(tag_directive->prefix);
     }
-    yaml_free(document->tag_directives.start);
-
-    memset(document, 0, sizeof(yaml_document_t));
+    yaml_free_internal(document->tag_directives.start);
 }
 
 /**
