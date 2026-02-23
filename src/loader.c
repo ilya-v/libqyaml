@@ -1074,7 +1074,7 @@ yaml_parser_load_sequence_items_batch(yaml_parser_t *parser,
             if (!PUSH(parser, parser->states,
                         YAML_PARSE_BLOCK_SEQUENCE_ENTRY_STATE))
                 return 0;
-            parser->state = YAML_PARSE_BLOCK_NODE_OR_INDENTLESS_SEQUENCE_STATE;
+            parser->state = YAML_PARSE_BLOCK_NODE_STATE;
             return 1;
         }
 
