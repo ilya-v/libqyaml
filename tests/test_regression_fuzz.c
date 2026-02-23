@@ -11,6 +11,7 @@
  *   3. Plain scalar blank line continuation incorrect (b2e02f41, 03d77aef)
  *   4. Quoted scalar trailing line breaks after escaped breaks (b137e8d4)
  *   5. fetch_flow_entry_scalar firing at flow_level=0 (99ca2cbf)
+ *   6. Scanner missing SCALAR before error on invalid continuation (5953a6a7)
  */
 
 #include "test_helper.h"
@@ -497,6 +498,110 @@ static void test_regression_flow_level_guard_deep_flow(void) {
 }
 
 /* ========================================================================
+ * Bug 6: Scanner status divergence — missing SCALAR before error (5953a6a7)
+ *
+ * Input "foo:\n  bar\ninvalid\n" causes our scanner to error before emitting
+ * the SCALAR("bar") token. libyaml correctly emits:
+ *   STREAM_START -> BLOCK_MAP_START -> KEY -> SCALAR("foo") -> VALUE ->
+ *   SCALAR("bar") -> ERROR
+ * Our scanner emits:
+ *   STREAM_START -> BLOCK_MAP_START -> KEY -> SCALAR("foo") -> VALUE -> ERROR
+ *
+ * The missing SCALAR token is a correctness divergence.
+ * ======================================================================== */
+
+/* Define BUG6_FIXED when the worker fixes the scanner divergence on
+ * "foo:\n  bar\ninvalid\n" (missing SCALAR token before error). */
+/* #define BUG6_FIXED */
+#ifdef BUG6_FIXED
+static int count_scalar_tokens(const char *input) {
+    yaml_parser_t parser;
+    yaml_token_t token;
+    int scalar_count = 0;
+
+    if (!yaml_parser_initialize(&parser)) return -1;
+    yaml_parser_set_input_string(&parser, (const unsigned char *)input,
+                                 strlen(input));
+
+    while (1) {
+        if (!yaml_parser_scan(&parser, &token)) {
+            yaml_parser_delete(&parser);
+            return scalar_count;
+        }
+        if (token.type == YAML_SCALAR_TOKEN)
+            scalar_count++;
+        int done = (token.type == YAML_STREAM_END_TOKEN);
+        yaml_token_delete(&token);
+        if (done) break;
+    }
+
+    yaml_parser_delete(&parser);
+    return scalar_count;
+}
+
+static int scan_finds_scalar_value(const char *input, const char *value) {
+    yaml_parser_t parser;
+    yaml_token_t token;
+    int found = 0;
+
+    if (!yaml_parser_initialize(&parser)) return 0;
+    yaml_parser_set_input_string(&parser, (const unsigned char *)input,
+                                 strlen(input));
+
+    while (1) {
+        if (!yaml_parser_scan(&parser, &token)) {
+            yaml_parser_delete(&parser);
+            return found;
+        }
+        if (token.type == YAML_SCALAR_TOKEN) {
+            if (token.data.scalar.length == strlen(value) &&
+                memcmp(token.data.scalar.value, value,
+                       token.data.scalar.length) == 0) {
+                found = 1;
+            }
+        }
+        int done = (token.type == YAML_STREAM_END_TOKEN);
+        yaml_token_delete(&token);
+        if (done) break;
+    }
+
+    yaml_parser_delete(&parser);
+    return found;
+}
+
+static void test_regression_scanner_missing_scalar_before_error(void) {
+    /* "foo:\n  bar\ninvalid\n" - scanner should emit SCALAR("foo") AND
+     * SCALAR("bar") before the error on "invalid". libyaml emits both;
+     * our scanner currently fails after only SCALAR("foo"). */
+    const char *input = "foo:\n  bar\ninvalid\n";
+
+    /* Must emit at least 2 scalar tokens: "foo" and "bar" */
+    ASSERT_EQ_INT(count_scalar_tokens(input), 2,
+                  "scanner missing scalar: should emit 2 scalars before error");
+
+    /* Must find SCALAR("bar") in the token stream before the error */
+    ASSERT(scan_finds_scalar_value(input, "bar"),
+           "scanner missing scalar: must emit SCALAR(\"bar\") before error");
+
+    /* SCALAR("foo") should always be there */
+    ASSERT(scan_finds_scalar_value(input, "foo"),
+           "scanner missing scalar: must emit SCALAR(\"foo\")");
+}
+
+static void test_regression_scanner_missing_scalar_variations(void) {
+    /* Variations of the same pattern: mapping value before invalid content */
+
+    /* "a: b\nc\n" - "b" should be emitted as scalar before error on "c" */
+    ASSERT(scan_finds_scalar_value("a: b\nc\n", "b"),
+           "scalar before error var1: must emit SCALAR(\"b\")");
+
+    /* "key:\n  value\nbad\n" - same pattern with indented value */
+    ASSERT(scan_finds_scalar_value("key:\n  value\nbad\n", "value"),
+           "scalar before error var2: must emit SCALAR(\"value\")");
+}
+#endif /* BUG6_FIXED */
+
+/* ========================================================================
  * Additional regression tests: double-free in yaml_document_delete
  *
  * Found earlier in the session. yaml_document_delete must be idempotent
@@ -581,6 +686,14 @@ int main(void) {
     test_regression_flow_level_guard_block_after_flow();
     test_regression_flow_level_guard_flow_map();
     test_regression_flow_level_guard_deep_flow();
+
+    /* Bug 6: Scanner missing scalar before error
+     * Known open bug — define BUG6_FIXED to enable these tests.
+     * See validation-5953a6.md for the full divergence report. */
+#ifdef BUG6_FIXED
+    test_regression_scanner_missing_scalar_before_error();
+    test_regression_scanner_missing_scalar_variations();
+#endif
 
     /* Delete idempotency */
     test_regression_document_delete_idempotent();
