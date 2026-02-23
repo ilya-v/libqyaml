@@ -114,6 +114,10 @@ static int
 yaml_parser_load_sequence_items_batch(yaml_parser_t *parser,
         struct loader_ctx *ctx);
 
+static int
+yaml_parser_load_flow_sequence_items_batch(yaml_parser_t *parser,
+        struct loader_ctx *ctx);
+
 /*
  * Load the next document of the stream.
  */
@@ -304,6 +308,10 @@ yaml_parser_load_nodes(yaml_parser_t *parser, struct loader_ctx *ctx)
                 if ((parser->state == YAML_PARSE_BLOCK_SEQUENCE_FIRST_ENTRY_STATE ||
                         parser->state == YAML_PARSE_BLOCK_SEQUENCE_ENTRY_STATE) &&
                         !yaml_parser_load_sequence_items_batch(parser, ctx))
+                    return 0;
+                if ((parser->state == YAML_PARSE_FLOW_SEQUENCE_FIRST_ENTRY_STATE ||
+                        parser->state == YAML_PARSE_FLOW_SEQUENCE_ENTRY_STATE) &&
+                        !yaml_parser_load_flow_sequence_items_batch(parser, ctx))
                     return 0;
                 break;
             case YAML_SEQUENCE_END_EVENT:
@@ -1066,6 +1074,173 @@ yaml_parser_load_sequence_items_batch(yaml_parser_t *parser,
 
     /* BLOCK_END (or unexpected token) -- let normal event loop handle it. */
     parser->state = YAML_PARSE_BLOCK_SEQUENCE_ENTRY_STATE;
+    return 1;
+}
+
+/*
+ * Batch-load plain scalar items directly from the token queue for flow
+ * sequences. Bypasses the parser state machine for the common case of
+ * flow sequences containing only plain scalar items without anchors or tags.
+ * Falls back to the normal event loop for anything else.
+ *
+ * The parser must be in FLOW_SEQUENCE_FIRST_ENTRY_STATE or
+ * FLOW_SEQUENCE_ENTRY_STATE when this is called.
+ */
+
+static int
+yaml_parser_load_flow_sequence_items_batch(yaml_parser_t *parser,
+        struct loader_ctx *ctx)
+{
+    yaml_token_t *token;
+    yaml_document_t *document = parser->document;
+    int sequence_index;
+
+    sequence_index = *((*ctx).top - 1);
+
+    /* On first entry, consume the FLOW-SEQUENCE-START token. */
+    if (parser->state == YAML_PARSE_FLOW_SEQUENCE_FIRST_ENTRY_STATE) {
+        token = LOADER_PEEK_TOKEN(parser);
+        if (!token) return 0;
+        if (!PUSH(parser, parser->marks, token->start_mark))
+            return 0;
+        LOADER_SKIP_TOKEN(parser);
+    }
+
+    for (;;) {
+        /* Scalar data copied to locals before skip to avoid UAF from
+         * queue reallocation on subsequent PEEK calls. */
+        yaml_char_t *value;
+        size_t length;
+        yaml_mark_t start_mark, end_mark;
+
+        token = LOADER_PEEK_TOKEN(parser);
+        if (!token) return 0;
+
+        /* End of sequence -- let normal event loop handle SEQUENCE_END. */
+        if (token->type == YAML_FLOW_SEQUENCE_END_TOKEN)
+            break;
+
+        /* Expect FLOW_ENTRY separator between items. */
+        if (token->type == YAML_FLOW_ENTRY_TOKEN) {
+            LOADER_SKIP_TOKEN(parser);
+            token = LOADER_PEEK_TOKEN(parser);
+            if (!token) return 0;
+
+            /* Check if next token is a batchable plain scalar. */
+            if (token->type == YAML_SCALAR_TOKEN &&
+                    token->data.scalar.style == YAML_PLAIN_SCALAR_STYLE) {
+                goto batch_scalar;
+            }
+
+            /* Not batchable after consuming FLOW_ENTRY.
+             * For KEY tokens: create implicit mapping inline (like
+             * parse_flow_sequence_entry does) since parse_node can't
+             * handle KEY tokens in flow context.
+             * For everything else: redirect to parse_node. */
+            if (token->type == YAML_KEY_TOKEN) {
+                yaml_event_t map_event;
+                memset(&map_event, 0, sizeof(map_event));
+                map_event.type = YAML_MAPPING_START_EVENT;
+                map_event.data.mapping_start.implicit = 1;
+                map_event.data.mapping_start.style = YAML_FLOW_MAPPING_STYLE;
+                map_event.start_mark = token->start_mark;
+                map_event.end_mark = token->end_mark;
+                LOADER_SKIP_TOKEN(parser);
+                if (!yaml_parser_load_mapping(parser, &map_event, ctx))
+                    return 0;
+                parser->state =
+                        YAML_PARSE_FLOW_SEQUENCE_ENTRY_MAPPING_KEY_STATE;
+                return 1;
+            }
+
+            /* FLOW_SEQUENCE_END after trailing comma: [1, 2, 3,]
+             * Let normal event loop handle the ]. */
+            if (token->type == YAML_FLOW_SEQUENCE_END_TOKEN)
+                break;
+
+            /* Non-scalar, non-KEY item (nested collection, alias, etc).
+             * Set parser state to process via parse_node. */
+            if (!PUSH(parser, parser->states,
+                        YAML_PARSE_FLOW_SEQUENCE_ENTRY_STATE))
+                return 0;
+            parser->state = YAML_PARSE_FLOW_NODE_STATE;
+            return 1;
+        }
+
+        /* First item (no FLOW_ENTRY expected). */
+        if (token->type == YAML_SCALAR_TOKEN &&
+                token->data.scalar.style == YAML_PLAIN_SCALAR_STYLE) {
+            goto batch_scalar;
+        }
+
+        /* First item is not a plain scalar. Fall back to normal path.
+         * FLOW_SEQUENCE_START was already consumed, so we must set state
+         * as if parse_flow_sequence_entry(first=1) had consumed it and
+         * is now dispatching the item. */
+        if (token->type == YAML_KEY_TOKEN) {
+            yaml_event_t map_event;
+            memset(&map_event, 0, sizeof(map_event));
+            map_event.type = YAML_MAPPING_START_EVENT;
+            map_event.data.mapping_start.implicit = 1;
+            map_event.data.mapping_start.style = YAML_FLOW_MAPPING_STYLE;
+            map_event.start_mark = token->start_mark;
+            map_event.end_mark = token->end_mark;
+            LOADER_SKIP_TOKEN(parser);
+            if (!yaml_parser_load_mapping(parser, &map_event, ctx))
+                return 0;
+            parser->state =
+                    YAML_PARSE_FLOW_SEQUENCE_ENTRY_MAPPING_KEY_STATE;
+            return 1;
+        }
+        if (!PUSH(parser, parser->states,
+                    YAML_PARSE_FLOW_SEQUENCE_ENTRY_STATE))
+            return 0;
+        parser->state = YAML_PARSE_FLOW_NODE_STATE;
+        return 1;
+
+    batch_scalar:
+        /* Copy scalar data to locals before skipping. After the skip,
+         * the token queue may be reallocated by the next PEEK,
+         * invalidating the token pointer. */
+        value = token->data.scalar.value;
+        length = token->data.scalar.length;
+        start_mark = token->start_mark;
+        end_mark = token->end_mark;
+
+        /* Skip scalar token. After this, value is orphaned from the
+         * token queue -- we MUST free it on any error path. */
+        LOADER_SKIP_TOKEN(parser);
+
+        /* Create scalar node via inlined helper. */
+        if (!STACK_LIMIT(parser, document->nodes, INT_MAX-1))
+            goto error_free_value;
+        if (!STACK_PUSH_RESERVE(parser, document->nodes))
+            goto error_free_value;
+
+        int item_index = loader_create_plain_scalar(document,
+                value, length, start_mark, end_mark);
+        if (!item_index) goto error_free_value;
+        value = NULL;  /* helper freed it */
+
+        /* Add item to the sequence node. */
+        {
+            yaml_node_t *seq = &document->nodes.start[sequence_index - 1];
+            if (!STACK_LIMIT(parser, seq->data.sequence.items, INT_MAX-1))
+                return 0;
+            if (!PUSH(parser, seq->data.sequence.items, item_index))
+                return 0;
+        }
+
+        continue;
+
+    error_free_value:
+        yaml_free_internal(value);
+        return 0;
+    }
+
+    /* FLOW_SEQUENCE_END: set state for the normal event loop to
+     * handle SEQUENCE_END via parse_flow_sequence_entry. */
+    parser->state = YAML_PARSE_FLOW_SEQUENCE_ENTRY_STATE;
     return 1;
 }
 
