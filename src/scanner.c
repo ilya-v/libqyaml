@@ -999,18 +999,19 @@ yaml_parser_fetch_more_tokens(yaml_parser_t *parser)
 
             need_more_tokens = 1;
         }
-        else
+        else if (__builtin_expect(parser->possible_simple_key_count > 0, 0))
         {
             yaml_simple_key_t *simple_key;
             size_t tokens_parsed = parser->tokens_parsed;
             size_t mark_line = parser->mark.line;
             size_t mark_index = parser->mark.index;
 
-            /* Combined: check stale simple keys + head-position check. */
+            /* Check stale simple keys + head-position check.
+             * Only entered when there are possible simple keys. */
 
             for (simple_key = parser->simple_keys.start;
                     simple_key != parser->simple_keys.top; simple_key++) {
-                if (__builtin_expect(!simple_key->possible, 0)) continue;
+                if (!simple_key->possible) continue;
                 if (__builtin_expect(simple_key->mark.line < mark_line
                         || simple_key->mark.index+1024 < mark_index, 0)) {
                     if (simple_key->required) {
@@ -1019,6 +1020,7 @@ yaml_parser_fetch_more_tokens(yaml_parser_t *parser)
                                 "could not find expected ':'");
                     }
                     simple_key->possible = 0;
+                    parser->possible_simple_key_count --;
                     continue;
                 }
                 if (simple_key->token_number == tokens_parsed) {
@@ -1237,6 +1239,7 @@ yaml_parser_stale_simple_keys(yaml_parser_t *parser)
             }
 
             simple_key->possible = 0;
+            parser->possible_simple_key_count --;
         }
     }
 
@@ -1276,6 +1279,7 @@ yaml_parser_save_simple_key(yaml_parser_t *parser)
         if (!yaml_parser_remove_simple_key(parser)) return 0;
 
         *(parser->simple_keys.top-1) = simple_key;
+        parser->possible_simple_key_count ++;
     }
 
     return 1;
@@ -1299,11 +1303,10 @@ yaml_parser_remove_simple_key(yaml_parser_t *parser)
                     "while scanning a simple key", simple_key->mark,
                     "could not find expected ':'");
         }
+
+        simple_key->possible = 0;
+        parser->possible_simple_key_count --;
     }
-
-    /* Remove the key from the stack. */
-
-    simple_key->possible = 0;
 
     return 1;
 }
@@ -1343,6 +1346,8 @@ yaml_parser_decrease_flow_level(yaml_parser_t *parser)
 {
     if (parser->flow_level) {
         parser->flow_level --;
+        if ((parser->simple_keys.top-1)->possible)
+            parser->possible_simple_key_count --;
         (void)POP(parser, parser->simple_keys);
     }
 
@@ -1864,6 +1869,7 @@ yaml_parser_fetch_value(yaml_parser_t *parser)
         /* Remove the simple key. */
 
         simple_key->possible = 0;
+        parser->possible_simple_key_count --;
 
         /* A simple key cannot follow another simple key. */
 

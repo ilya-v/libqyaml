@@ -184,14 +184,11 @@ yaml_parser_parse(yaml_parser_t *parser, yaml_event_t *event)
     assert(parser);     /* Non-NULL parser object is expected. */
     assert(event);      /* Non-NULL event object is expected. */
 
-    /* Erase the event object. */
-
-    memset(event, 0, sizeof(yaml_event_t));
-
     /* No events after the end of the stream or error. */
 
     if (parser->stream_end_produced || parser->error ||
             parser->state == YAML_PARSE_END_STATE) {
+        memset(event, 0, sizeof(yaml_event_t));
         return 1;
     }
 
