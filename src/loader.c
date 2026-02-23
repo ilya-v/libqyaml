@@ -414,11 +414,21 @@ yaml_parser_load_scalar(yaml_parser_t *parser, yaml_event_t *event,
 
     if (!STACK_PUSH_RESERVE(parser, parser->document->nodes)) goto error;
 
+    /* Move scalar value into the document's string arena to avoid
+     * per-scalar malloc/free overhead in document_delete. */
+    yaml_char_t *value = event->data.scalar.value;
+    size_t length = event->data.scalar.length;
+    yaml_char_t *arena_value = yaml_arena_alloc(parser->document, length + 1);
+    if (!arena_value) goto error;
+    memcpy(arena_value, value, length + 1);
+    yaml_free_internal(value);
+    value = arena_value;
+
     node = parser->document->nodes.top;
     node->type = YAML_SCALAR_NODE;
     node->tag = tag;
-    node->data.scalar.value = event->data.scalar.value;
-    node->data.scalar.length = event->data.scalar.length;
+    node->data.scalar.value = value;
+    node->data.scalar.length = length;
     node->data.scalar.style = event->data.scalar.style;
     node->start_mark = event->start_mark;
     node->end_mark = event->end_mark;

@@ -1143,25 +1143,49 @@ yaml_document_delete(yaml_document_t *document)
 
     assert(document);   /* Non-NULL document object is expected. */
 
-    while (!STACK_EMPTY(&context, document->nodes)) {
-        yaml_node_t node = POP(&context, document->nodes);
-        if (!YAML_TAG_IS_INTERNED(node.tag))
-            yaml_free_internal(node.tag);
-        switch (node.type) {
-            case YAML_SCALAR_NODE:
-                yaml_free_internal(node.data.scalar.value);
-                break;
-            case YAML_SEQUENCE_NODE:
-                STACK_DEL(&context, node.data.sequence.items);
-                break;
-            case YAML_MAPPING_NODE:
-                STACK_DEL(&context, node.data.mapping.pairs);
-                break;
-            default:
-                assert(0);  /* Should not happen. */
+    if (document->string_arena) {
+        /* Fast path: scalar values are arena-allocated, skip per-scalar free.
+         * Only free tags (rare) and sequence/mapping sub-stacks. */
+        while (!STACK_EMPTY(&context, document->nodes)) {
+            yaml_node_t node = POP(&context, document->nodes);
+            if (!YAML_TAG_IS_INTERNED(node.tag))
+                yaml_free_internal(node.tag);
+            switch (node.type) {
+                case YAML_SCALAR_NODE:
+                    break;  /* value is in the arena */
+                case YAML_SEQUENCE_NODE:
+                    STACK_DEL(&context, node.data.sequence.items);
+                    break;
+                case YAML_MAPPING_NODE:
+                    STACK_DEL(&context, node.data.mapping.pairs);
+                    break;
+                default:
+                    assert(0);
+            }
         }
+        STACK_DEL(&context, document->nodes);
+        yaml_arena_free(document);
+    } else {
+        while (!STACK_EMPTY(&context, document->nodes)) {
+            yaml_node_t node = POP(&context, document->nodes);
+            if (!YAML_TAG_IS_INTERNED(node.tag))
+                yaml_free_internal(node.tag);
+            switch (node.type) {
+                case YAML_SCALAR_NODE:
+                    yaml_free_internal(node.data.scalar.value);
+                    break;
+                case YAML_SEQUENCE_NODE:
+                    STACK_DEL(&context, node.data.sequence.items);
+                    break;
+                case YAML_MAPPING_NODE:
+                    STACK_DEL(&context, node.data.mapping.pairs);
+                    break;
+                default:
+                    assert(0);
+            }
+        }
+        STACK_DEL(&context, document->nodes);
     }
-    STACK_DEL(&context, document->nodes);
 
     yaml_free_internal(document->version_directive);
     for (tag_directive = document->tag_directives.start;

@@ -52,6 +52,67 @@ extern const yaml_char_t yaml_interned_map_tag[];
      (const yaml_char_t *)(tag) == yaml_interned_map_tag)
 
 /*
+ * String arena for bulk allocation of scalar values during document loading.
+ * Eliminates thousands of individual malloc/free calls per document.
+ */
+
+#define YAML_ARENA_BLOCK_SIZE  (32 * 1024)  /* 32 KB per block */
+
+struct yaml_string_arena_s {
+    struct yaml_string_arena_s *next;
+    size_t used;
+    size_t capacity;
+    char data[];
+};
+
+/*
+ * Allocate a string of `size` bytes from the document's string arena.
+ * Falls back to malloc for oversized strings or when arena allocation fails.
+ */
+static inline yaml_char_t *
+yaml_arena_alloc(yaml_document_t *document, size_t size)
+{
+    struct yaml_string_arena_s *arena =
+            (struct yaml_string_arena_s *)document->string_arena;
+
+    /* Try to bump-allocate from the current arena block. */
+    if (arena && arena->used + size <= arena->capacity) {
+        yaml_char_t *ptr = (yaml_char_t *)(arena->data + arena->used);
+        arena->used += (size + 7) & ~(size_t)7;  /* 8-byte aligned */
+        return ptr;
+    }
+
+    /* Allocate a new arena block. */
+    size_t block_data = YAML_ARENA_BLOCK_SIZE;
+    if (size > block_data) block_data = size;
+    struct yaml_string_arena_s *block =
+            (struct yaml_string_arena_s *)malloc(
+                    sizeof(struct yaml_string_arena_s) + block_data);
+    if (!block) return NULL;
+    block->next = arena;
+    block->used = (size + 7) & ~(size_t)7;
+    block->capacity = block_data;
+    document->string_arena = block;
+    return (yaml_char_t *)block->data;
+}
+
+/*
+ * Free all arena blocks in a document.
+ */
+static inline void
+yaml_arena_free(yaml_document_t *document)
+{
+    struct yaml_string_arena_s *block =
+            (struct yaml_string_arena_s *)document->string_arena;
+    while (block) {
+        struct yaml_string_arena_s *next = block->next;
+        free(block);
+        block = next;
+    }
+    document->string_arena = NULL;
+}
+
+/*
  * Reader: Ensure that the buffer contains at least `length` characters.
  */
 

@@ -810,6 +810,9 @@ typedef struct yaml_document_s {
     /** The end of the document. */
     yaml_mark_t end_mark;
 
+    /** String arena for bulk-allocated scalar values (internal use). */
+    void *string_arena;
+
 } yaml_document_t;
 
 /**

@@ -180,7 +180,8 @@ yaml_emitter_delete_document_and_anchors(yaml_emitter_t *emitter)
         if (!emitter->anchors[index].serialized) {
             if (!YAML_TAG_IS_INTERNED(node.tag))
                 yaml_free(node.tag);
-            if (node.type == YAML_SCALAR_NODE) {
+            if (node.type == YAML_SCALAR_NODE
+                    && !emitter->document->string_arena) {
                 yaml_free(node.data.scalar.value);
             }
         }
@@ -193,6 +194,8 @@ yaml_emitter_delete_document_and_anchors(yaml_emitter_t *emitter)
     }
 
     STACK_DEL(emitter, emitter->document->nodes);
+    if (emitter->document->string_arena)
+        yaml_arena_free(emitter->document);
     yaml_free(emitter->anchors);
 
     emitter->anchors = NULL;
@@ -331,7 +334,20 @@ yaml_emitter_dump_scalar(yaml_emitter_t *emitter, yaml_node_t *node,
         if (!tag) return 0;
     }
 
-    SCALAR_EVENT_INIT(event, anchor, tag, node->data.scalar.value,
+    /* If scalar value is arena-allocated, the emitter can't free it,
+     * so make a copy that the emitter can own. */
+    yaml_char_t *value = node->data.scalar.value;
+    if (emitter->document->string_arena) {
+        value = (yaml_char_t *)yaml_malloc(node->data.scalar.length + 1);
+        if (!value) {
+            if (!YAML_TAG_IS_INTERNED(node->tag))
+                yaml_free(tag);
+            return 0;
+        }
+        memcpy(value, node->data.scalar.value, node->data.scalar.length + 1);
+    }
+
+    SCALAR_EVENT_INIT(event, anchor, tag, value,
             node->data.scalar.length, plain_implicit, quoted_implicit,
             node->data.scalar.style, mark, mark);
 
