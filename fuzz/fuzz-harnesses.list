@@ -1,0 +1,12 @@
+# Per-commit fuzz harness list
+# Format: harness_name source_file [extra_link_flags]
+# Lines starting with # are comments
+# The per-commit fuzz script builds and runs each listed harness
+#
+# Maintained by the strategic-tester. Do not edit manually.
+# Time budget: ~30 seconds total across all harnesses (part of 2-min validation)
+
+fuzz_scan       fuzz_scan.c
+fuzz_parse      fuzz_parse.c
+fuzz_load       fuzz_load.c
+fuzz_differential fuzz_differential.c -ldl
