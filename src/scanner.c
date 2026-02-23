@@ -4325,9 +4325,14 @@ yaml_parser_scan_plain_scalar(yaml_parser_t *parser, yaml_token_t *token)
                 while (n + skip + next_col < parser->unread
                         && src[n + skip + next_col] == ' ')
                     next_col++;
-                /* If we can see a non-space char and it's at lower indent, scalar ends */
+                /* If we can see a non-space, non-break char at lower indent,
+                 * scalar ends. If the next line is blank (another line break),
+                 * the scalar may continue -- fall through to the slow path
+                 * which handles multi-line continuation correctly. */
                 if (n + skip + next_col < parser->unread
                         && src[n + skip + next_col] != ' '
+                        && src[n + skip + next_col] != '\n'
+                        && src[n + skip + next_col] != '\r'
                         && (int)next_col < indent) {
                     is_end = 1;
                 }
