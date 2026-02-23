@@ -45,6 +45,9 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
     target_compile_options(test-oom PRIVATE -O0)
     target_link_options(test-oom PRIVATE
         -Wl,--wrap=malloc -Wl,--wrap=realloc -Wl,--wrap=calloc)
+    if(QYAML_COVERAGE)
+        target_link_options(test-oom PRIVATE --coverage)
+    endif()
     add_test(NAME oom COMMAND test-oom)
 endif()
 
