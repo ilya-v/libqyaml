@@ -1347,7 +1347,7 @@ yaml_parser_fetch_next_token(yaml_parser_t *parser)
         case '%':
             if (parser->mark.column == 0)
                 return yaml_parser_fetch_directive(parser);
-            return yaml_parser_fetch_plain_scalar(parser);
+            break;  /* '%' cannot start a plain scalar */
 
         case '-':
             if (parser->mark.column == 0
