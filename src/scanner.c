@@ -479,6 +479,186 @@
 #include "yaml_private.h"
 
 /*
+ * SIMD scanning support for batch character classification.
+ * Uses SSE2 to scan 16 bytes at a time for characters that terminate
+ * plain scalars, flow scalars, block scalars, or whitespace runs.
+ */
+
+#if defined(__SSE2__) && defined(__x86_64__)
+#include <immintrin.h>
+
+/*
+ * Scan up to `len` bytes starting at `src` for characters that cannot appear
+ * in a block-context plain scalar.  Returns the number of safe bytes
+ * (all in the ASCII printable range, excluding space, '#', ':', and high bytes).
+ */
+static inline size_t
+yaml_scan_plain_block_sse2(const yaml_char_t *src, size_t len)
+{
+    const yaml_char_t *p = src;
+    const __m128i v_space = _mm_set1_epi8(0x20);
+    const __m128i v_hash  = _mm_set1_epi8('#');
+    const __m128i v_colon = _mm_set1_epi8(':');
+
+    while (len >= 16) {
+        __m128i data = _mm_loadu_si128((const __m128i *)p);
+        /* ch <= 0x20: unsigned compare via max(ch, 0x20) == 0x20 */
+        __m128i le_space = _mm_cmpeq_epi8(_mm_max_epu8(data, v_space), v_space);
+        __m128i eq_hash  = _mm_cmpeq_epi8(data, v_hash);
+        __m128i eq_colon = _mm_cmpeq_epi8(data, v_colon);
+        /* ch >= 0x80: sign bit is set for values 128-255 */
+        int hi_mask = _mm_movemask_epi8(data);
+        int stop_mask = _mm_movemask_epi8(_mm_or_si128(_mm_or_si128(le_space, eq_hash), eq_colon));
+        stop_mask |= hi_mask;
+        if (stop_mask) {
+            return (size_t)(p - src) + (size_t)__builtin_ctz((unsigned)stop_mask);
+        }
+        p += 16;
+        len -= 16;
+    }
+    /* Tail: scalar fallback */
+    while (len > 0) {
+        unsigned char ch = *p;
+        if (ch <= 0x20 || ch == '#' || ch == ':' || ch >= 0x80)
+            break;
+        p++;
+        len--;
+    }
+    return (size_t)(p - src);
+}
+
+/*
+ * Same as above but for flow-context plain scalars (additional terminators).
+ */
+static inline size_t
+yaml_scan_plain_flow_sse2(const yaml_char_t *src, size_t len)
+{
+    const yaml_char_t *p = src;
+    const __m128i v_space = _mm_set1_epi8(0x20);
+    const __m128i v_hash  = _mm_set1_epi8('#');
+    const __m128i v_colon = _mm_set1_epi8(':');
+    const __m128i v_comma = _mm_set1_epi8(',');
+    const __m128i v_lbrack = _mm_set1_epi8('[');
+    const __m128i v_rbrack = _mm_set1_epi8(']');
+    const __m128i v_lbrace = _mm_set1_epi8('{');
+    const __m128i v_rbrace = _mm_set1_epi8('}');
+
+    while (len >= 16) {
+        __m128i data = _mm_loadu_si128((const __m128i *)p);
+        __m128i le_space = _mm_cmpeq_epi8(_mm_max_epu8(data, v_space), v_space);
+        __m128i eq_hash  = _mm_cmpeq_epi8(data, v_hash);
+        __m128i eq_colon = _mm_cmpeq_epi8(data, v_colon);
+        __m128i eq_comma = _mm_cmpeq_epi8(data, v_comma);
+        __m128i eq_lb    = _mm_cmpeq_epi8(data, v_lbrack);
+        __m128i eq_rb    = _mm_cmpeq_epi8(data, v_rbrack);
+        __m128i eq_lc    = _mm_cmpeq_epi8(data, v_lbrace);
+        __m128i eq_rc    = _mm_cmpeq_epi8(data, v_rbrace);
+        int hi_mask = _mm_movemask_epi8(data);
+        int stop_mask = _mm_movemask_epi8(
+            _mm_or_si128(
+                _mm_or_si128(
+                    _mm_or_si128(le_space, eq_hash),
+                    _mm_or_si128(eq_colon, eq_comma)),
+                _mm_or_si128(
+                    _mm_or_si128(eq_lb, eq_rb),
+                    _mm_or_si128(eq_lc, eq_rc))));
+        stop_mask |= hi_mask;
+        if (stop_mask) {
+            return (size_t)(p - src) + (size_t)__builtin_ctz((unsigned)stop_mask);
+        }
+        p += 16;
+        len -= 16;
+    }
+    while (len > 0) {
+        unsigned char ch = *p;
+        if (ch <= 0x20 || ch == '#' || ch == ':' || ch >= 0x80
+            || ch == ',' || ch == '[' || ch == ']'
+            || ch == '{' || ch == '}')
+            break;
+        p++;
+        len--;
+    }
+    return (size_t)(p - src);
+}
+
+/*
+ * Scan for flow scalar terminators (quote char, backslash, control/high bytes).
+ * Used for both single-quoted and double-quoted scalar batch copy.
+ */
+static inline size_t
+yaml_scan_flow_scalar_sse2(const yaml_char_t *src, size_t len,
+        unsigned char quote)
+{
+    const yaml_char_t *p = src;
+    const __m128i v_space = _mm_set1_epi8(0x20);
+    const __m128i v_quote = _mm_set1_epi8((char)quote);
+    const __m128i v_bslash = _mm_set1_epi8('\\');
+
+    while (len >= 16) {
+        __m128i data = _mm_loadu_si128((const __m128i *)p);
+        __m128i le_space = _mm_cmpeq_epi8(_mm_max_epu8(data, v_space), v_space);
+        __m128i eq_quote = _mm_cmpeq_epi8(data, v_quote);
+        __m128i eq_bslash = _mm_cmpeq_epi8(data, v_bslash);
+        int hi_mask = _mm_movemask_epi8(data);
+        int stop_mask = _mm_movemask_epi8(
+            _mm_or_si128(_mm_or_si128(le_space, eq_quote), eq_bslash));
+        stop_mask |= hi_mask;
+        if (stop_mask) {
+            return (size_t)(p - src) + (size_t)__builtin_ctz((unsigned)stop_mask);
+        }
+        p += 16;
+        len -= 16;
+    }
+    while (len > 0) {
+        unsigned char ch = *p;
+        if (ch <= 0x20 || ch >= 0x80 || ch == quote || ch == '\\')
+            break;
+        p++;
+        len--;
+    }
+    return (size_t)(p - src);
+}
+
+/*
+ * Scan for block scalar line terminators (NUL, CR, LF, high bytes).
+ */
+static inline size_t
+yaml_scan_block_scalar_sse2(const yaml_char_t *src, size_t len)
+{
+    const yaml_char_t *p = src;
+    const __m128i v_nul = _mm_setzero_si128();
+    const __m128i v_lf  = _mm_set1_epi8('\n');
+    const __m128i v_cr  = _mm_set1_epi8('\r');
+
+    while (len >= 16) {
+        __m128i data = _mm_loadu_si128((const __m128i *)p);
+        __m128i eq_nul = _mm_cmpeq_epi8(data, v_nul);
+        __m128i eq_lf  = _mm_cmpeq_epi8(data, v_lf);
+        __m128i eq_cr  = _mm_cmpeq_epi8(data, v_cr);
+        int hi_mask = _mm_movemask_epi8(data);
+        int stop_mask = _mm_movemask_epi8(
+            _mm_or_si128(_mm_or_si128(eq_nul, eq_lf), eq_cr));
+        stop_mask |= hi_mask;
+        if (stop_mask) {
+            return (size_t)(p - src) + (size_t)__builtin_ctz((unsigned)stop_mask);
+        }
+        p += 16;
+        len -= 16;
+    }
+    while (len > 0) {
+        unsigned char ch = *p;
+        if (ch == '\0' || ch == '\n' || ch == '\r' || ch >= 0x80)
+            break;
+        p++;
+        len--;
+    }
+    return (size_t)(p - src);
+}
+
+#define HAVE_SIMD_SCAN 1
+#endif /* __SSE2__ && __x86_64__ */
+
+/*
  * Ensure that the buffer contains the required number of characters.
  * Return 1 on success, 0 on failure (reader error or memory error).
  */
@@ -2970,19 +3150,29 @@ yaml_parser_scan_block_scalar(yaml_parser_t *parser, yaml_token_t *token,
         /* Consume the current line. */
 
         while (!IS_BREAKZ(parser->buffer)) {
-            /* Batch copy ASCII bytes until line break */
+            /* Batch copy ASCII bytes until line break.
+             * Uses SIMD when available. */
             if (parser->unread >= 2) {
                 yaml_char_t *src = parser->buffer.pointer;
-                yaml_char_t *lim = src + parser->unread;
-                yaml_char_t *start = src;
-                while (src < lim) {
-                    unsigned char ch = *src;
-                    if (ch == '\0' || ch == '\n' || ch == '\r'
-                        || ch >= 0x80) break;
-                    src++;
+                size_t avail = parser->unread;
+                size_t n;
+
+#ifdef HAVE_SIMD_SCAN
+                n = yaml_scan_block_scalar_sse2(src, avail);
+#else
+                {
+                    yaml_char_t *p = src;
+                    yaml_char_t *lim = src + avail;
+                    while (p < lim) {
+                        unsigned char ch = *p;
+                        if (ch == '\0' || ch == '\n' || ch == '\r'
+                            || ch >= 0x80) break;
+                        p++;
+                    }
+                    n = (size_t)(p - src);
                 }
-                if (src > start) {
-                    size_t n = (size_t)(src - start);
+#endif
+                if (n > 0) {
                     while (string.pointer + n + 5 >= string.end) {
                         if (!yaml_string_extend(&string.start,
                                 &string.pointer, &string.end)) {
@@ -2990,9 +3180,9 @@ yaml_parser_scan_block_scalar(yaml_parser_t *parser, yaml_token_t *token,
                             goto error;
                         }
                     }
-                    memcpy(string.pointer, start, n);
+                    memcpy(string.pointer, src, n);
                     string.pointer += n;
-                    parser->buffer.pointer = src;
+                    parser->buffer.pointer += n;
                     parser->mark.index += n;
                     parser->mark.column += n;
                     parser->unread -= n;
@@ -3390,31 +3580,42 @@ yaml_parser_scan_flow_scalar(yaml_parser_t *parser, yaml_token_t *token,
                 /*
                  * Non-escaped non-blank character. Try batch copy for
                  * ASCII characters that cannot be special in this context.
+                 * Uses SIMD when available.
                  */
                 {
                     yaml_char_t *src = parser->buffer.pointer;
-                    yaml_char_t *lim = src + parser->unread - 1;
-                    yaml_char_t *start = src;
+                    size_t avail = parser->unread - 1;
+                    size_t n;
 
-                    if (single) {
-                        while (src < lim) {
-                            unsigned char ch = *src;
-                            if (ch <= 0x20 || ch >= 0x80 || ch == '\'')
-                                break;
-                            src++;
+#ifdef HAVE_SIMD_SCAN
+                    n = yaml_scan_flow_scalar_sse2(src, avail,
+                            single ? '\'' : '"');
+#else
+                    {
+                        yaml_char_t *p = src;
+                        yaml_char_t *lim = src + avail;
+
+                        if (single) {
+                            while (p < lim) {
+                                unsigned char ch = *p;
+                                if (ch <= 0x20 || ch >= 0x80 || ch == '\'')
+                                    break;
+                                p++;
+                            }
+                        } else {
+                            while (p < lim) {
+                                unsigned char ch = *p;
+                                if (ch <= 0x20 || ch >= 0x80
+                                    || ch == '"' || ch == '\\')
+                                    break;
+                                p++;
+                            }
                         }
-                    } else {
-                        while (src < lim) {
-                            unsigned char ch = *src;
-                            if (ch <= 0x20 || ch >= 0x80
-                                || ch == '"' || ch == '\\')
-                                break;
-                            src++;
-                        }
+                        n = (size_t)(p - src);
                     }
+#endif
 
-                    if (src > start) {
-                        size_t n = (size_t)(src - start);
+                    if (n > 0) {
                         while (string.pointer + n + 5 >= string.end) {
                             if (!yaml_string_extend(&string.start,
                                     &string.pointer, &string.end)) {
@@ -3422,9 +3623,9 @@ yaml_parser_scan_flow_scalar(yaml_parser_t *parser, yaml_token_t *token,
                                 goto error;
                             }
                         }
-                        memcpy(string.pointer, start, n);
+                        memcpy(string.pointer, src, n);
                         string.pointer += n;
-                        parser->buffer.pointer = src;
+                        parser->buffer.pointer += n;
                         parser->mark.index += n;
                         parser->mark.column += n;
                         parser->unread -= n;
@@ -3678,34 +3879,43 @@ yaml_parser_scan_plain_scalar(yaml_parser_t *parser, yaml_token_t *token)
 
             /*
              * Fast path: batch-copy ASCII characters that cannot end
-             * a plain scalar. Only attempt when enough data is buffered
-             * to amortize the setup cost.
+             * a plain scalar. Uses SIMD when available.
              */
             {
                 yaml_char_t *src = parser->buffer.pointer;
-                yaml_char_t *src_limit = src + parser->unread - 1;
-                yaml_char_t *src_start = src;
+                size_t avail = parser->unread - 1;
+                size_t n;
 
-                if (!parser->flow_level) {
-                    while (src < src_limit) {
-                        unsigned char ch = *src;
-                        if (ch <= 0x20 || ch == '#' || ch == ':' || ch >= 0x80)
-                            break;
-                        src++;
+#ifdef HAVE_SIMD_SCAN
+                n = !parser->flow_level
+                    ? yaml_scan_plain_block_sse2(src, avail)
+                    : yaml_scan_plain_flow_sse2(src, avail);
+#else
+                {
+                    yaml_char_t *p = src;
+                    yaml_char_t *lim = src + avail;
+                    if (!parser->flow_level) {
+                        while (p < lim) {
+                            unsigned char ch = *p;
+                            if (ch <= 0x20 || ch == '#' || ch == ':' || ch >= 0x80)
+                                break;
+                            p++;
+                        }
+                    } else {
+                        while (p < lim) {
+                            unsigned char ch = *p;
+                            if (ch <= 0x20 || ch == '#' || ch == ':' || ch >= 0x80
+                                || ch == ',' || ch == '[' || ch == ']'
+                                || ch == '{' || ch == '}')
+                                break;
+                            p++;
+                        }
                     }
-                } else {
-                    while (src < src_limit) {
-                        unsigned char ch = *src;
-                        if (ch <= 0x20 || ch == '#' || ch == ':' || ch >= 0x80
-                            || ch == ',' || ch == '[' || ch == ']'
-                            || ch == '{' || ch == '}')
-                            break;
-                        src++;
-                    }
+                    n = (size_t)(p - src);
                 }
+#endif
 
-                if (src > src_start) {
-                    size_t n = (size_t)(src - src_start);
+                if (n > 0) {
                     while (string.pointer + n + 5 >= string.end) {
                         if (!yaml_string_extend(&string.start,
                                 &string.pointer, &string.end)) {
@@ -3713,9 +3923,9 @@ yaml_parser_scan_plain_scalar(yaml_parser_t *parser, yaml_token_t *token)
                             goto error;
                         }
                     }
-                    memcpy(string.pointer, src_start, n);
+                    memcpy(string.pointer, src, n);
                     string.pointer += n;
-                    parser->buffer.pointer = src;
+                    parser->buffer.pointer += n;
                     parser->mark.index += n;
                     parser->mark.column += n;
                     parser->unread -= n;
