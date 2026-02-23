@@ -882,10 +882,12 @@ yaml_parser_fetch_next_token(yaml_parser_t *parser)
     if (!yaml_parser_stale_simple_keys(parser))
         return 0;
 
-    /* Check the indentation level against the current column. */
+    /* Check the indentation level against the current column (block context only). */
 
-    if (!yaml_parser_unroll_indent(parser, parser->mark.column))
-        return 0;
+    if (!parser->flow_level) {
+        if (!yaml_parser_unroll_indent(parser, parser->mark.column))
+            return 0;
+    }
 
     /*
      * Ensure that the buffer contains at least 4 characters.  4 is the length
@@ -3505,18 +3507,20 @@ yaml_parser_scan_plain_scalar(yaml_parser_t *parser, yaml_token_t *token)
 
     while (1)
     {
-        /* Check for a document indicator. */
+        /* Check for a document indicator (only at column 0). */
 
-        if (!CACHE(parser, 4)) goto error;
-
-        if (parser->mark.column == 0 &&
-            ((CHECK_AT(parser->buffer, '-', 0) &&
-              CHECK_AT(parser->buffer, '-', 1) &&
-              CHECK_AT(parser->buffer, '-', 2)) ||
-             (CHECK_AT(parser->buffer, '.', 0) &&
-              CHECK_AT(parser->buffer, '.', 1) &&
-              CHECK_AT(parser->buffer, '.', 2))) &&
-            IS_BLANKZ_AT(parser->buffer, 3)) break;
+        if (parser->mark.column == 0) {
+            if (!CACHE(parser, 4)) goto error;
+            if (((CHECK_AT(parser->buffer, '-', 0) &&
+                  CHECK_AT(parser->buffer, '-', 1) &&
+                  CHECK_AT(parser->buffer, '-', 2)) ||
+                 (CHECK_AT(parser->buffer, '.', 0) &&
+                  CHECK_AT(parser->buffer, '.', 1) &&
+                  CHECK_AT(parser->buffer, '.', 2))) &&
+                IS_BLANKZ_AT(parser->buffer, 3)) break;
+        } else {
+            if (!CACHE(parser, 2)) goto error;
+        }
 
         /* Check for a comment. */
 
