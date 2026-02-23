@@ -35,11 +35,15 @@ Note: scanner-level classification over-counts because most scanner divergences 
 
 **Pattern:** When a block sequence entry contains an anchor and/or tag but no explicit scalar value (the value is implicitly empty), the batch loader misinterprets the structure. Instead of creating a scalar node with the anchor/tag, it appears to absorb the next sequence entry.
 
-**Minimal reproducer:** `- &a !\n- &d d\n` (14 bytes)
+**Absolute minimal reproducer:** `- !a\n-\n` (7 bytes)
+- libqyaml: sequence(1 item) → sequence(tag=!a, 1 item) → scalar("") — WRONG (tag applied to sequence, not scalar)
+- reference: sequence(2 items) → scalar(tag=!a, ""), scalar("") — CORRECT
+
+**Reproducer 2:** `- &a !\n- &d d\n` (14 bytes)
 - libqyaml: sequence(1 item) → sequence(1 item) → scalar("d") — WRONG
 - reference: sequence(2 items) → scalar(""), scalar("d") — CORRECT
 
-**Reproducer 2:** `- !!str\n- !!null : a\n  b: !!str\n- !!str : !!null\n` (49 bytes)
+**Reproducer 3:** `- !!str\n- !!null : a\n  b: !!str\n- !!str : !!null\n` (49 bytes)
 - libqyaml: sequence(1 item) → nested sequence tagged `!!str` — WRONG
 - reference: sequence(3 items) → scalar(""), mapping, mapping — CORRECT
 
@@ -56,7 +60,11 @@ Note: scanner-level classification over-counts because most scanner divergences 
 
 **Pattern:** All 8 cases involve `[?]` or similar flow sequence constructs containing a complex key indicator. libqyaml accepts and loads these; libyaml rejects with "did not find expected ',' or ']'".
 
-**Minimal reproducer:** `--sequeenesc-:\n- - - [?]\n\n- - - -- -[]\n- - -{}\n` (47 bytes)
+**Absolute minimal reproducer:** `[?]` (3 bytes)
+- libqyaml: loads as sequence containing mapping `{: }` — WRONG
+- reference: rejects with "did not find expected ',' or ']'" — CORRECT
+
+**Reproducer 2:** `--sequeenesc-:\n- - - [?]\n\n- - - -- -[]\n- - -{}\n` (47 bytes)
 - libqyaml: loads successfully with `[?]` becoming `[{: }]`
 - reference: rejects at line 3 with "did not find expected ',' or ']'"
 
@@ -83,5 +91,8 @@ Both libraries reject the input, but with different error codes or messages. The
 
 - Crash artifacts: `test-output/diff-verify-5953a6/crashes/` (1131 files)
 - Representative reproducers: `test-output/diff-verify-5953a6/reproducers/` (5 files)
+- Minimized reproducers: `test-output/diff-verify-5953a6/minimized/` (2 files)
+  - `bug1-tag-bleeds-sequence.yaml` — 7 bytes: `- !a\n-\n`
+  - `bug2-flow-complex-key.yaml` — 3 bytes: `[?]`
 - Loader checker: `fuzz/check_loader_divergence.c`
 - Document dump tool: `fuzz/doc_dump.c`
