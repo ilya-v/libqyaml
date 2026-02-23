@@ -3425,9 +3425,12 @@ yaml_parser_scan_flow_scalar(yaml_parser_t *parser, yaml_token_t *token,
         }
 #endif
         /* Fast path: the scan stopped at the closing quote.
-         * For single-quoted strings, reject '' escape pairs. */
+         * For single-quoted strings, we must see the char after the quote
+         * to verify it's not a '' escape pair.  If the quote is at the
+         * end of the buffer, fall through to the slow path which will
+         * CACHE more data. */
         if (n < avail && src[n] == quote_ch
-                && !(single && n + 1 < avail && src[n + 1] == '\'')) {
+                && (!single || (n + 1 < avail && src[n + 1] != '\''))) {
             yaml_char_t *value = (yaml_char_t *)yaml_malloc_internal(n + 1);
             if (!value) {
                 parser->error = YAML_MEMORY_ERROR;

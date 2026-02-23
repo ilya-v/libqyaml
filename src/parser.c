@@ -209,7 +209,13 @@ yaml_parser_parse(yaml_parser_t *parser, yaml_event_t *event)
 
     /* Generate the next event. */
 
-    return yaml_parser_state_machine(parser, event);
+    if (yaml_parser_state_machine(parser, event))
+        return 1;
+
+    /* Zero the event so callers can safely call yaml_event_delete
+     * even on failure (defensive compatibility with libyaml). */
+    memset(event, 0, sizeof(yaml_event_t));
+    return 0;
 }
 
 /*
