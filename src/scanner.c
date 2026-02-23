@@ -2050,8 +2050,11 @@ yaml_parser_fetch_flow_entry(yaml_parser_t *parser)
         return 0;
 
     /* Fast path: if a space follows the comma and there's enough data,
-     * try to emit the following plain scalar in one shot. */
-    if (parser->unread >= 3 && parser->buffer.pointer[0] == ' ')
+     * try to emit the following plain scalar in one shot.
+     * Only in flow context -- at flow_level 0, comma/brackets/braces
+     * are valid plain scalar characters and must not be used as terminators. */
+    if (parser->flow_level && parser->unread >= 3
+            && parser->buffer.pointer[0] == ' ')
         return yaml_parser_fetch_flow_entry_scalar(parser);
 
     return 1;
