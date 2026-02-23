@@ -61,6 +61,19 @@
      parser->tokens.head ++)
 
 /*
+ * Skip the current token and peek the next one in a single operation.
+ * Avoids a redundant fetch_more_tokens call when the queue already has
+ * the next token and no simple keys are pending.
+ */
+
+#define SKIP_TOKEN_AND_PEEK(parser)                                             \
+    (SKIP_TOKEN(parser),                                                        \
+     (__builtin_expect(parser->tokens.head != parser->tokens.tail              \
+        && parser->possible_simple_key_count == 0, 1)                          \
+      ? (parser->token_available = 1, parser->tokens.head)                     \
+      : PEEK_TOKEN(parser)))
+
+/*
  * Public API declarations.
  */
 
@@ -374,8 +387,7 @@ yaml_parser_parse_document_start(yaml_parser_t *parser, yaml_event_t *event,
     if (!implicit)
     {
         while (token->type == YAML_DOCUMENT_END_TOKEN) {
-            SKIP_TOKEN(parser);
-            token = PEEK_TOKEN(parser);
+            token = SKIP_TOKEN_AND_PEEK(parser);
             if (!token) return 0;
         }
     }
@@ -575,8 +587,7 @@ yaml_parser_parse_node(yaml_parser_t *parser, yaml_event_t *event,
             anchor = token->data.anchor.value;
             start_mark = token->start_mark;
             end_mark = token->end_mark;
-            SKIP_TOKEN(parser);
-            token = PEEK_TOKEN(parser);
+            token = SKIP_TOKEN_AND_PEEK(parser);
             if (!token) goto error;
             if (token->type == YAML_TAG_TOKEN)
             {
@@ -584,8 +595,7 @@ yaml_parser_parse_node(yaml_parser_t *parser, yaml_event_t *event,
                 tag_suffix = token->data.tag.suffix;
                 tag_mark = token->start_mark;
                 end_mark = token->end_mark;
-                SKIP_TOKEN(parser);
-                token = PEEK_TOKEN(parser);
+                token = SKIP_TOKEN_AND_PEEK(parser);
                 if (!token) goto error;
             }
         }
@@ -595,15 +605,13 @@ yaml_parser_parse_node(yaml_parser_t *parser, yaml_event_t *event,
             tag_suffix = token->data.tag.suffix;
             start_mark = tag_mark = token->start_mark;
             end_mark = token->end_mark;
-            SKIP_TOKEN(parser);
-            token = PEEK_TOKEN(parser);
+            token = SKIP_TOKEN_AND_PEEK(parser);
             if (!token) goto error;
             if (token->type == YAML_ANCHOR_TOKEN)
             {
                 anchor = token->data.anchor.value;
                 end_mark = token->end_mark;
-                SKIP_TOKEN(parser);
-                token = PEEK_TOKEN(parser);
+                token = SKIP_TOKEN_AND_PEEK(parser);
                 if (!token) goto error;
             }
         }
@@ -774,8 +782,7 @@ yaml_parser_parse_block_sequence_entry(yaml_parser_t *parser,
     if (token->type == YAML_BLOCK_ENTRY_TOKEN)
     {
         yaml_mark_t mark = token->end_mark;
-        SKIP_TOKEN(parser);
-        token = PEEK_TOKEN(parser);
+        token = SKIP_TOKEN_AND_PEEK(parser);
         if (!token) return 0;
         if (token->type != YAML_BLOCK_ENTRY_TOKEN &&
                 token->type != YAML_BLOCK_END_TOKEN) {
@@ -825,8 +832,7 @@ yaml_parser_parse_indentless_sequence_entry(yaml_parser_t *parser,
     if (token->type == YAML_BLOCK_ENTRY_TOKEN)
     {
         yaml_mark_t mark = token->end_mark;
-        SKIP_TOKEN(parser);
-        token = PEEK_TOKEN(parser);
+        token = SKIP_TOKEN_AND_PEEK(parser);
         if (!token) return 0;
         if (token->type != YAML_BLOCK_ENTRY_TOKEN &&
                 token->type != YAML_KEY_TOKEN &&
@@ -882,8 +888,7 @@ yaml_parser_parse_block_mapping_key(yaml_parser_t *parser,
     if (token->type == YAML_KEY_TOKEN)
     {
         yaml_mark_t mark = token->end_mark;
-        SKIP_TOKEN(parser);
-        token = PEEK_TOKEN(parser);
+        token = SKIP_TOKEN_AND_PEEK(parser);
         if (!token) return 0;
         if (token->type != YAML_KEY_TOKEN &&
                 token->type != YAML_VALUE_TOKEN &&
@@ -940,8 +945,7 @@ yaml_parser_parse_block_mapping_value(yaml_parser_t *parser,
     if (token->type == YAML_VALUE_TOKEN)
     {
         yaml_mark_t mark = token->end_mark;
-        SKIP_TOKEN(parser);
-        token = PEEK_TOKEN(parser);
+        token = SKIP_TOKEN_AND_PEEK(parser);
         if (!token) return 0;
         if (token->type != YAML_KEY_TOKEN &&
                 token->type != YAML_VALUE_TOKEN &&
@@ -998,8 +1002,7 @@ yaml_parser_parse_flow_sequence_entry(yaml_parser_t *parser,
     {
         if (!first) {
             if (token->type == YAML_FLOW_ENTRY_TOKEN) {
-                SKIP_TOKEN(parser);
-                token = PEEK_TOKEN(parser);
+                token = SKIP_TOKEN_AND_PEEK(parser);
                 if (!token) return 0;
             }
             else {
@@ -1084,8 +1087,7 @@ yaml_parser_parse_flow_sequence_entry_mapping_value(yaml_parser_t *parser,
     if (!token) return 0;
 
     if (token->type == YAML_VALUE_TOKEN) {
-        SKIP_TOKEN(parser);
-        token = PEEK_TOKEN(parser);
+        token = SKIP_TOKEN_AND_PEEK(parser);
         if (!token) return 0;
         if (token->type != YAML_FLOW_ENTRY_TOKEN
                 && token->type != YAML_FLOW_SEQUENCE_END_TOKEN) {
@@ -1154,8 +1156,7 @@ yaml_parser_parse_flow_mapping_key(yaml_parser_t *parser,
     {
         if (!first) {
             if (token->type == YAML_FLOW_ENTRY_TOKEN) {
-                SKIP_TOKEN(parser);
-                token = PEEK_TOKEN(parser);
+                token = SKIP_TOKEN_AND_PEEK(parser);
                 if (!token) return 0;
             }
             else {
@@ -1166,8 +1167,7 @@ yaml_parser_parse_flow_mapping_key(yaml_parser_t *parser,
         }
 
         if (token->type == YAML_KEY_TOKEN) {
-            SKIP_TOKEN(parser);
-            token = PEEK_TOKEN(parser);
+            token = SKIP_TOKEN_AND_PEEK(parser);
             if (!token) return 0;
             if (token->type != YAML_VALUE_TOKEN
                     && token->type != YAML_FLOW_ENTRY_TOKEN
@@ -1220,8 +1220,7 @@ yaml_parser_parse_flow_mapping_value(yaml_parser_t *parser,
     }
 
     if (token->type == YAML_VALUE_TOKEN) {
-        SKIP_TOKEN(parser);
-        token = PEEK_TOKEN(parser);
+        token = SKIP_TOKEN_AND_PEEK(parser);
         if (!token) return 0;
         if (token->type != YAML_FLOW_ENTRY_TOKEN
                 && token->type != YAML_FLOW_MAPPING_END_TOKEN) {
@@ -1328,8 +1327,7 @@ yaml_parser_process_directives(yaml_parser_t *parser,
                 goto error;
         }
 
-        SKIP_TOKEN(parser);
-        token = PEEK_TOKEN(parser);
+        token = SKIP_TOKEN_AND_PEEK(parser);
         if (!token) goto error;
     }
 
