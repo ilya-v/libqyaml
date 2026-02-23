@@ -668,7 +668,7 @@ error:
  * On failure (OOM): leaves the original value unfreed (caller must
  * handle cleanup) and returns 0.
  */
-static int
+static inline __attribute__((always_inline)) int
 loader_create_plain_scalar(yaml_document_t *document,
         yaml_char_t *value, size_t length,
         yaml_mark_t start_mark, yaml_mark_t end_mark)
