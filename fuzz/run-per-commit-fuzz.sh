@@ -21,7 +21,61 @@ HARNESS_LIST="$SCRIPT_DIR/fuzz-harnesses.list"
 BUILD_DIR="$PROJECT_DIR/test-output/fuzz-build"
 CORPUS_DIR="$PROJECT_DIR/test-output/fuzz-corpus-percommit"
 CRASH_DIR="$PROJECT_DIR/test-output/fuzz-crashes-percommit"
-SEED_DIR="$SCRIPT_DIR/seeds"
+SEED_DIR="$PROJECT_DIR/test-output/fuzz-seeds-combined"
+
+# Collect all seed sources into a single directory for the fuzzer.
+# Sources: fuzz/seeds/, yaml-test-data, yaml-test-suite, yaml-fuzz
+collect_seeds() {
+    mkdir -p "$SEED_DIR"
+    # Only rebuild seeds if directory is empty or older than 1 hour
+    local seed_count
+    seed_count=$(find "$SEED_DIR" -maxdepth 1 -type f 2>/dev/null | wc -l | tr -d ' ')
+    if [ "$seed_count" -gt 100 ]; then
+        return 0
+    fi
+
+    # Fuzz harness seeds
+    if [ -d "$SCRIPT_DIR/seeds" ]; then
+        cp -n "$SCRIPT_DIR/seeds"/* "$SEED_DIR/" 2>/dev/null || true
+    fi
+
+    # yaml-test-data: in.yaml files
+    local ref_dir="$PROJECT_DIR/reference"
+    if [ -d "$ref_dir/yaml-test-data" ]; then
+        find "$ref_dir/yaml-test-data" -name 'in.yaml' -type f -exec cp -n {} "$SEED_DIR/" \; 2>/dev/null || true
+        # Rename to avoid collisions (each dir has in.yaml)
+        local i=0
+        find "$ref_dir/yaml-test-data" -name 'in.yaml' -type f | while read -r f; do
+            local dir_name
+            dir_name=$(basename "$(dirname "$f")")
+            cp -n "$f" "$SEED_DIR/ytd-${dir_name}.yaml" 2>/dev/null || true
+        done
+    fi
+
+    # yaml-test-suite: src/*/in-yaml files
+    if [ -d "$ref_dir/yaml-test-suite/src" ]; then
+        find "$ref_dir/yaml-test-suite/src" -name 'in-yaml' -type f | while read -r f; do
+            local dir_name
+            dir_name=$(basename "$(dirname "$f")")
+            cp -n "$f" "$SEED_DIR/yts-${dir_name}.yaml" 2>/dev/null || true
+        done
+    fi
+
+    # yaml-fuzz: minimized and raw testcases
+    if [ -d "$ref_dir/yaml-fuzz/min_testcases" ]; then
+        for f in "$ref_dir/yaml-fuzz/min_testcases"/*; do
+            [ -f "$f" ] && cp -n "$f" "$SEED_DIR/yfm-$(basename "$f")" 2>/dev/null || true
+        done
+    fi
+    if [ -d "$ref_dir/yaml-fuzz/raw_testcases" ]; then
+        for f in "$ref_dir/yaml-fuzz/raw_testcases"/*; do
+            [ -f "$f" ] && cp -n "$f" "$SEED_DIR/yfr-$(basename "$f")" 2>/dev/null || true
+        done
+    fi
+
+    seed_count=$(find "$SEED_DIR" -maxdepth 1 -type f 2>/dev/null | wc -l | tr -d ' ')
+    echo "Seeds collected: $seed_count files"
+}
 
 # Time per harness (seconds). Divided equally among harnesses.
 TOTAL_FUZZ_TIME=24
@@ -62,6 +116,10 @@ echo "=== Per-Commit Fuzz ==="
 echo "Harnesses: $NUM_HARNESSES"
 echo "Time per harness: ${TIME_PER_HARNESS}s"
 echo "Total budget: ~${TOTAL_FUZZ_TIME}s"
+echo ""
+
+# Step 0: Collect seed inputs from all external sources
+collect_seeds
 echo ""
 
 # Step 1: Build the library with ASAN+fuzzer instrumentation
