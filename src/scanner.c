@@ -1051,6 +1051,225 @@ yaml_parser_fetch_more_tokens(yaml_parser_t *parser)
 }
 
 /*
+ * Batch fast path: emit KEY + SCALAR(key) + VALUE + SCALAR(value) tokens
+ * for a simple "key: value" block mapping entry.
+ * Returns: 1 = success (tokens emitted), 0 = not applicable, -1 = error.
+ */
+static int
+yaml_parser_fetch_kv_pair_batch(yaml_parser_t *parser)
+{
+    unsigned char ch0 = parser->buffer.pointer[0];
+
+    /* Quick check: is this a plain scalar start in block context?
+     * Excludes indicators and special chars. */
+    if (ch0 <= 0x20 || ch0 >= 0x80
+            || ch0 == '#' || ch0 == ':' || ch0 == '-' || ch0 == '.'
+            || ch0 == '?' || ch0 == '*' || ch0 == '&' || ch0 == '!'
+            || ch0 == '|' || ch0 == '>' || ch0 == '\'' || ch0 == '"'
+            || ch0 == '@' || ch0 == '`' || ch0 == '%'
+            || ch0 == '[' || ch0 == ']' || ch0 == '{' || ch0 == '}' || ch0 == ',')
+        return 0;
+
+    yaml_char_t *src = parser->buffer.pointer;
+    size_t avail = parser->unread - 1; /* reserve 1 for lookahead */
+    size_t key_len;
+
+#ifdef HAVE_SIMD_SCAN
+    key_len = yaml_scan_plain_block_sse2(src, avail);
+#else
+    {
+        yaml_char_t *p = src;
+        yaml_char_t *lim = src + avail;
+        while (p < lim) {
+            unsigned char c = *p;
+            if (c <= 0x20 || c == '#' || c == ':' || c >= 0x80)
+                break;
+            p++;
+        }
+        key_len = (size_t)(p - src);
+    }
+#endif
+
+    /* Need at least: key + ": " + 1 value char + terminator */
+    if (key_len == 0 || key_len + 3 >= parser->unread
+            || src[key_len] != ':' || src[key_len + 1] != ' ')
+        return 0;
+
+    /* Check that the value starts with a plain scalar char. */
+    unsigned char vch = src[key_len + 2];
+    if (vch <= 0x20 || vch >= 0x80
+            || vch == '#' || vch == ':' || vch == '-' || vch == '.'
+            || vch == '?' || vch == '*' || vch == '&' || vch == '!'
+            || vch == '|' || vch == '>' || vch == '\'' || vch == '"'
+            || vch == '@' || vch == '`' || vch == '%'
+            || vch == '[' || vch == ']' || vch == '{' || vch == '}' || vch == ',')
+        return 0;
+
+    /* Scan value: starts at src[key_len + 2] */
+    yaml_char_t *val_src = src + key_len + 2;
+    size_t val_avail = parser->unread - key_len - 3;
+    size_t val_len;
+
+#ifdef HAVE_SIMD_SCAN
+    val_len = yaml_scan_plain_block_sse2(val_src, val_avail);
+#else
+    {
+        yaml_char_t *p = val_src;
+        yaml_char_t *lim = val_src + val_avail;
+        while (p < lim) {
+            unsigned char c = *p;
+            if (c <= 0x20 || c == '#' || c == ':' || c >= 0x80)
+                break;
+            p++;
+        }
+        val_len = (size_t)(p - val_src);
+    }
+#endif
+
+    /* Value must be non-empty and followed by a definitive terminator. */
+    if (val_len == 0)
+        return 0;
+
+    yaml_char_t term = val_src[val_len];
+    int is_end = 0;
+
+    if (term == '\0') {
+        is_end = 1;
+    } else if (term == '\n' || term == '\r') {
+        /* Check next line indent for scalar end */
+        size_t skip = 1;
+        if (term == '\r' && key_len + 2 + val_len + skip < parser->unread
+                && val_src[val_len + skip] == '\n')
+            skip++;
+        size_t next_col = 0;
+        size_t remaining = parser->unread - (key_len + 2 + val_len + skip);
+        while (next_col < remaining
+                && val_src[val_len + skip + next_col] == ' ')
+            next_col++;
+        if (next_col < remaining
+                && val_src[val_len + skip + next_col] != ' '
+                && (int)next_col < parser->indent + 1) {
+            is_end = 1;
+        }
+    } else if (term == ':' && key_len + 2 + val_len + 1 < parser->unread
+            && (val_src[val_len + 1] == ' '
+                || val_src[val_len + 1] == '\t'
+                || val_src[val_len + 1] == '\n'
+                || val_src[val_len + 1] == '\r'
+                || val_src[val_len + 1] == '\0')) {
+        is_end = 1;
+    }
+
+    if (!is_end)
+        return 0;
+
+    /* All conditions met. Emit tokens in batch. */
+    yaml_mark_t key_start = parser->mark;
+    yaml_mark_t key_end;
+    yaml_mark_t val_start;
+    yaml_mark_t val_end_mark;
+    yaml_token_t token;
+
+    /* 1) BLOCK-MAPPING-START if indent needs rolling */
+    if (parser->indent < (ptrdiff_t)parser->mark.column) {
+        if (!yaml_parser_roll_indent(parser,
+                    parser->mark.column, -1,
+                    YAML_BLOCK_MAPPING_START_TOKEN,
+                    parser->mark))
+            return -1;
+    }
+
+    /* 2) KEY token */
+    TOKEN_INIT(token, YAML_KEY_TOKEN, key_start, key_start);
+    if (!ENQUEUE(parser, parser->tokens, token))
+        return -1;
+
+    /* 3) SCALAR(key) -- allocate and copy */
+    {
+        yaml_char_t *kval = (yaml_char_t *)yaml_malloc_internal(key_len + 1);
+        if (!kval) {
+            parser->error = YAML_MEMORY_ERROR;
+            return -1;
+        }
+        memcpy(kval, src, key_len);
+        kval[key_len] = '\0';
+
+        /* Advance parser past key */
+        parser->buffer.pointer += key_len;
+        parser->mark.index += key_len;
+        parser->mark.column += key_len;
+        parser->unread -= key_len;
+        key_end = parser->mark;
+
+        if (!ENQUEUE_RESERVE(parser, parser->tokens))
+            { yaml_free(kval); return -1; }
+        SCALAR_TOKEN_INIT(*parser->tokens.tail, kval,
+                key_len, YAML_PLAIN_SCALAR_STYLE,
+                key_start, key_end);
+        ENQUEUE_COMMIT(parser->tokens);
+    }
+
+    /* 4) VALUE token -- skip ": " */
+    {
+        yaml_mark_t vmark = parser->mark;
+        parser->buffer.pointer += 1; /* skip ':' */
+        parser->mark.index += 1;
+        parser->mark.column += 1;
+        parser->unread -= 1;
+        yaml_mark_t vmark_end = parser->mark;
+
+        TOKEN_INIT(token, YAML_VALUE_TOKEN, vmark, vmark_end);
+        if (!ENQUEUE(parser, parser->tokens, token))
+            return -1;
+
+        /* skip ' ' */
+        parser->buffer.pointer += 1;
+        parser->mark.index += 1;
+        parser->mark.column += 1;
+        parser->unread -= 1;
+    }
+
+    /* 5) SCALAR(value) -- allocate and copy */
+    {
+        yaml_char_t *vval = (yaml_char_t *)yaml_malloc_internal(val_len + 1);
+        if (!vval) {
+            parser->error = YAML_MEMORY_ERROR;
+            return -1;
+        }
+        val_start = parser->mark;
+        memcpy(vval, parser->buffer.pointer, val_len);
+        vval[val_len] = '\0';
+
+        parser->buffer.pointer += val_len;
+        parser->mark.index += val_len;
+        parser->mark.column += val_len;
+        parser->unread -= val_len;
+        val_end_mark = parser->mark;
+
+        if (!ENQUEUE_RESERVE(parser, parser->tokens))
+            { yaml_free(vval); return -1; }
+        SCALAR_TOKEN_INIT(*parser->tokens.tail, vval,
+                val_len, YAML_PLAIN_SCALAR_STYLE,
+                val_start, val_end_mark);
+        ENQUEUE_COMMIT(parser->tokens);
+    }
+
+    /* Reset simple key state: after a value, no simple key is active. */
+    parser->simple_key_allowed = 0;
+
+    /* Remove any existing simple key for this level */
+    {
+        yaml_simple_key_t *sk = parser->simple_keys.top - 1;
+        if (sk->possible) {
+            sk->possible = 0;
+            parser->possible_simple_key_count--;
+        }
+    }
+
+    return 1;
+}
+
+/*
  * The dispatcher for token fetchers.
  */
 
@@ -1093,6 +1312,22 @@ yaml_parser_fetch_next_token(yaml_parser_t *parser)
 
     if (!CACHE(parser, 4))
         return 0;
+
+    /*
+     * Batch fast path for block mapping key-value pairs.
+     * When in block context with simple keys allowed and the current char
+     * starts a plain scalar key followed by ": value\n", emit
+     * KEY + SCALAR(key) + VALUE + SCALAR(value) in one call.
+     */
+
+    if (__builtin_expect(!parser->flow_level && parser->simple_key_allowed
+                && parser->unread >= 6, 1))
+    {
+        int batch = yaml_parser_fetch_kv_pair_batch(parser);
+        if (batch < 0) return 0;  /* error */
+        if (batch > 0) return 1;  /* tokens emitted */
+        /* batch == 0: conditions not met, fall through to normal dispatch */
+    }
 
     /*
      * Dispatch the next token based on the current character.
