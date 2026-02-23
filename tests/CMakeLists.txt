@@ -109,7 +109,17 @@ if(EXISTS "${LIBYAML_TESTS_DIR}")
 
     # Build conformance test binaries
     qyaml_add_conformance_test(test-version test-version.c)
-    qyaml_add_conformance_test(test-reader test-reader.c)
+
+    # Use our fixed version of test-reader that fixes the memory leak
+    # in check_utf8_sequences() (missing yaml_parser_delete on '!' break).
+    # The original libyaml test-reader.c leaks 42 parser instances (~3.6MB)
+    # which causes ASAN failures.
+    add_executable(conformance-test-reader ${CMAKE_SOURCE_DIR}/tests/test_reader_conformance.c)
+    target_link_libraries(conformance-test-reader qyaml)
+    target_compile_definitions(conformance-test-reader PRIVATE YAML_DECLARE_STATIC)
+    if(QYAML_COVERAGE)
+        target_link_options(conformance-test-reader PRIVATE --coverage)
+    endif()
     qyaml_add_conformance_test(run-scanner run-scanner.c)
     qyaml_add_conformance_test(run-parser run-parser.c)
     qyaml_add_conformance_test(run-loader run-loader.c)
