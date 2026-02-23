@@ -31,15 +31,35 @@ Create an API-compatible drop-in replacement for libyaml, focused on optimizatio
 - Code coverage must be close to 100%
 
 ### 4.3 Fuzz Testing
+
+#### 4.3.1 Fuzz Sources
+All fuzzing (crash-finding and differential) must be seeded with and continuously run against the following external test corpora:
+
+| Source | Description | Location |
+|--------|-------------|----------|
+| **yaml-test-suite** | Official YAML spec conformance suite (~400 test cases, language-independent) from `github.com/yaml/yaml-test-suite` | `reference/yaml-test-suite/` |
+| **yaml-test-data** | Extracted test data files from the YAML test suite (~350 test case directories with input/expected pairs) | `reference/yaml-test-data/` |
+| **yaml-fuzz** | Third-party pre-generated fuzzing corpus and seed collection for YAML parsers from `github.com/brandonprry/yaml-fuzz` | `reference/yaml-fuzz/` |
+
+These sources must be integrated as seed inputs for all fuzz harnesses. The fuzz engine's own corpus (generated through coverage-guided mutation) supplements but does not replace these external sources.
+
+#### 4.3.2 Fuzz Techniques
 - Structure-aware fuzzing of the parser (not just random bytes)
 - Fuzz both the event-based and document-based APIs
+- Fuzz all API levels: scanner, parser, and loader
 - Run fuzzing continuously and fix all issues found
 - **Bonus: if fuzzing discovers bugs in libyaml itself, document them and ensure libqyaml avoids them**
+
+#### 4.3.3 Differential Fuzzing
+- In addition to crash-finding fuzzing, run differential fuzzing: feed fuzzed inputs to both libqyaml and the reference libyaml, and compare their outputs at all API levels (scanner tokens, parser events, loaded documents)
+- Any divergence is a correctness bug in libqyaml (unless it is a documented libyaml bug)
+- Differential fuzzing must use all three fuzz sources (yaml-test-suite, yaml-test-data, yaml-fuzz) as seed inputs
+- Differential fuzzing must be included in the per-commit validation pipeline (via the quick fuzz script) and also run as sustained campaigns
 
 ### 4.4 Differential Testing
 - Feed identical inputs to both libqyaml and the reference libyaml, and compare their outputs byte-for-byte at every API level (scanner tokens, parser events, loaded documents)
 - Any divergence is a bug in libqyaml (unless it's a documented libyaml bug)
-- Inputs must include: the standard benchmark workloads, the YAML test suite corpus, the fuzz corpus, and any regression inputs from previously found bugs
+- Inputs must include: all three fuzz sources (yaml-test-suite, yaml-test-data, yaml-fuzz), the standard benchmark workloads, the generated fuzz corpus, and any regression inputs from previously found bugs
 - Differential testing must be part of the per-commit validation pipeline (see the per-commit validation section) — it is not optional background work
 
 ### 4.5 OOM Injection
