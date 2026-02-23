@@ -1146,8 +1146,13 @@ yaml_parser_fetch_kv_pair_batch(yaml_parser_t *parser)
         while (next_col < remaining
                 && val_src[val_len + skip + next_col] == ' ')
             next_col++;
+        /* If the next non-space char is a line break (blank line), the
+         * value may continue -- bail out and let the normal scalar scanner
+         * handle multi-line continuation correctly. */
         if (next_col < remaining
                 && val_src[val_len + skip + next_col] != ' '
+                && val_src[val_len + skip + next_col] != '\n'
+                && val_src[val_len + skip + next_col] != '\r'
                 && (int)next_col <= (int)parser->mark.column) {
             is_end = 1;
         }
