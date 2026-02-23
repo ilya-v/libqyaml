@@ -2079,14 +2079,15 @@ yaml_parser_scan_to_next_token(yaml_parser_t *parser)
     int allow_tabs = parser->flow_level || !parser->simple_key_allowed;
 
     /*
-     * Fast path: skip a run of spaces (and tabs where allowed) when the
+     * Fast path: skip whitespace (spaces, tabs, line breaks) when the
      * buffer already has data and we're not at column 0 (no BOM to check).
-     * This avoids the full loop setup for the common case of "key: value"
-     * where there's just a single space between the colon and value.
+     * Handles the common case of "key: value\nkey2: value2" where we
+     * need to skip spaces, a single newline, and then more spaces.
      */
     if (__builtin_expect(parser->unread >= 2 && parser->mark.column > 0, 1)) {
         yaml_char_t *ptr = parser->buffer.pointer;
         yaml_char_t *limit = ptr + parser->unread;
+        /* Skip spaces (and tabs where allowed) */
         if (allow_tabs) {
             while (ptr < limit && (*ptr == ' ' || *ptr == '\t'))
                 ptr++;
@@ -2108,6 +2109,51 @@ yaml_parser_scan_to_next_token(yaml_parser_t *parser)
                     && ch != '\0' && (ch & 0x80) == 0) {
                 /* No BOM, comment, line break, or non-ASCII ahead -- done */
                 return 1;
+            }
+            /*
+             * Fast path for line break in block context: skip a single
+             * LF/CR/CRLF, set simple_key_allowed, skip leading spaces,
+             * and check the next char.  Avoids the full slow-path loop
+             * for the common "value\nkey" pattern.
+             */
+            if (!parser->flow_level && (ch == '\n' || ch == '\r')
+                    && parser->unread >= 3) {
+                ptr = parser->buffer.pointer;
+                limit = ptr + parser->unread;
+                /* Skip the line break */
+                size_t lb_len = 1;
+                if (*ptr == '\r' && ptr + 1 < limit && ptr[1] == '\n')
+                    lb_len = 2;
+                ptr += lb_len;
+                parser->buffer.pointer = ptr;
+                parser->mark.index += lb_len;
+                parser->mark.line ++;
+                parser->mark.column = 0;
+                parser->unread -= lb_len;
+                /* A new line may start a simple key in block context */
+                parser->simple_key_allowed = 1;
+                allow_tabs = 0; /* block context, simple_key_allowed=1 */
+                /* Skip leading spaces on the new line */
+                limit = ptr + parser->unread;
+                while (ptr < limit && *ptr == ' ')
+                    ptr++;
+                if (ptr > parser->buffer.pointer) {
+                    size_t count = (size_t)(ptr - parser->buffer.pointer);
+                    parser->buffer.pointer = ptr;
+                    parser->mark.index += count;
+                    parser->mark.column += count;
+                    parser->unread -= count;
+                }
+                /* Check next char: if it's a normal token start, done */
+                if (parser->unread > 0) {
+                    ch = *parser->buffer.pointer;
+                    if (ch != '#' && ch != '\n' && ch != '\r'
+                            && ch != '\0' && (ch & 0x80) == 0) {
+                        return 1;
+                    }
+                }
+                /* Multiple line breaks or other cases: fall through
+                 * to the slow path */
             }
         }
     }
