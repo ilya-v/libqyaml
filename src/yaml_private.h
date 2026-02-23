@@ -90,7 +90,7 @@ yaml_parser_fetch_more_tokens(yaml_parser_t *parser);
  */
 
 #define INITIAL_STACK_SIZE  16
-#define INITIAL_QUEUE_SIZE  16
+#define INITIAL_QUEUE_SIZE  256
 #define INITIAL_STRING_SIZE 64
 
 /*
