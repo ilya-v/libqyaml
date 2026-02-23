@@ -1144,6 +1144,10 @@ yaml_parser_load_flow_sequence_items_batch(yaml_parser_t *parser,
         LOADER_SKIP_TOKEN(parser);
     }
 
+    /* Track whether we still need the first item.
+     * On first call state is FIRST_ENTRY; on re-entry it is ENTRY. */
+    int first = (parser->state == YAML_PARSE_FLOW_SEQUENCE_FIRST_ENTRY_STATE);
+
     for (;;) {
         /* Scalar data copied to locals before skip to avoid UAF from
          * queue reallocation on subsequent PEEK calls. */
@@ -1158,8 +1162,13 @@ yaml_parser_load_flow_sequence_items_batch(yaml_parser_t *parser,
         if (token->type == YAML_FLOW_SEQUENCE_END_TOKEN)
             break;
 
-        /* Expect FLOW_ENTRY separator between items. */
-        if (token->type == YAML_FLOW_ENTRY_TOKEN) {
+        if (!first) {
+            /* Subsequent items: require FLOW_ENTRY separator. */
+            if (token->type != YAML_FLOW_ENTRY_TOKEN) {
+                /* Missing separator -- fall back to parser which will reject. */
+                parser->state = YAML_PARSE_FLOW_SEQUENCE_ENTRY_STATE;
+                return 1;
+            }
             LOADER_SKIP_TOKEN(parser);
             token = LOADER_PEEK_TOKEN(parser);
             if (!token) return 0;
@@ -1206,8 +1215,18 @@ yaml_parser_load_flow_sequence_items_batch(yaml_parser_t *parser,
         }
 
         /* First item (no FLOW_ENTRY expected). */
+        if (token->type == YAML_FLOW_ENTRY_TOKEN) {
+            /* Leading comma like [ , a ] -- fall back to parser to reject. */
+            if (!PUSH(parser, parser->states,
+                        YAML_PARSE_FLOW_SEQUENCE_ENTRY_STATE))
+                return 0;
+            parser->state = YAML_PARSE_FLOW_NODE_STATE;
+            return 1;
+        }
+
         if (token->type == YAML_SCALAR_TOKEN &&
                 token->data.scalar.style == YAML_PLAIN_SCALAR_STYLE) {
+            first = 0;
             goto batch_scalar;
         }
 
@@ -1269,6 +1288,7 @@ yaml_parser_load_flow_sequence_items_batch(yaml_parser_t *parser,
                 return 0;
         }
 
+        first = 0;
         continue;
 
     error_free_value:
