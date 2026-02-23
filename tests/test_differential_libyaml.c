@@ -16,6 +16,12 @@ typedef void (*fn_parser_set_input_string)(yaml_parser_t *,
     const unsigned char *, size_t);
 typedef int (*fn_parser_parse)(yaml_parser_t *, yaml_event_t *);
 typedef void (*fn_event_delete)(yaml_event_t *);
+typedef int (*fn_parser_scan)(yaml_parser_t *, yaml_token_t *);
+typedef void (*fn_token_delete)(yaml_token_t *);
+typedef int (*fn_parser_load)(yaml_parser_t *, yaml_document_t *);
+typedef void (*fn_document_delete)(yaml_document_t *);
+typedef yaml_node_t *(*fn_document_get_root_node)(yaml_document_t *);
+typedef yaml_node_t *(*fn_document_get_node)(yaml_document_t *, int);
 
 /* libyaml function pointers */
 static fn_parser_initialize  ref_parser_initialize;
@@ -23,6 +29,12 @@ static fn_parser_delete      ref_parser_delete;
 static fn_parser_set_input_string ref_parser_set_input_string;
 static fn_parser_parse       ref_parser_parse;
 static fn_event_delete       ref_event_delete;
+static fn_parser_scan        ref_parser_scan;
+static fn_token_delete       ref_token_delete;
+static fn_parser_load        ref_parser_load;
+static fn_document_delete    ref_document_delete;
+static fn_document_get_root_node ref_document_get_root_node;
+static fn_document_get_node  ref_document_get_node;
 
 static void *libyaml_handle = NULL;
 
@@ -44,9 +56,24 @@ static int load_libyaml(void) {
     ref_event_delete = (fn_event_delete)dlsym(libyaml_handle,
         "yaml_event_delete");
 
+    ref_parser_scan = (fn_parser_scan)dlsym(libyaml_handle,
+        "yaml_parser_scan");
+    ref_token_delete = (fn_token_delete)dlsym(libyaml_handle,
+        "yaml_token_delete");
+    ref_parser_load = (fn_parser_load)dlsym(libyaml_handle,
+        "yaml_parser_load");
+    ref_document_delete = (fn_document_delete)dlsym(libyaml_handle,
+        "yaml_document_delete");
+    ref_document_get_root_node = (fn_document_get_root_node)dlsym(libyaml_handle,
+        "yaml_document_get_root_node");
+    ref_document_get_node = (fn_document_get_node)dlsym(libyaml_handle,
+        "yaml_document_get_node");
+
     if (!ref_parser_initialize || !ref_parser_delete ||
         !ref_parser_set_input_string || !ref_parser_parse ||
-        !ref_event_delete) {
+        !ref_event_delete || !ref_parser_scan || !ref_token_delete ||
+        !ref_parser_load || !ref_document_delete ||
+        !ref_document_get_root_node || !ref_document_get_node) {
         fprintf(stderr, "  SKIP: missing libyaml symbols: %s\n", dlerror());
         dlclose(libyaml_handle);
         libyaml_handle = NULL;
@@ -222,10 +249,334 @@ static int compare_event_streams(const char *name, const char *input, size_t len
     return result;
 }
 
-/* Helper macro for differential tests */
+/*
+ * Compare scanner token streams from both parsers.
+ * Returns 1 if identical, 0 if divergent.
+ */
+static int compare_token_streams(const char *name, const char *input, size_t len) {
+    yaml_parser_t our_parser, ref_parser;
+    yaml_token_t our_token, ref_token;
+    int token_idx = 0;
+    int result = 1;
+
+    if (!yaml_parser_initialize(&our_parser)) {
+        fprintf(stderr, "  %s: libqyaml parser init failed (scan)\n", name);
+        return 0;
+    }
+    if (!ref_parser_initialize(&ref_parser)) {
+        fprintf(stderr, "  %s: libyaml parser init failed (scan)\n", name);
+        yaml_parser_delete(&our_parser);
+        return 0;
+    }
+
+    yaml_parser_set_input_string(&our_parser, (const unsigned char *)input, len);
+    ref_parser_set_input_string(&ref_parser, (const unsigned char *)input, len);
+
+    while (1) {
+        int our_ok = yaml_parser_scan(&our_parser, &our_token);
+        int ref_ok = ref_parser_scan(&ref_parser, &ref_token);
+
+        if (our_ok != ref_ok) {
+            fprintf(stderr, "  %s[tok %d]: scan status divergence "
+                    "(ours=%d, ref=%d)\n", name, token_idx, our_ok, ref_ok);
+            if (our_ok) yaml_token_delete(&our_token);
+            if (ref_ok) ref_token_delete(&ref_token);
+            result = 0;
+            break;
+        }
+
+        if (!our_ok) break;
+
+        if (our_token.type != ref_token.type) {
+            fprintf(stderr, "  %s[tok %d]: token type divergence "
+                    "(ours=%d, ref=%d)\n", name, token_idx,
+                    our_token.type, ref_token.type);
+            yaml_token_delete(&our_token);
+            ref_token_delete(&ref_token);
+            result = 0;
+            break;
+        }
+
+        /* Compare scalar token values */
+        if (our_token.type == YAML_SCALAR_TOKEN) {
+            const char *our_val = (const char *)our_token.data.scalar.value;
+            const char *ref_val = (const char *)ref_token.data.scalar.value;
+            size_t our_len = our_token.data.scalar.length;
+            size_t ref_len = ref_token.data.scalar.length;
+
+            if (our_len != ref_len || memcmp(our_val, ref_val, our_len) != 0) {
+                fprintf(stderr, "  %s[tok %d]: scalar token value divergence "
+                        "(ours='%.*s' len=%zu, ref='%.*s' len=%zu)\n",
+                        name, token_idx,
+                        (int)(our_len < 50 ? our_len : 50), our_val, our_len,
+                        (int)(ref_len < 50 ? ref_len : 50), ref_val, ref_len);
+                yaml_token_delete(&our_token);
+                ref_token_delete(&ref_token);
+                result = 0;
+                break;
+            }
+        }
+
+        /* Compare tag token values */
+        if (our_token.type == YAML_TAG_TOKEN) {
+            const char *our_handle = (const char *)our_token.data.tag.handle;
+            const char *ref_handle = (const char *)ref_token.data.tag.handle;
+            const char *our_suffix = (const char *)our_token.data.tag.suffix;
+            const char *ref_suffix = (const char *)ref_token.data.tag.suffix;
+
+            if ((our_handle == NULL) != (ref_handle == NULL) ||
+                (our_handle && ref_handle && strcmp(our_handle, ref_handle) != 0)) {
+                fprintf(stderr, "  %s[tok %d]: tag handle divergence\n", name, token_idx);
+                yaml_token_delete(&our_token);
+                ref_token_delete(&ref_token);
+                result = 0;
+                break;
+            }
+            if ((our_suffix == NULL) != (ref_suffix == NULL) ||
+                (our_suffix && ref_suffix && strcmp(our_suffix, ref_suffix) != 0)) {
+                fprintf(stderr, "  %s[tok %d]: tag suffix divergence\n", name, token_idx);
+                yaml_token_delete(&our_token);
+                ref_token_delete(&ref_token);
+                result = 0;
+                break;
+            }
+        }
+
+        /* Compare anchor/alias token values */
+        if (our_token.type == YAML_ANCHOR_TOKEN || our_token.type == YAML_ALIAS_TOKEN) {
+            const char *our_val = (const char *)our_token.data.anchor.value;
+            const char *ref_val = (const char *)ref_token.data.anchor.value;
+            if ((our_val == NULL) != (ref_val == NULL) ||
+                (our_val && ref_val && strcmp(our_val, ref_val) != 0)) {
+                fprintf(stderr, "  %s[tok %d]: anchor/alias value divergence\n",
+                        name, token_idx);
+                yaml_token_delete(&our_token);
+                ref_token_delete(&ref_token);
+                result = 0;
+                break;
+            }
+        }
+
+        int done = (our_token.type == YAML_STREAM_END_TOKEN);
+        yaml_token_delete(&our_token);
+        ref_token_delete(&ref_token);
+        token_idx++;
+
+        if (done) break;
+    }
+
+    yaml_parser_delete(&our_parser);
+    ref_parser_delete(&ref_parser);
+    return result;
+}
+
+/*
+ * Recursively compare document nodes.
+ * Returns 1 if identical, 0 if divergent.
+ */
+static int compare_nodes(const char *name, int node_id,
+                          yaml_document_t *our_doc, yaml_document_t *ref_doc,
+                          int depth) {
+    if (depth > 100) {
+        fprintf(stderr, "  %s: recursion depth exceeded at node %d\n", name, node_id);
+        return 0;
+    }
+
+    yaml_node_t *our_node = yaml_document_get_node(our_doc, node_id);
+    yaml_node_t *ref_node = ref_document_get_node(ref_doc, node_id);
+
+    if ((our_node == NULL) != (ref_node == NULL)) {
+        fprintf(stderr, "  %s: node %d existence divergence (ours=%s, ref=%s)\n",
+                name, node_id,
+                our_node ? "exists" : "null",
+                ref_node ? "exists" : "null");
+        return 0;
+    }
+    if (!our_node) return 1;
+
+    if (our_node->type != ref_node->type) {
+        fprintf(stderr, "  %s: node %d type divergence (ours=%d, ref=%d)\n",
+                name, node_id, our_node->type, ref_node->type);
+        return 0;
+    }
+
+    /* Compare tags */
+    const char *our_tag = (const char *)our_node->tag;
+    const char *ref_tag = (const char *)ref_node->tag;
+    if ((our_tag == NULL) != (ref_tag == NULL) ||
+        (our_tag && ref_tag && strcmp(our_tag, ref_tag) != 0)) {
+        fprintf(stderr, "  %s: node %d tag divergence (ours='%s', ref='%s')\n",
+                name, node_id,
+                our_tag ? our_tag : "(null)",
+                ref_tag ? ref_tag : "(null)");
+        return 0;
+    }
+
+    switch (our_node->type) {
+    case YAML_SCALAR_NODE: {
+        size_t our_len = our_node->data.scalar.length;
+        size_t ref_len = ref_node->data.scalar.length;
+        const char *our_val = (const char *)our_node->data.scalar.value;
+        const char *ref_val = (const char *)ref_node->data.scalar.value;
+
+        if (our_len != ref_len || memcmp(our_val, ref_val, our_len) != 0) {
+            fprintf(stderr, "  %s: node %d scalar value divergence "
+                    "(ours='%.*s' len=%zu, ref='%.*s' len=%zu)\n",
+                    name, node_id,
+                    (int)(our_len < 50 ? our_len : 50), our_val, our_len,
+                    (int)(ref_len < 50 ? ref_len : 50), ref_val, ref_len);
+            return 0;
+        }
+        if (our_node->data.scalar.style != ref_node->data.scalar.style) {
+            fprintf(stderr, "  %s: node %d scalar style divergence "
+                    "(ours=%d, ref=%d)\n",
+                    name, node_id,
+                    our_node->data.scalar.style, ref_node->data.scalar.style);
+            return 0;
+        }
+        break;
+    }
+    case YAML_SEQUENCE_NODE: {
+        int our_count = our_node->data.sequence.items.top -
+                        our_node->data.sequence.items.start;
+        int ref_count = ref_node->data.sequence.items.top -
+                        ref_node->data.sequence.items.start;
+        if (our_count != ref_count) {
+            fprintf(stderr, "  %s: node %d sequence length divergence "
+                    "(ours=%d, ref=%d)\n",
+                    name, node_id, our_count, ref_count);
+            return 0;
+        }
+        for (int i = 0; i < our_count; i++) {
+            int our_child = our_node->data.sequence.items.start[i];
+            int ref_child = ref_node->data.sequence.items.start[i];
+            if (our_child != ref_child) {
+                fprintf(stderr, "  %s: node %d seq[%d] child id divergence "
+                        "(ours=%d, ref=%d)\n",
+                        name, node_id, i, our_child, ref_child);
+                return 0;
+            }
+            if (!compare_nodes(name, our_child, our_doc, ref_doc, depth + 1))
+                return 0;
+        }
+        break;
+    }
+    case YAML_MAPPING_NODE: {
+        int our_count = our_node->data.mapping.pairs.top -
+                        our_node->data.mapping.pairs.start;
+        int ref_count = ref_node->data.mapping.pairs.top -
+                        ref_node->data.mapping.pairs.start;
+        if (our_count != ref_count) {
+            fprintf(stderr, "  %s: node %d mapping pair count divergence "
+                    "(ours=%d, ref=%d)\n",
+                    name, node_id, our_count, ref_count);
+            return 0;
+        }
+        for (int i = 0; i < our_count; i++) {
+            int our_key = our_node->data.mapping.pairs.start[i].key;
+            int ref_key = ref_node->data.mapping.pairs.start[i].key;
+            int our_val_id = our_node->data.mapping.pairs.start[i].value;
+            int ref_val_id = ref_node->data.mapping.pairs.start[i].value;
+            if (our_key != ref_key || our_val_id != ref_val_id) {
+                fprintf(stderr, "  %s: node %d pair[%d] id divergence\n",
+                        name, node_id, i);
+                return 0;
+            }
+            if (!compare_nodes(name, our_key, our_doc, ref_doc, depth + 1))
+                return 0;
+            if (!compare_nodes(name, our_val_id, our_doc, ref_doc, depth + 1))
+                return 0;
+        }
+        break;
+    }
+    default:
+        break;
+    }
+
+    return 1;
+}
+
+/*
+ * Compare loaded documents from both parsers.
+ * Returns 1 if identical, 0 if divergent.
+ */
+static int compare_documents(const char *name, const char *input, size_t len) {
+    yaml_parser_t our_parser, ref_parser;
+    yaml_document_t our_doc, ref_doc;
+    int doc_idx = 0;
+    int result = 1;
+
+    if (!yaml_parser_initialize(&our_parser)) {
+        fprintf(stderr, "  %s: libqyaml parser init failed (load)\n", name);
+        return 0;
+    }
+    if (!ref_parser_initialize(&ref_parser)) {
+        fprintf(stderr, "  %s: libyaml parser init failed (load)\n", name);
+        yaml_parser_delete(&our_parser);
+        return 0;
+    }
+
+    yaml_parser_set_input_string(&our_parser, (const unsigned char *)input, len);
+    ref_parser_set_input_string(&ref_parser, (const unsigned char *)input, len);
+
+    while (1) {
+        int our_ok = yaml_parser_load(&our_parser, &our_doc);
+        int ref_ok = ref_parser_load(&ref_parser, &ref_doc);
+
+        if (our_ok != ref_ok) {
+            fprintf(stderr, "  %s[doc %d]: load status divergence "
+                    "(ours=%d, ref=%d)\n", name, doc_idx, our_ok, ref_ok);
+            if (our_ok) yaml_document_delete(&our_doc);
+            if (ref_ok) ref_document_delete(&ref_doc);
+            result = 0;
+            break;
+        }
+
+        if (!our_ok) break;
+
+        yaml_node_t *our_root = yaml_document_get_root_node(&our_doc);
+        yaml_node_t *ref_root = ref_document_get_root_node(&ref_doc);
+
+        if ((our_root == NULL) != (ref_root == NULL)) {
+            fprintf(stderr, "  %s[doc %d]: root existence divergence\n",
+                    name, doc_idx);
+            yaml_document_delete(&our_doc);
+            ref_document_delete(&ref_doc);
+            result = 0;
+            break;
+        }
+
+        if (!our_root) {
+            yaml_document_delete(&our_doc);
+            ref_document_delete(&ref_doc);
+            break;
+        }
+
+        if (!compare_nodes(name, 1, &our_doc, &ref_doc, 0)) {
+            yaml_document_delete(&our_doc);
+            ref_document_delete(&ref_doc);
+            result = 0;
+            break;
+        }
+
+        yaml_document_delete(&our_doc);
+        ref_document_delete(&ref_doc);
+        doc_idx++;
+    }
+
+    yaml_parser_delete(&our_parser);
+    ref_parser_delete(&ref_parser);
+    return result;
+}
+
+/* Helper macro for differential tests -- tests all three API levels */
 #define DIFF_TEST(name, input) do { \
+    ASSERT(compare_token_streams(name, input, strlen(input)), \
+           name ": token streams match libyaml"); \
     ASSERT(compare_event_streams(name, input, strlen(input)), \
            name ": event streams match libyaml"); \
+    ASSERT(compare_documents(name, input, strlen(input)), \
+           name ": loaded documents match libyaml"); \
 } while(0)
 
 /* ================================================================
@@ -482,8 +833,12 @@ static void test_diff_sequence_many_items(void) {
 
 static void test_diff_utf8_bom(void) {
     const char input[] = "\xEF\xBB\xBFhello\n";
+    ASSERT(compare_token_streams("utf8_bom", input, sizeof(input) - 1),
+           "utf8_bom: token streams match libyaml");
     ASSERT(compare_event_streams("utf8_bom", input, sizeof(input) - 1),
            "utf8_bom: event streams match libyaml");
+    ASSERT(compare_documents("utf8_bom", input, sizeof(input) - 1),
+           "utf8_bom: loaded documents match libyaml");
 }
 
 /* ================================================================
