@@ -706,10 +706,12 @@ yaml_parser_load_mapping_pairs_batch(yaml_parser_t *parser,
                 key_scalar->data.scalar.style != YAML_PLAIN_SCALAR_STYLE)
             goto fallback_key;
 
-        /* Skip scalar, peek for VALUE token. */
+        /* Skip scalar, peek for VALUE token.
+         * After this skip, key_scalar's string is orphaned from the token
+         * queue -- we MUST free it on any error path before returning. */
         LOADER_SKIP_TOKEN(parser);
         token = LOADER_PEEK_TOKEN(parser);
-        if (!token) return 0;
+        if (!token) goto error_free_key;
 
         if (token->type != YAML_VALUE_TOKEN)
             goto fallback_value_after_key;
@@ -717,7 +719,7 @@ yaml_parser_load_mapping_pairs_batch(yaml_parser_t *parser,
         /* Skip VALUE token, peek next. */
         LOADER_SKIP_TOKEN(parser);
         value_scalar = LOADER_PEEK_TOKEN(parser);
-        if (!value_scalar) return 0;
+        if (!value_scalar) goto error_free_key;
 
         /* Check for empty value (KEY, VALUE, or BLOCK_END after VALUE). */
         if (value_scalar->type == YAML_KEY_TOKEN ||
@@ -734,17 +736,20 @@ yaml_parser_load_mapping_pairs_batch(yaml_parser_t *parser,
          * Create both nodes directly, bypassing the parser state machine. */
 
         /* Reserve space for 2 nodes. */
-        if (!STACK_LIMIT(parser, document->nodes, INT_MAX-2)) return 0;
-        if (!STACK_PUSH_RESERVE(parser, document->nodes)) return 0;
+        if (!STACK_LIMIT(parser, document->nodes, INT_MAX-2))
+            goto error_free_key;
+        if (!STACK_PUSH_RESERVE(parser, document->nodes))
+            goto error_free_key;
 
         /* Create key node. */
         {
             yaml_char_t *kval = key_scalar->data.scalar.value;
             size_t klen = key_scalar->data.scalar.length;
             yaml_char_t *arena_kval = yaml_arena_alloc(document, klen + 1);
-            if (!arena_kval) return 0;
+            if (!arena_kval) goto error_free_key;
             memcpy(arena_kval, kval, klen + 1);
             yaml_free_internal(kval);
+            key_scalar->data.scalar.value = NULL;
 
             yaml_node_t *knode = document->nodes.top;
             knode->type = YAML_SCALAR_NODE;
@@ -761,14 +766,22 @@ yaml_parser_load_mapping_pairs_batch(yaml_parser_t *parser,
 
         if (!STACK_PUSH_RESERVE(parser, document->nodes)) return 0;
 
-        /* Create value node. */
+        /* Create value node.
+         * Note: value_scalar is peeked, not skipped. On error, the token
+         * is still in the queue and yaml_parser_delete will clean it up.
+         * We NULL the value pointer after freeing to prevent double-free
+         * since the token remains in the queue. */
         {
             yaml_char_t *vval = value_scalar->data.scalar.value;
             size_t vlen = value_scalar->data.scalar.length;
             yaml_char_t *arena_vval = yaml_arena_alloc(document, vlen + 1);
-            if (!arena_vval) return 0;
+            if (!arena_vval) {
+                value_scalar->data.scalar.value = NULL;
+                return 0;
+            }
             memcpy(arena_vval, vval, vlen + 1);
             yaml_free_internal(vval);
+            value_scalar->data.scalar.value = NULL;
 
             yaml_node_t *vnode = document->nodes.top;
             vnode->type = YAML_SCALAR_NODE;
@@ -806,16 +819,19 @@ yaml_parser_load_mapping_pairs_batch(yaml_parser_t *parser,
          * indicates an empty value (KEY, VALUE, or BLOCK_END).
          * Create key node + empty scalar value node. */
         {
-            if (!STACK_LIMIT(parser, document->nodes, INT_MAX-2)) return 0;
-            if (!STACK_PUSH_RESERVE(parser, document->nodes)) return 0;
+            if (!STACK_LIMIT(parser, document->nodes, INT_MAX-2))
+                goto error_free_key;
+            if (!STACK_PUSH_RESERVE(parser, document->nodes))
+                goto error_free_key;
 
             /* Create key node. */
             yaml_char_t *kval = key_scalar->data.scalar.value;
             size_t klen = key_scalar->data.scalar.length;
             yaml_char_t *arena_kval = yaml_arena_alloc(document, klen + 1);
-            if (!arena_kval) return 0;
+            if (!arena_kval) goto error_free_key;
             memcpy(arena_kval, kval, klen + 1);
             yaml_free_internal(kval);
+            key_scalar->data.scalar.value = NULL;
 
             yaml_node_t *knode = document->nodes.top;
             knode->type = YAML_SCALAR_NODE;
@@ -873,15 +889,18 @@ yaml_parser_load_mapping_pairs_batch(yaml_parser_t *parser,
          * The key scalar is already consumed. Create the key node,
          * and set parser state to expect the value. */
         {
-            if (!STACK_LIMIT(parser, document->nodes, INT_MAX-1)) return 0;
-            if (!STACK_PUSH_RESERVE(parser, document->nodes)) return 0;
+            if (!STACK_LIMIT(parser, document->nodes, INT_MAX-1))
+                goto error_free_key;
+            if (!STACK_PUSH_RESERVE(parser, document->nodes))
+                goto error_free_key;
 
             yaml_char_t *kval = key_scalar->data.scalar.value;
             size_t klen = key_scalar->data.scalar.length;
             yaml_char_t *arena_kval = yaml_arena_alloc(document, klen + 1);
-            if (!arena_kval) return 0;
+            if (!arena_kval) goto error_free_key;
             memcpy(arena_kval, kval, klen + 1);
             yaml_free_internal(kval);
+            key_scalar->data.scalar.value = NULL;
 
             yaml_node_t *knode = document->nodes.top;
             knode->type = YAML_SCALAR_NODE;
@@ -910,15 +929,18 @@ yaml_parser_load_mapping_pairs_batch(yaml_parser_t *parser,
         /* We consumed KEY + scalar_key + VALUE, but value isn't a plain scalar.
          * Create the key node and set state for value node processing. */
         {
-            if (!STACK_LIMIT(parser, document->nodes, INT_MAX-1)) return 0;
-            if (!STACK_PUSH_RESERVE(parser, document->nodes)) return 0;
+            if (!STACK_LIMIT(parser, document->nodes, INT_MAX-1))
+                goto error_free_key;
+            if (!STACK_PUSH_RESERVE(parser, document->nodes))
+                goto error_free_key;
 
             yaml_char_t *kval = key_scalar->data.scalar.value;
             size_t klen = key_scalar->data.scalar.length;
             yaml_char_t *arena_kval = yaml_arena_alloc(document, klen + 1);
-            if (!arena_kval) return 0;
+            if (!arena_kval) goto error_free_key;
             memcpy(arena_kval, kval, klen + 1);
             yaml_free_internal(kval);
+            key_scalar->data.scalar.value = NULL;
 
             yaml_node_t *knode = document->nodes.top;
             knode->type = YAML_SCALAR_NODE;
@@ -946,6 +968,14 @@ yaml_parser_load_mapping_pairs_batch(yaml_parser_t *parser,
             return 0;
         parser->state = YAML_PARSE_BLOCK_NODE_OR_INDENTLESS_SEQUENCE_STATE;
         return 1;
+
+    error_free_key:
+        /* The key scalar token was skipped (removed from queue) but its
+         * string was not yet transferred to the arena. Free it to prevent
+         * a memory leak. */
+        yaml_free_internal(key_scalar->data.scalar.value);
+        key_scalar->data.scalar.value = NULL;
+        return 0;
     }
 
     /* If we get here, the token is BLOCK_END (or something else).
