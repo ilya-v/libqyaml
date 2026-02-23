@@ -1053,25 +1053,26 @@ yaml_parser_fetch_more_tokens(yaml_parser_t *parser)
 static int
 yaml_parser_fetch_next_token(yaml_parser_t *parser)
 {
-    /* Ensure that the buffer is initialized. */
-
-    if (!CACHE(parser, 1))
-        return 0;
-
     /* Check if we just started scanning.  Fetch STREAM-START then. */
 
-    if (!parser->stream_start_produced)
+    if (__builtin_expect(!parser->stream_start_produced, 0)) {
+        if (!CACHE(parser, 1))
+            return 0;
         return yaml_parser_fetch_stream_start(parser);
+    }
 
     /* Eat whitespaces and comments until we reach the next token. */
 
     if (!yaml_parser_scan_to_next_token(parser))
         return 0;
 
-    /* Remove obsolete potential simple keys. */
+    /* Remove obsolete potential simple keys.
+     * Skip when no possible simple keys exist (common case). */
 
-    if (!yaml_parser_stale_simple_keys(parser))
-        return 0;
+    if (__builtin_expect(parser->possible_simple_key_count > 0, 0)) {
+        if (!yaml_parser_stale_simple_keys(parser))
+            return 0;
+    }
 
     /* Check the indentation level against the current column (block context only).
      * Inline the common case where indent <= column (no unrolling needed). */

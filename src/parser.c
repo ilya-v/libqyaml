@@ -54,11 +54,13 @@
  */
 
 #define SKIP_TOKEN(parser)                                                      \
-    (parser->token_available = 0,                                               \
-     parser->tokens_parsed ++,                                                  \
+    (parser->tokens_parsed ++,                                                  \
      parser->stream_end_produced =                                              \
         (parser->tokens.head->type == YAML_STREAM_END_TOKEN),                   \
-     parser->tokens.head ++)
+     parser->tokens.head ++,                                                    \
+     parser->token_available =                                                  \
+        (__builtin_expect(parser->tokens.head != parser->tokens.tail            \
+            && parser->possible_simple_key_count == 0, 1)))
 
 /*
  * Skip the current token and peek the next one in a single operation.
