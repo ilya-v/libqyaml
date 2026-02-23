@@ -2,6 +2,23 @@
 #include "yaml_private.h"
 
 /*
+ * Token access macros (replicated from parser.c for loader fast paths).
+ */
+
+#define LOADER_PEEK_TOKEN(parser)                                               \
+    ((parser->token_available || yaml_parser_fetch_more_tokens(parser)) ?       \
+        parser->tokens.head : NULL)
+
+#define LOADER_SKIP_TOKEN(parser)                                               \
+    (parser->tokens_parsed ++,                                                  \
+     parser->stream_end_produced =                                              \
+        (parser->tokens.head->type == YAML_STREAM_END_TOKEN),                   \
+     parser->tokens.head ++,                                                    \
+     parser->token_available =                                                  \
+        (__builtin_expect(parser->tokens.head != parser->tokens.tail            \
+            && parser->possible_simple_key_count == 0, 1)))
+
+/*
  * Interned default tag strings. These are shared across all nodes
  * to avoid per-node malloc for the common case of untagged nodes.
  * yaml_document_delete checks for these pointers to skip freeing them.
@@ -87,6 +104,10 @@ yaml_parser_load_sequence_end(yaml_parser_t *parser, yaml_event_t *event,
 
 static int
 yaml_parser_load_mapping_end(yaml_parser_t *parser, yaml_event_t *event,
+        struct loader_ctx *ctx);
+
+static int
+yaml_parser_load_mapping_pairs_batch(yaml_parser_t *parser,
         struct loader_ctx *ctx);
 
 /*
@@ -261,6 +282,10 @@ yaml_parser_load_nodes(yaml_parser_t *parser, struct loader_ctx *ctx)
                 break;
             case YAML_MAPPING_START_EVENT:
                 if (!yaml_parser_load_mapping(parser, &event, ctx)) return 0;
+                if ((parser->state == YAML_PARSE_BLOCK_MAPPING_FIRST_KEY_STATE ||
+                        parser->state == YAML_PARSE_BLOCK_MAPPING_KEY_STATE) &&
+                        !yaml_parser_load_mapping_pairs_batch(parser, ctx))
+                    return 0;
                 break;
             case YAML_MAPPING_END_EVENT:
                 if (!yaml_parser_load_mapping_end(parser, &event, ctx))
@@ -601,6 +626,304 @@ error:
         yaml_free(tag);
     yaml_free(event->data.mapping_start.anchor);
     return 0;
+}
+
+/*
+ * Batch-load plain scalar key-value pairs directly from the token queue.
+ * This bypasses the parser state machine for the common case of block
+ * mappings containing only plain scalar keys and values without anchors
+ * or tags. Falls back to the normal event loop for anything else.
+ *
+ * The parser must be in BLOCK_MAPPING_FIRST_KEY_STATE or
+ * BLOCK_MAPPING_KEY_STATE when this is called.
+ */
+
+static int
+yaml_parser_load_mapping_pairs_batch(yaml_parser_t *parser,
+        struct loader_ctx *ctx)
+{
+    yaml_token_t *token;
+    yaml_document_t *document = parser->document;
+    int mapping_index;
+
+    mapping_index = *((*ctx).top - 1);
+
+    /* On first entry, the BLOCK-MAPPING-START token needs to be consumed. */
+    if (parser->state == YAML_PARSE_BLOCK_MAPPING_FIRST_KEY_STATE) {
+        token = LOADER_PEEK_TOKEN(parser);
+        if (!token) return 0;
+        if (!PUSH(parser, parser->marks, token->start_mark))
+            return 0;
+        LOADER_SKIP_TOKEN(parser);
+    }
+
+    for (;;) {
+        yaml_token_t *key_token, *value_token;
+        yaml_token_t *key_scalar, *value_scalar;
+
+        /* Peek at the current token -- must be a KEY. */
+        token = LOADER_PEEK_TOKEN(parser);
+        if (!token) return 0;
+
+        if (token->type != YAML_KEY_TOKEN)
+            break;  /* BLOCK_END or error -- fall back to normal path */
+
+        /* Skip KEY token, peek next. */
+        LOADER_SKIP_TOKEN(parser);
+        key_scalar = LOADER_PEEK_TOKEN(parser);
+        if (!key_scalar) return 0;
+
+        /* Must be a plain scalar with no anchor -- otherwise fall back. */
+        if (key_scalar->type != YAML_SCALAR_TOKEN ||
+                key_scalar->data.scalar.style != YAML_PLAIN_SCALAR_STYLE)
+            goto fallback_key;
+
+        /* Skip scalar, peek for VALUE token. */
+        LOADER_SKIP_TOKEN(parser);
+        token = LOADER_PEEK_TOKEN(parser);
+        if (!token) return 0;
+
+        if (token->type != YAML_VALUE_TOKEN)
+            goto fallback_value_after_key;
+
+        /* Skip VALUE token, peek next. */
+        LOADER_SKIP_TOKEN(parser);
+        value_scalar = LOADER_PEEK_TOKEN(parser);
+        if (!value_scalar) return 0;
+
+        /* Check for empty value (KEY, VALUE, or BLOCK_END after VALUE). */
+        if (value_scalar->type == YAML_KEY_TOKEN ||
+                value_scalar->type == YAML_VALUE_TOKEN ||
+                value_scalar->type == YAML_BLOCK_END_TOKEN)
+            goto batch_empty_value;
+
+        /* Must be a plain scalar with no anchor -- otherwise fall back. */
+        if (value_scalar->type != YAML_SCALAR_TOKEN ||
+                value_scalar->data.scalar.style != YAML_PLAIN_SCALAR_STYLE)
+            goto fallback_value;
+
+        /* We have a complete key: plain_scalar, value: plain_scalar pair.
+         * Create both nodes directly, bypassing the parser state machine. */
+
+        /* Reserve space for 2 nodes. */
+        if (!STACK_LIMIT(parser, document->nodes, INT_MAX-2)) return 0;
+        if (!STACK_PUSH_RESERVE(parser, document->nodes)) return 0;
+
+        /* Create key node. */
+        {
+            yaml_char_t *kval = key_scalar->data.scalar.value;
+            size_t klen = key_scalar->data.scalar.length;
+            yaml_char_t *arena_kval = yaml_arena_alloc(document, klen + 1);
+            if (!arena_kval) return 0;
+            memcpy(arena_kval, kval, klen + 1);
+            yaml_free_internal(kval);
+
+            yaml_node_t *knode = document->nodes.top;
+            knode->type = YAML_SCALAR_NODE;
+            knode->tag = (yaml_char_t *)yaml_interned_str_tag;
+            knode->data.scalar.value = arena_kval;
+            knode->data.scalar.length = klen;
+            knode->data.scalar.style = YAML_PLAIN_SCALAR_STYLE;
+            knode->start_mark = key_scalar->start_mark;
+            knode->end_mark = key_scalar->end_mark;
+            STACK_PUSH_COMMIT(document->nodes);
+        }
+
+        int key_index = document->nodes.top - document->nodes.start;
+
+        if (!STACK_PUSH_RESERVE(parser, document->nodes)) return 0;
+
+        /* Create value node. */
+        {
+            yaml_char_t *vval = value_scalar->data.scalar.value;
+            size_t vlen = value_scalar->data.scalar.length;
+            yaml_char_t *arena_vval = yaml_arena_alloc(document, vlen + 1);
+            if (!arena_vval) return 0;
+            memcpy(arena_vval, vval, vlen + 1);
+            yaml_free_internal(vval);
+
+            yaml_node_t *vnode = document->nodes.top;
+            vnode->type = YAML_SCALAR_NODE;
+            vnode->tag = (yaml_char_t *)yaml_interned_str_tag;
+            vnode->data.scalar.value = arena_vval;
+            vnode->data.scalar.length = vlen;
+            vnode->data.scalar.style = YAML_PLAIN_SCALAR_STYLE;
+            vnode->start_mark = value_scalar->start_mark;
+            vnode->end_mark = value_scalar->end_mark;
+            STACK_PUSH_COMMIT(document->nodes);
+        }
+
+        int value_index = document->nodes.top - document->nodes.start;
+
+        /* Add key-value pair to the mapping node. */
+        {
+            yaml_node_t *mapping = &document->nodes.start[mapping_index - 1];
+            yaml_node_pair_t pair;
+            pair.key = key_index;
+            pair.value = value_index;
+            if (!STACK_LIMIT(parser, mapping->data.mapping.pairs, INT_MAX-1))
+                return 0;
+            if (!PUSH(parser, mapping->data.mapping.pairs, pair))
+                return 0;
+        }
+
+        /* Skip the value scalar token. */
+        LOADER_SKIP_TOKEN(parser);
+
+        /* Parser state stays at BLOCK_MAPPING_KEY_STATE for next iteration. */
+        continue;
+
+    batch_empty_value:
+        /* We consumed KEY + scalar_key + VALUE, and the next token
+         * indicates an empty value (KEY, VALUE, or BLOCK_END).
+         * Create key node + empty scalar value node. */
+        {
+            if (!STACK_LIMIT(parser, document->nodes, INT_MAX-2)) return 0;
+            if (!STACK_PUSH_RESERVE(parser, document->nodes)) return 0;
+
+            /* Create key node. */
+            yaml_char_t *kval = key_scalar->data.scalar.value;
+            size_t klen = key_scalar->data.scalar.length;
+            yaml_char_t *arena_kval = yaml_arena_alloc(document, klen + 1);
+            if (!arena_kval) return 0;
+            memcpy(arena_kval, kval, klen + 1);
+            yaml_free_internal(kval);
+
+            yaml_node_t *knode = document->nodes.top;
+            knode->type = YAML_SCALAR_NODE;
+            knode->tag = (yaml_char_t *)yaml_interned_str_tag;
+            knode->data.scalar.value = arena_kval;
+            knode->data.scalar.length = klen;
+            knode->data.scalar.style = YAML_PLAIN_SCALAR_STYLE;
+            knode->start_mark = key_scalar->start_mark;
+            knode->end_mark = key_scalar->end_mark;
+            STACK_PUSH_COMMIT(document->nodes);
+
+            int ki = document->nodes.top - document->nodes.start;
+
+            /* Create empty value node. */
+            if (!STACK_PUSH_RESERVE(parser, document->nodes)) return 0;
+
+            yaml_char_t *empty_val = yaml_arena_alloc(document, 1);
+            if (!empty_val) return 0;
+            empty_val[0] = '\0';
+
+            yaml_node_t *vnode = document->nodes.top;
+            vnode->type = YAML_SCALAR_NODE;
+            vnode->tag = (yaml_char_t *)yaml_interned_str_tag;
+            vnode->data.scalar.value = empty_val;
+            vnode->data.scalar.length = 0;
+            vnode->data.scalar.style = YAML_PLAIN_SCALAR_STYLE;
+            vnode->start_mark = value_scalar->start_mark;
+            vnode->end_mark = value_scalar->start_mark;
+            STACK_PUSH_COMMIT(document->nodes);
+
+            int vi = document->nodes.top - document->nodes.start;
+
+            /* Add complete pair to mapping. */
+            yaml_node_t *mapping_node = &document->nodes.start[mapping_index - 1];
+            yaml_node_pair_t pair;
+            pair.key = ki;
+            pair.value = vi;
+            if (!PUSH(parser, mapping_node->data.mapping.pairs, pair))
+                return 0;
+        }
+        /* Continue scanning for more pairs. */
+        continue;
+
+    fallback_key:
+        /* We consumed the KEY token but the next token isn't a plain scalar.
+         * Set parser state so normal event loop processes the key node. */
+        parser->state = YAML_PARSE_BLOCK_NODE_OR_INDENTLESS_SEQUENCE_STATE;
+        if (!PUSH(parser, parser->states,
+                    YAML_PARSE_BLOCK_MAPPING_VALUE_STATE))
+            return 0;
+        return 1;
+
+    fallback_value_after_key:
+        /* We consumed KEY + scalar key, but no VALUE token follows.
+         * The key scalar is already consumed. Create the key node,
+         * and set parser state to expect the value. */
+        {
+            if (!STACK_LIMIT(parser, document->nodes, INT_MAX-1)) return 0;
+            if (!STACK_PUSH_RESERVE(parser, document->nodes)) return 0;
+
+            yaml_char_t *kval = key_scalar->data.scalar.value;
+            size_t klen = key_scalar->data.scalar.length;
+            yaml_char_t *arena_kval = yaml_arena_alloc(document, klen + 1);
+            if (!arena_kval) return 0;
+            memcpy(arena_kval, kval, klen + 1);
+            yaml_free_internal(kval);
+
+            yaml_node_t *knode = document->nodes.top;
+            knode->type = YAML_SCALAR_NODE;
+            knode->tag = (yaml_char_t *)yaml_interned_str_tag;
+            knode->data.scalar.value = arena_kval;
+            knode->data.scalar.length = klen;
+            knode->data.scalar.style = YAML_PLAIN_SCALAR_STYLE;
+            knode->start_mark = key_scalar->start_mark;
+            knode->end_mark = key_scalar->end_mark;
+            STACK_PUSH_COMMIT(document->nodes);
+
+            int ki = document->nodes.top - document->nodes.start;
+
+            /* Add partial pair (key only) to mapping. */
+            yaml_node_t *mapping = &document->nodes.start[mapping_index - 1];
+            yaml_node_pair_t pair;
+            pair.key = ki;
+            pair.value = 0;
+            if (!PUSH(parser, mapping->data.mapping.pairs, pair))
+                return 0;
+        }
+        parser->state = YAML_PARSE_BLOCK_MAPPING_VALUE_STATE;
+        return 1;
+
+    fallback_value:
+        /* We consumed KEY + scalar_key + VALUE, but value isn't a plain scalar.
+         * Create the key node and set state for value node processing. */
+        {
+            if (!STACK_LIMIT(parser, document->nodes, INT_MAX-1)) return 0;
+            if (!STACK_PUSH_RESERVE(parser, document->nodes)) return 0;
+
+            yaml_char_t *kval = key_scalar->data.scalar.value;
+            size_t klen = key_scalar->data.scalar.length;
+            yaml_char_t *arena_kval = yaml_arena_alloc(document, klen + 1);
+            if (!arena_kval) return 0;
+            memcpy(arena_kval, kval, klen + 1);
+            yaml_free_internal(kval);
+
+            yaml_node_t *knode = document->nodes.top;
+            knode->type = YAML_SCALAR_NODE;
+            knode->tag = (yaml_char_t *)yaml_interned_str_tag;
+            knode->data.scalar.value = arena_kval;
+            knode->data.scalar.length = klen;
+            knode->data.scalar.style = YAML_PLAIN_SCALAR_STYLE;
+            knode->start_mark = key_scalar->start_mark;
+            knode->end_mark = key_scalar->end_mark;
+            STACK_PUSH_COMMIT(document->nodes);
+
+            int ki = document->nodes.top - document->nodes.start;
+
+            /* Add partial pair (key only) to mapping. */
+            yaml_node_t *mapping = &document->nodes.start[mapping_index - 1];
+            yaml_node_pair_t pair;
+            pair.key = ki;
+            pair.value = 0;
+            if (!PUSH(parser, mapping->data.mapping.pairs, pair))
+                return 0;
+        }
+        /* The value token is consumed. Parser should expect a value node. */
+        if (!PUSH(parser, parser->states,
+                    YAML_PARSE_BLOCK_MAPPING_KEY_STATE))
+            return 0;
+        parser->state = YAML_PARSE_BLOCK_NODE_OR_INDENTLESS_SEQUENCE_STATE;
+        return 1;
+    }
+
+    /* If we get here, the token is BLOCK_END (or something else).
+     * Set parser state for the normal event loop to handle MAPPING_END. */
+    parser->state = YAML_PARSE_BLOCK_MAPPING_KEY_STATE;
+    return 1;
 }
 
 static int
