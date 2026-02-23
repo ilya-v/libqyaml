@@ -688,7 +688,13 @@ yaml_parser_load_mapping_pairs_batch(yaml_parser_t *parser,
     }
 
     for (;;) {
-        yaml_token_t *key_scalar, *value_scalar;
+        yaml_token_t *value_scalar;
+        /* Key scalar data is copied into locals before skipping, because
+         * subsequent LOADER_PEEK_TOKEN calls may reallocate the token
+         * queue and invalidate any pointer into it. */
+        yaml_char_t *key_value;
+        size_t key_length;
+        yaml_mark_t key_start_mark, key_end_mark;
 
         /* Peek at the current token -- must be a KEY. */
         token = LOADER_PEEK_TOKEN(parser);
@@ -699,17 +705,25 @@ yaml_parser_load_mapping_pairs_batch(yaml_parser_t *parser,
 
         /* Skip KEY token, peek next. */
         LOADER_SKIP_TOKEN(parser);
-        key_scalar = LOADER_PEEK_TOKEN(parser);
-        if (!key_scalar) return 0;
+        token = LOADER_PEEK_TOKEN(parser);
+        if (!token) return 0;
 
         /* Must be a plain scalar with no anchor -- otherwise fall back. */
-        if (key_scalar->type != YAML_SCALAR_TOKEN ||
-                key_scalar->data.scalar.style != YAML_PLAIN_SCALAR_STYLE)
+        if (token->type != YAML_SCALAR_TOKEN ||
+                token->data.scalar.style != YAML_PLAIN_SCALAR_STYLE)
             goto fallback_key;
 
+        /* Copy key scalar fields into locals before skipping. After the
+         * skip, the token queue may be reallocated by the next PEEK,
+         * invalidating the token pointer. */
+        key_value = token->data.scalar.value;
+        key_length = token->data.scalar.length;
+        key_start_mark = token->start_mark;
+        key_end_mark = token->end_mark;
+
         /* Skip scalar, peek for VALUE token.
-         * After this skip, key_scalar's string is orphaned from the token
-         * queue -- we MUST free it on any error path before returning. */
+         * After this skip, key_value is orphaned from the token queue --
+         * we MUST free it on any error path before returning. */
         LOADER_SKIP_TOKEN(parser);
         token = LOADER_PEEK_TOKEN(parser);
         if (!token) goto error_free_key;
@@ -744,22 +758,20 @@ yaml_parser_load_mapping_pairs_batch(yaml_parser_t *parser,
 
         /* Create key node. */
         {
-            yaml_char_t *kval = key_scalar->data.scalar.value;
-            size_t klen = key_scalar->data.scalar.length;
-            yaml_char_t *arena_kval = yaml_arena_alloc(document, klen + 1);
+            yaml_char_t *arena_kval = yaml_arena_alloc(document, key_length + 1);
             if (!arena_kval) goto error_free_key;
-            memcpy(arena_kval, kval, klen + 1);
-            yaml_free_internal(kval);
-            key_scalar->data.scalar.value = NULL;
+            memcpy(arena_kval, key_value, key_length + 1);
+            yaml_free_internal(key_value);
+            key_value = NULL;
 
             yaml_node_t *knode = document->nodes.top;
             knode->type = YAML_SCALAR_NODE;
             knode->tag = (yaml_char_t *)yaml_interned_str_tag;
             knode->data.scalar.value = arena_kval;
-            knode->data.scalar.length = klen;
+            knode->data.scalar.length = key_length;
             knode->data.scalar.style = YAML_PLAIN_SCALAR_STYLE;
-            knode->start_mark = key_scalar->start_mark;
-            knode->end_mark = key_scalar->end_mark;
+            knode->start_mark = key_start_mark;
+            knode->end_mark = key_end_mark;
             STACK_PUSH_COMMIT(document->nodes);
         }
 
@@ -826,22 +838,20 @@ yaml_parser_load_mapping_pairs_batch(yaml_parser_t *parser,
                 goto error_free_key;
 
             /* Create key node. */
-            yaml_char_t *kval = key_scalar->data.scalar.value;
-            size_t klen = key_scalar->data.scalar.length;
-            yaml_char_t *arena_kval = yaml_arena_alloc(document, klen + 1);
+            yaml_char_t *arena_kval = yaml_arena_alloc(document, key_length + 1);
             if (!arena_kval) goto error_free_key;
-            memcpy(arena_kval, kval, klen + 1);
-            yaml_free_internal(kval);
-            key_scalar->data.scalar.value = NULL;
+            memcpy(arena_kval, key_value, key_length + 1);
+            yaml_free_internal(key_value);
+            key_value = NULL;
 
             yaml_node_t *knode = document->nodes.top;
             knode->type = YAML_SCALAR_NODE;
             knode->tag = (yaml_char_t *)yaml_interned_str_tag;
             knode->data.scalar.value = arena_kval;
-            knode->data.scalar.length = klen;
+            knode->data.scalar.length = key_length;
             knode->data.scalar.style = YAML_PLAIN_SCALAR_STYLE;
-            knode->start_mark = key_scalar->start_mark;
-            knode->end_mark = key_scalar->end_mark;
+            knode->start_mark = key_start_mark;
+            knode->end_mark = key_end_mark;
             STACK_PUSH_COMMIT(document->nodes);
 
             int ki = document->nodes.top - document->nodes.start;
@@ -895,22 +905,20 @@ yaml_parser_load_mapping_pairs_batch(yaml_parser_t *parser,
             if (!STACK_PUSH_RESERVE(parser, document->nodes))
                 goto error_free_key;
 
-            yaml_char_t *kval = key_scalar->data.scalar.value;
-            size_t klen = key_scalar->data.scalar.length;
-            yaml_char_t *arena_kval = yaml_arena_alloc(document, klen + 1);
+            yaml_char_t *arena_kval = yaml_arena_alloc(document, key_length + 1);
             if (!arena_kval) goto error_free_key;
-            memcpy(arena_kval, kval, klen + 1);
-            yaml_free_internal(kval);
-            key_scalar->data.scalar.value = NULL;
+            memcpy(arena_kval, key_value, key_length + 1);
+            yaml_free_internal(key_value);
+            key_value = NULL;
 
             yaml_node_t *knode = document->nodes.top;
             knode->type = YAML_SCALAR_NODE;
             knode->tag = (yaml_char_t *)yaml_interned_str_tag;
             knode->data.scalar.value = arena_kval;
-            knode->data.scalar.length = klen;
+            knode->data.scalar.length = key_length;
             knode->data.scalar.style = YAML_PLAIN_SCALAR_STYLE;
-            knode->start_mark = key_scalar->start_mark;
-            knode->end_mark = key_scalar->end_mark;
+            knode->start_mark = key_start_mark;
+            knode->end_mark = key_end_mark;
             STACK_PUSH_COMMIT(document->nodes);
 
             int ki = document->nodes.top - document->nodes.start;
@@ -935,22 +943,20 @@ yaml_parser_load_mapping_pairs_batch(yaml_parser_t *parser,
             if (!STACK_PUSH_RESERVE(parser, document->nodes))
                 goto error_free_key;
 
-            yaml_char_t *kval = key_scalar->data.scalar.value;
-            size_t klen = key_scalar->data.scalar.length;
-            yaml_char_t *arena_kval = yaml_arena_alloc(document, klen + 1);
+            yaml_char_t *arena_kval = yaml_arena_alloc(document, key_length + 1);
             if (!arena_kval) goto error_free_key;
-            memcpy(arena_kval, kval, klen + 1);
-            yaml_free_internal(kval);
-            key_scalar->data.scalar.value = NULL;
+            memcpy(arena_kval, key_value, key_length + 1);
+            yaml_free_internal(key_value);
+            key_value = NULL;
 
             yaml_node_t *knode = document->nodes.top;
             knode->type = YAML_SCALAR_NODE;
             knode->tag = (yaml_char_t *)yaml_interned_str_tag;
             knode->data.scalar.value = arena_kval;
-            knode->data.scalar.length = klen;
+            knode->data.scalar.length = key_length;
             knode->data.scalar.style = YAML_PLAIN_SCALAR_STYLE;
-            knode->start_mark = key_scalar->start_mark;
-            knode->end_mark = key_scalar->end_mark;
+            knode->start_mark = key_start_mark;
+            knode->end_mark = key_end_mark;
             STACK_PUSH_COMMIT(document->nodes);
 
             int ki = document->nodes.top - document->nodes.start;
@@ -971,11 +977,9 @@ yaml_parser_load_mapping_pairs_batch(yaml_parser_t *parser,
         return 1;
 
     error_free_key:
-        /* The key scalar token was skipped (removed from queue) but its
-         * string was not yet transferred to the arena. Free it to prevent
-         * a memory leak. */
-        yaml_free_internal(key_scalar->data.scalar.value);
-        key_scalar->data.scalar.value = NULL;
+        /* The key scalar was skipped (removed from queue) but its string
+         * was not yet transferred to the arena. Free it to prevent leak. */
+        yaml_free_internal(key_value);
         return 0;
     }
 
