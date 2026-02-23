@@ -394,7 +394,9 @@ yaml_parser_load_scalar(yaml_parser_t *parser, yaml_event_t *event,
 
     if (!STACK_LIMIT(parser, parser->document->nodes, INT_MAX-1)) goto error;
 
-    if (!tag || strcmp((char *)tag, "!") == 0) {
+    if (!tag) {
+        tag = (yaml_char_t *)yaml_interned_str_tag;
+    } else if (strcmp((char *)tag, "!") == 0) {
         yaml_free(tag);
         tag = (yaml_char_t *)yaml_interned_str_tag;
     }
@@ -441,7 +443,9 @@ yaml_parser_load_sequence(yaml_parser_t *parser, yaml_event_t *event,
 
     if (!STACK_LIMIT(parser, parser->document->nodes, INT_MAX-1)) goto error;
 
-    if (!tag || strcmp((char *)tag, "!") == 0) {
+    if (!tag) {
+        tag = (yaml_char_t *)yaml_interned_seq_tag;
+    } else if (strcmp((char *)tag, "!") == 0) {
         yaml_free(tag);
         tag = (yaml_char_t *)yaml_interned_seq_tag;
     }
@@ -514,7 +518,9 @@ yaml_parser_load_mapping(yaml_parser_t *parser, yaml_event_t *event,
 
     if (!STACK_LIMIT(parser, parser->document->nodes, INT_MAX-1)) goto error;
 
-    if (!tag || strcmp((char *)tag, "!") == 0) {
+    if (!tag) {
+        tag = (yaml_char_t *)yaml_interned_map_tag;
+    } else if (strcmp((char *)tag, "!") == 0) {
         yaml_free(tag);
         tag = (yaml_char_t *)yaml_interned_map_tag;
     }
