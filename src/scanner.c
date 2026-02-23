@@ -1148,7 +1148,7 @@ yaml_parser_fetch_kv_pair_batch(yaml_parser_t *parser)
             next_col++;
         if (next_col < remaining
                 && val_src[val_len + skip + next_col] != ' '
-                && (int)next_col < parser->indent + 1) {
+                && (int)next_col <= (int)parser->mark.column) {
             is_end = 1;
         }
     } else if (term == ':' && key_len + 2 + val_len + 1 < parser->unread
