@@ -883,7 +883,45 @@ yaml_parser_load_mapping_pairs_batch(yaml_parser_t *parser,
 
     fallback_key:
         /* We consumed the KEY token but the next token isn't a plain scalar.
-         * Set parser state so normal event loop processes the key node. */
+         * If the next token is KEY, VALUE, or BLOCK_END, the key is empty
+         * (e.g. "?" with no key content). Create an empty scalar key node
+         * inline -- parse_node cannot handle these tokens as node content.
+         * For anything else, delegate to parse_node via the normal path. */
+        if (token->type == YAML_KEY_TOKEN ||
+                token->type == YAML_VALUE_TOKEN ||
+                token->type == YAML_BLOCK_END_TOKEN) {
+            if (!STACK_LIMIT(parser, document->nodes, INT_MAX-1))
+                return 0;
+            if (!STACK_PUSH_RESERVE(parser, document->nodes))
+                return 0;
+
+            yaml_char_t *empty_val = yaml_arena_alloc(document, 1);
+            if (!empty_val) return 0;
+            empty_val[0] = '\0';
+
+            yaml_node_t *node = document->nodes.top;
+            node->type = YAML_SCALAR_NODE;
+            node->tag = (yaml_char_t *)yaml_interned_str_tag;
+            node->data.scalar.value = empty_val;
+            node->data.scalar.length = 0;
+            node->data.scalar.style = YAML_PLAIN_SCALAR_STYLE;
+            node->start_mark = token->start_mark;
+            node->end_mark = token->start_mark;
+            STACK_PUSH_COMMIT(document->nodes);
+
+            int ki = document->nodes.top - document->nodes.start;
+
+            /* Add partial pair (empty key, value pending). */
+            yaml_node_t *mapping = &document->nodes.start[mapping_index - 1];
+            yaml_node_pair_t pair;
+            pair.key = ki;
+            pair.value = 0;
+            if (!PUSH(parser, mapping->data.mapping.pairs, pair))
+                return 0;
+
+            parser->state = YAML_PARSE_BLOCK_MAPPING_VALUE_STATE;
+            return 1;
+        }
         parser->state = YAML_PARSE_BLOCK_NODE_OR_INDENTLESS_SEQUENCE_STATE;
         if (!PUSH(parser, parser->states,
                     YAML_PARSE_BLOCK_MAPPING_VALUE_STATE))
