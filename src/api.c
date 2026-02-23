@@ -75,7 +75,7 @@ yaml_string_extend(yaml_char_t **start,
         yaml_char_t **pointer, yaml_char_t **end)
 {
     size_t old_size = *end - *start;
-    yaml_char_t *new_start = (yaml_char_t *)yaml_realloc((void*)*start, old_size*2);
+    yaml_char_t *new_start = (yaml_char_t *)realloc((void*)*start, old_size*2);
 
     if (!new_start) return 0;
 
@@ -122,7 +122,7 @@ yaml_stack_extend(void **start, void **top, void **end)
     if ((char *)*end - (char *)*start >= INT_MAX / 2)
 	return 0;
 
-    new_start = yaml_realloc(*start, ((char *)*end - (char *)*start)*2);
+    new_start = realloc(*start, ((char *)*end - (char *)*start)*2);
 
     if (!new_start) return 0;
 
@@ -143,7 +143,7 @@ yaml_queue_extend(void **start, void **head, void **tail, void **end)
     /* Check if we need to resize the queue. */
 
     if (*start == *head && *tail == *end) {
-        void *new_start = yaml_realloc(*start,
+        void *new_start = realloc(*start,
                 ((char *)*end - (char *)*start)*2);
 
         if (!new_start) return 0;
