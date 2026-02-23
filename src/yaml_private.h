@@ -52,6 +52,23 @@ extern const yaml_char_t yaml_interned_map_tag[];
      (const yaml_char_t *)(tag) == yaml_interned_map_tag)
 
 /*
+ * Interned default tag directive strings (defined in parser.c).
+ * The two default tag directives ("!" -> "!" and "!!" -> "tag:yaml.org,2002:")
+ * use these instead of strdup'd copies to avoid malloc/free per document.
+ */
+
+extern const yaml_char_t yaml_interned_tag_handle_primary[];
+extern const yaml_char_t yaml_interned_tag_prefix_primary[];
+extern const yaml_char_t yaml_interned_tag_handle_secondary[];
+extern const yaml_char_t yaml_interned_tag_prefix_secondary[];
+
+#define YAML_TAG_DIRECTIVE_IS_INTERNED(ptr) \
+    ((const yaml_char_t *)(ptr) == yaml_interned_tag_handle_primary || \
+     (const yaml_char_t *)(ptr) == yaml_interned_tag_prefix_primary || \
+     (const yaml_char_t *)(ptr) == yaml_interned_tag_handle_secondary || \
+     (const yaml_char_t *)(ptr) == yaml_interned_tag_prefix_secondary)
+
+/*
  * String arena for bulk allocation of scalar values during document loading.
  * Eliminates thousands of individual malloc/free calls per document.
  */

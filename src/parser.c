@@ -42,6 +42,15 @@
 #include "yaml_private.h"
 
 /*
+ * Interned default tag directive strings. These avoid strdup/free overhead
+ * for the two tag directives that every YAML document requires.
+ */
+const yaml_char_t yaml_interned_tag_handle_primary[] = "!";
+const yaml_char_t yaml_interned_tag_prefix_primary[] = "!";
+const yaml_char_t yaml_interned_tag_handle_secondary[] = "!!";
+const yaml_char_t yaml_interned_tag_prefix_secondary[] = "tag:yaml.org,2002:";
+
+/*
  * Peek the next token in the token queue.
  */
 
@@ -523,8 +532,10 @@ yaml_parser_parse_document_end(yaml_parser_t *parser, yaml_event_t *event)
 
     while (!STACK_EMPTY(parser, parser->tag_directives)) {
         yaml_tag_directive_t tag_directive = POP(parser, parser->tag_directives);
-        yaml_free(tag_directive.handle);
-        yaml_free(tag_directive.prefix);
+        if (!YAML_TAG_DIRECTIVE_IS_INTERNED(tag_directive.handle))
+            yaml_free(tag_directive.handle);
+        if (!YAML_TAG_DIRECTIVE_IS_INTERNED(tag_directive.prefix))
+            yaml_free(tag_directive.prefix);
     }
 
     parser->state = YAML_PARSE_DOCUMENT_START_STATE;
@@ -1324,8 +1335,9 @@ yaml_parser_process_directives(yaml_parser_t *parser,
     } tag_directives = { NULL, NULL, NULL };
     yaml_token_t *token;
 
-    if (!STACK_INIT(parser, tag_directives, yaml_tag_directive_t*))
-        goto error;
+    /* Defer tag_directives stack allocation until a TAG_DIRECTIVE_TOKEN
+     * is actually encountered. For implicit documents (the common case),
+     * no directives are present and this saves a malloc+free. */
 
     token = PEEK_TOKEN(parser);
     if (!token) goto error;
@@ -1365,6 +1377,10 @@ yaml_parser_process_directives(yaml_parser_t *parser,
             if (!yaml_parser_append_tag_directive(parser, value, 0,
                         token->start_mark))
                 goto error;
+            if (!tag_directives.start) {
+                if (!STACK_INIT(parser, tag_directives, yaml_tag_directive_t*))
+                    goto error;
+            }
             if (!PUSH(parser, tag_directives, value))
                 goto error;
         }
@@ -1405,8 +1421,10 @@ error:
     yaml_free(version_directive);
     while (!STACK_EMPTY(parser, tag_directives)) {
         yaml_tag_directive_t tag_directive = POP(parser, tag_directives);
-        yaml_free(tag_directive.handle);
-        yaml_free(tag_directive.prefix);
+        if (!YAML_TAG_DIRECTIVE_IS_INTERNED(tag_directive.handle))
+            yaml_free(tag_directive.handle);
+        if (!YAML_TAG_DIRECTIVE_IS_INTERNED(tag_directive.prefix))
+            yaml_free(tag_directive.prefix);
     }
     STACK_DEL(parser, tag_directives);
     return 0;
@@ -1433,11 +1451,23 @@ yaml_parser_append_tag_directive(yaml_parser_t *parser,
         }
     }
 
-    copy.handle = yaml_strdup(value.handle);
-    copy.prefix = yaml_strdup(value.prefix);
-    if (!copy.handle || !copy.prefix) {
-        parser->error = YAML_MEMORY_ERROR;
-        goto error;
+    /* Use interned strings for default tag directives to avoid
+     * strdup+free overhead per document. */
+    if (strcmp((char *)value.handle, "!") == 0 &&
+            strcmp((char *)value.prefix, "!") == 0) {
+        copy.handle = (yaml_char_t *)yaml_interned_tag_handle_primary;
+        copy.prefix = (yaml_char_t *)yaml_interned_tag_prefix_primary;
+    } else if (strcmp((char *)value.handle, "!!") == 0 &&
+            strcmp((char *)value.prefix, "tag:yaml.org,2002:") == 0) {
+        copy.handle = (yaml_char_t *)yaml_interned_tag_handle_secondary;
+        copy.prefix = (yaml_char_t *)yaml_interned_tag_prefix_secondary;
+    } else {
+        copy.handle = yaml_strdup(value.handle);
+        copy.prefix = yaml_strdup(value.prefix);
+        if (!copy.handle || !copy.prefix) {
+            parser->error = YAML_MEMORY_ERROR;
+            goto error;
+        }
     }
 
     if (!PUSH(parser, parser->tag_directives, copy))
@@ -1446,8 +1476,10 @@ yaml_parser_append_tag_directive(yaml_parser_t *parser,
     return 1;
 
 error:
-    yaml_free(copy.handle);
-    yaml_free(copy.prefix);
+    if (!YAML_TAG_DIRECTIVE_IS_INTERNED(copy.handle))
+        yaml_free(copy.handle);
+    if (!YAML_TAG_DIRECTIVE_IS_INTERNED(copy.prefix))
+        yaml_free(copy.prefix);
     return 0;
 }
 

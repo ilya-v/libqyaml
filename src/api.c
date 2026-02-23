@@ -238,8 +238,10 @@ yaml_parser_delete(yaml_parser_t *parser)
     STACK_DEL(parser, parser->marks);
     while (!STACK_EMPTY(parser, parser->tag_directives)) {
         yaml_tag_directive_t tag_directive = POP(parser, parser->tag_directives);
-        yaml_free(tag_directive.handle);
-        yaml_free(tag_directive.prefix);
+        if (!YAML_TAG_DIRECTIVE_IS_INTERNED(tag_directive.handle))
+            yaml_free(tag_directive.handle);
+        if (!YAML_TAG_DIRECTIVE_IS_INTERNED(tag_directive.prefix))
+            yaml_free(tag_directive.prefix);
     }
     STACK_DEL(parser, parser->tag_directives);
 
@@ -414,8 +416,10 @@ yaml_emitter_delete(yaml_emitter_t *emitter)
     STACK_DEL(emitter, emitter->indents);
     while (!STACK_EMPTY(empty, emitter->tag_directives)) {
         yaml_tag_directive_t tag_directive = POP(emitter, emitter->tag_directives);
-        yaml_free(tag_directive.handle);
-        yaml_free(tag_directive.prefix);
+        if (!YAML_TAG_DIRECTIVE_IS_INTERNED(tag_directive.handle))
+            yaml_free(tag_directive.handle);
+        if (!YAML_TAG_DIRECTIVE_IS_INTERNED(tag_directive.prefix))
+            yaml_free(tag_directive.prefix);
     }
     STACK_DEL(emitter, emitter->tag_directives);
     yaml_free(emitter->anchors);

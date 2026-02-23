@@ -377,11 +377,23 @@ yaml_emitter_append_tag_directive(yaml_emitter_t *emitter,
         }
     }
 
-    copy.handle = yaml_strdup(value.handle);
-    copy.prefix = yaml_strdup(value.prefix);
-    if (!copy.handle || !copy.prefix) {
-        emitter->error = YAML_MEMORY_ERROR;
-        goto error;
+    /* Use interned strings for default tag directives to avoid
+     * strdup+free overhead per document. */
+    if (strcmp((char *)value.handle, "!") == 0 &&
+            strcmp((char *)value.prefix, "!") == 0) {
+        copy.handle = (yaml_char_t *)yaml_interned_tag_handle_primary;
+        copy.prefix = (yaml_char_t *)yaml_interned_tag_prefix_primary;
+    } else if (strcmp((char *)value.handle, "!!") == 0 &&
+            strcmp((char *)value.prefix, "tag:yaml.org,2002:") == 0) {
+        copy.handle = (yaml_char_t *)yaml_interned_tag_handle_secondary;
+        copy.prefix = (yaml_char_t *)yaml_interned_tag_prefix_secondary;
+    } else {
+        copy.handle = yaml_strdup(value.handle);
+        copy.prefix = yaml_strdup(value.prefix);
+        if (!copy.handle || !copy.prefix) {
+            emitter->error = YAML_MEMORY_ERROR;
+            goto error;
+        }
     }
 
     if (!PUSH(emitter, emitter->tag_directives, copy))
@@ -390,8 +402,10 @@ yaml_emitter_append_tag_directive(yaml_emitter_t *emitter,
     return 1;
 
 error:
-    yaml_free(copy.handle);
-    yaml_free(copy.prefix);
+    if (!YAML_TAG_DIRECTIVE_IS_INTERNED(copy.handle))
+        yaml_free(copy.handle);
+    if (!YAML_TAG_DIRECTIVE_IS_INTERNED(copy.prefix))
+        yaml_free(copy.prefix);
     return 0;
 }
 
@@ -726,8 +740,10 @@ yaml_emitter_emit_document_end(yaml_emitter_t *emitter,
         while (!STACK_EMPTY(emitter, emitter->tag_directives)) {
             yaml_tag_directive_t tag_directive = POP(emitter,
                     emitter->tag_directives);
-            yaml_free(tag_directive.handle);
-            yaml_free(tag_directive.prefix);
+            if (!YAML_TAG_DIRECTIVE_IS_INTERNED(tag_directive.handle))
+                yaml_free(tag_directive.handle);
+            if (!YAML_TAG_DIRECTIVE_IS_INTERNED(tag_directive.prefix))
+                yaml_free(tag_directive.prefix);
         }
 
         return 1;
