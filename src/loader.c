@@ -110,6 +110,10 @@ static int
 yaml_parser_load_mapping_pairs_batch(yaml_parser_t *parser,
         struct loader_ctx *ctx);
 
+static int
+yaml_parser_load_sequence_items_batch(yaml_parser_t *parser,
+        struct loader_ctx *ctx);
+
 /*
  * Load the next document of the stream.
  */
@@ -296,6 +300,10 @@ yaml_parser_load_nodes(yaml_parser_t *parser, struct loader_ctx *ctx)
                 break;
             case YAML_SEQUENCE_START_EVENT:
                 if (!yaml_parser_load_sequence(parser, &event, ctx)) return 0;
+                if ((parser->state == YAML_PARSE_BLOCK_SEQUENCE_FIRST_ENTRY_STATE ||
+                        parser->state == YAML_PARSE_BLOCK_SEQUENCE_ENTRY_STATE) &&
+                        !yaml_parser_load_sequence_items_batch(parser, ctx))
+                    return 0;
                 break;
             case YAML_SEQUENCE_END_EVENT:
                 if (!yaml_parser_load_sequence_end(parser, &event, ctx))
@@ -679,7 +687,6 @@ yaml_parser_load_mapping_pairs_batch(yaml_parser_t *parser,
     }
 
     for (;;) {
-        yaml_token_t *key_token, *value_token;
         yaml_token_t *key_scalar, *value_scalar;
 
         /* Peek at the current token -- must be a KEY. */
@@ -944,6 +951,138 @@ yaml_parser_load_mapping_pairs_batch(yaml_parser_t *parser,
     /* If we get here, the token is BLOCK_END (or something else).
      * Set parser state for the normal event loop to handle MAPPING_END. */
     parser->state = YAML_PARSE_BLOCK_MAPPING_KEY_STATE;
+    return 1;
+}
+
+/*
+ * Batch-load plain scalar items directly from the token queue for block
+ * sequences. Bypasses the parser state machine for the common case of
+ * block sequences containing only plain scalar items without anchors or tags.
+ * Falls back to the normal event loop for anything else.
+ *
+ * The parser must be in BLOCK_SEQUENCE_FIRST_ENTRY_STATE or
+ * BLOCK_SEQUENCE_ENTRY_STATE when this is called.
+ */
+
+static int
+yaml_parser_load_sequence_items_batch(yaml_parser_t *parser,
+        struct loader_ctx *ctx)
+{
+    yaml_token_t *token;
+    yaml_document_t *document = parser->document;
+    int sequence_index;
+
+    sequence_index = *((*ctx).top - 1);
+
+    /* On first entry, consume the BLOCK-SEQUENCE-START token. */
+    if (parser->state == YAML_PARSE_BLOCK_SEQUENCE_FIRST_ENTRY_STATE) {
+        token = LOADER_PEEK_TOKEN(parser);
+        if (!token) return 0;
+        if (!PUSH(parser, parser->marks, token->start_mark))
+            return 0;
+        LOADER_SKIP_TOKEN(parser);
+    }
+
+    for (;;) {
+        token = LOADER_PEEK_TOKEN(parser);
+        if (!token) return 0;
+
+        if (token->type != YAML_BLOCK_ENTRY_TOKEN)
+            break;
+
+        /* Skip BLOCK_ENTRY, peek at the item. */
+        LOADER_SKIP_TOKEN(parser);
+        token = LOADER_PEEK_TOKEN(parser);
+        if (!token) return 0;
+
+        /* Must be a plain scalar -- otherwise fall back. */
+        if (token->type != YAML_SCALAR_TOKEN ||
+                token->data.scalar.style != YAML_PLAIN_SCALAR_STYLE)
+            goto fallback;
+
+        /* Create scalar node directly. */
+        if (!STACK_LIMIT(parser, document->nodes, INT_MAX-1)) return 0;
+        if (!STACK_PUSH_RESERVE(parser, document->nodes)) return 0;
+
+        {
+            yaml_char_t *val = token->data.scalar.value;
+            size_t len = token->data.scalar.length;
+            yaml_char_t *arena_val = yaml_arena_alloc(document, len + 1);
+            if (!arena_val) return 0;
+            memcpy(arena_val, val, len + 1);
+            yaml_free_internal(val);
+
+            yaml_node_t *node = document->nodes.top;
+            node->type = YAML_SCALAR_NODE;
+            node->tag = (yaml_char_t *)yaml_interned_str_tag;
+            node->data.scalar.value = arena_val;
+            node->data.scalar.length = len;
+            node->data.scalar.style = YAML_PLAIN_SCALAR_STYLE;
+            node->start_mark = token->start_mark;
+            node->end_mark = token->end_mark;
+            STACK_PUSH_COMMIT(document->nodes);
+        }
+
+        int item_index = document->nodes.top - document->nodes.start;
+
+        /* Add item to the sequence node. */
+        {
+            yaml_node_t *seq = &document->nodes.start[sequence_index - 1];
+            if (!STACK_LIMIT(parser, seq->data.sequence.items, INT_MAX-1))
+                return 0;
+            if (!PUSH(parser, seq->data.sequence.items, item_index))
+                return 0;
+        }
+
+        LOADER_SKIP_TOKEN(parser);
+        continue;
+
+    fallback:
+        /* We consumed BLOCK_ENTRY but the item isn't a plain scalar.
+         * Set parser state so normal event loop processes the item. */
+        if (token->type != YAML_BLOCK_ENTRY_TOKEN &&
+                token->type != YAML_BLOCK_END_TOKEN) {
+            if (!PUSH(parser, parser->states,
+                        YAML_PARSE_BLOCK_SEQUENCE_ENTRY_STATE))
+                return 0;
+            parser->state = YAML_PARSE_BLOCK_NODE_OR_INDENTLESS_SEQUENCE_STATE;
+            return 1;
+        }
+
+        /* Empty item (next BLOCK_ENTRY or BLOCK_END follows immediately).
+         * Create an empty scalar node for the item. */
+        if (!STACK_LIMIT(parser, document->nodes, INT_MAX-1)) return 0;
+        if (!STACK_PUSH_RESERVE(parser, document->nodes)) return 0;
+
+        {
+            yaml_char_t *empty_val = yaml_arena_alloc(document, 1);
+            if (!empty_val) return 0;
+            empty_val[0] = '\0';
+
+            yaml_node_t *node = document->nodes.top;
+            node->type = YAML_SCALAR_NODE;
+            node->tag = (yaml_char_t *)yaml_interned_str_tag;
+            node->data.scalar.value = empty_val;
+            node->data.scalar.length = 0;
+            node->data.scalar.style = YAML_PLAIN_SCALAR_STYLE;
+            node->start_mark = token->start_mark;
+            node->end_mark = token->start_mark;
+            STACK_PUSH_COMMIT(document->nodes);
+        }
+
+        {
+            int item_index = document->nodes.top - document->nodes.start;
+            yaml_node_t *seq = &document->nodes.start[sequence_index - 1];
+            if (!STACK_LIMIT(parser, seq->data.sequence.items, INT_MAX-1))
+                return 0;
+            if (!PUSH(parser, seq->data.sequence.items, item_index))
+                return 0;
+        }
+        continue;
+    }
+
+    /* BLOCK_END (or unexpected token) -- let normal event loop handle it. */
+    parser->state = YAML_PARSE_BLOCK_SEQUENCE_ENTRY_STATE;
     return 1;
 }
 
