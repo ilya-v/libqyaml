@@ -617,6 +617,8 @@ yaml_token_delete(yaml_token_t *token)
         default:
             break;
     }
+
+    memset(token, 0, sizeof(yaml_token_t));
 }
 
 /*
@@ -1033,6 +1035,8 @@ yaml_event_delete(yaml_event_t *event)
         default:
             break;
     }
+
+    memset(event, 0, sizeof(yaml_event_t));
 }
 
 /*
@@ -1161,6 +1165,8 @@ yaml_document_delete(yaml_document_t *document)
         yaml_free_internal(tag_directive->prefix);
     }
     yaml_free_internal(document->tag_directives.start);
+
+    memset(document, 0, sizeof(yaml_document_t));
 }
 
 /**
