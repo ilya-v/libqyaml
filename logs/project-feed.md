@@ -6,6 +6,8 @@
 
 **Coverage window:** Project inception through current state (first feed entry — full state snapshot)
 
+> **Correction note (post-publish, from team-lead):** Performance range is **1.5x–7.1x** (not 1.44–5.97x from the contention-affected benchmark run). Divergence count corrected: the 776 figure from `diff-fuzz-campaign-e3cc40.md` was a classifier bug — 745/776 cases were inputs where *both* libraries fail (just at different token counts), making them not true divergences. Real remaining divergences: **21** (BOM handling). Session started ~03:00 UTC (12-hour session by entry time). Agents today: coordinator, worker-2, tester-2, strategic-tester (no separate "tester" currently active).
+
 ---
 
 ### Commits (recent 20, all 2026-02-23)
@@ -134,7 +136,7 @@
 
 - **BOM handling divergence (open bug):** Differential fuzzing identified that libqyaml incorrectly handles UTF-8 BOM (`\xef\xbb\xbf`) in mid-stream and between documents. libqyaml rejects inputs libyaml accepts (21 RESTRICTIVE cases) and produces wrong token ordering (14 TOKEN_TYPE cases). Root cause: scanner not correctly advancing past BOM in non-initial positions. No fix assigned yet.
 
-- **Remaining 48 differential divergences (from 30-min campaign):** 12 PERMISSIVE (libqyaml too lenient), 23 RESTRICTIVE (libqyaml too strict), 6 TOKEN_TYPE, 7 SCALAR_VALUE. BOM handling is the dominant pattern in both RESTRICTIVE and TOKEN_TYPE categories.
+- **Remaining 21 real differential divergences:** All BOM mid-stream handling (scanner rejects inputs reference accepts, or produces wrong token ordering). The campaign reported 48 divergences but post-fix reclassification shows 745/776 pre-fix artifacts were cases where both libraries fail — not true divergences. **15 of the 21** are the `fetch_flow_entry_scalar` flow_level=0 bug (fix staged in src/scanner.c, uncommitted). **6 remain** (BOM handling patterns).
 
 - **3 correctness fixes landed today:**
   - `%` character acceptance in non-directive positions (8f2c42d8) — FIXED
