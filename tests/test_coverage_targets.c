@@ -638,6 +638,85 @@ static void test_emitter_utf16_surrogate_pairs(void) {
     yaml_emitter_delete(&emitter);
 }
 
+/* Test emitter with literal scalar containing line breaks (emitter.c lines 1959-1964) */
+static void test_emitter_literal_multiline(void) {
+    unsigned char output[4096];
+    size_t output_len = 0;
+    yaml_emitter_t emitter;
+    yaml_event_t event;
+
+    yaml_emitter_initialize(&emitter);
+    yaml_emitter_set_output_string(&emitter, output, sizeof(output), &output_len);
+    yaml_emitter_set_canonical(&emitter, 0);
+
+    yaml_stream_start_event_initialize(&event, YAML_UTF8_ENCODING);
+    yaml_emitter_emit(&emitter, &event);
+
+    yaml_document_start_event_initialize(&event, NULL, NULL, NULL, 1);
+    yaml_emitter_emit(&emitter, &event);
+
+    /* Emit a literal scalar with multiple lines */
+    const char *multiline = "line one\nline two\nline three\n";
+    yaml_scalar_event_initialize(&event, NULL,
+        (yaml_char_t *)"tag:yaml.org,2002:str",
+        (yaml_char_t *)multiline, strlen(multiline),
+        0, 0, YAML_LITERAL_SCALAR_STYLE);
+    yaml_emitter_emit(&emitter, &event);
+
+    yaml_document_end_event_initialize(&event, 1);
+    yaml_emitter_emit(&emitter, &event);
+
+    yaml_stream_end_event_initialize(&event);
+    int result = yaml_emitter_emit(&emitter, &event);
+    ASSERT(result, "Literal scalar with line breaks should emit successfully");
+
+    yaml_emitter_delete(&emitter);
+}
+
+/* Test emitter with empty literal/folded scalar (emitter.c line 2226: chomp_hint = "-") */
+static void test_emitter_empty_block_scalar(void) {
+    unsigned char output[4096];
+    size_t output_len = 0;
+    yaml_emitter_t emitter;
+    yaml_event_t event;
+
+    yaml_emitter_initialize(&emitter);
+    yaml_emitter_set_output_string(&emitter, output, sizeof(output), &output_len);
+
+    yaml_stream_start_event_initialize(&event, YAML_UTF8_ENCODING);
+    yaml_emitter_emit(&emitter, &event);
+
+    yaml_document_start_event_initialize(&event, NULL, NULL, NULL, 1);
+    yaml_emitter_emit(&emitter, &event);
+
+    yaml_mapping_start_event_initialize(&event, NULL, NULL, 1, YAML_BLOCK_MAPPING_STYLE);
+    yaml_emitter_emit(&emitter, &event);
+
+    yaml_scalar_event_initialize(&event, NULL, NULL,
+        (yaml_char_t *)"key", 3, 1, 1, YAML_PLAIN_SCALAR_STYLE);
+    yaml_emitter_emit(&emitter, &event);
+
+    /* Empty string with literal style -- should trigger chomp_hint = "-" */
+    yaml_scalar_event_initialize(&event, NULL,
+        (yaml_char_t *)"tag:yaml.org,2002:str",
+        (yaml_char_t *)"", 0,
+        0, 0, YAML_LITERAL_SCALAR_STYLE);
+    yaml_emitter_emit(&emitter, &event);
+
+    yaml_mapping_end_event_initialize(&event);
+    yaml_emitter_emit(&emitter, &event);
+
+    yaml_document_end_event_initialize(&event, 1);
+    yaml_emitter_emit(&emitter, &event);
+
+    yaml_stream_end_event_initialize(&event);
+    int result = yaml_emitter_emit(&emitter, &event);
+    /* The emitter may choose a different style for empty string, but should not crash */
+    ASSERT(result, "Empty block scalar should emit successfully");
+
+    yaml_emitter_delete(&emitter);
+}
+
 /* Test alias resolution in loader */
 static void test_loader_alias(void) {
     const char *input = "---\na: &anchor value\nb: *anchor\n";
@@ -897,6 +976,8 @@ int main(void) {
     test_emitter_unicode();
     test_emitter_explicit_tags();
     test_emitter_utf16_surrogate_pairs();
+    test_emitter_literal_multiline();
+    test_emitter_empty_block_scalar();
 
     printf("  Scanner edge cases:\n");
     test_tab_character_errors();
