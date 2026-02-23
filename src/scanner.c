@@ -2105,8 +2105,7 @@ yaml_parser_scan_to_next_token(yaml_parser_t *parser)
         if (parser->unread > 0) {
             yaml_char_t ch = *parser->buffer.pointer;
             if (ch != '#' && ch != '\n' && ch != '\r'
-                    && ch != '\0' && (ch & 0x80) == 0
-                    && ch != '\xC2') {
+                    && ch != '\0' && (ch & 0x80) == 0) {
                 /* No BOM, comment, line break, or non-ASCII ahead -- done */
                 return 1;
             }
