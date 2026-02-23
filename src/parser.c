@@ -45,6 +45,8 @@
  * Interned default tag directive strings. These avoid strdup/free overhead
  * for the two tag directives that every YAML document requires.
  */
+const yaml_char_t yaml_interned_empty_scalar[1] = {'\0'};
+
 const yaml_char_t yaml_interned_tag_handle_primary[] = "!";
 const yaml_char_t yaml_interned_tag_prefix_primary[] = "!";
 const yaml_char_t yaml_interned_tag_handle_secondary[] = "!!";
@@ -1296,16 +1298,10 @@ static int
 yaml_parser_process_empty_scalar(yaml_parser_t *parser, yaml_event_t *event,
         yaml_mark_t mark)
 {
-    yaml_char_t *value;
+    (void)parser;
 
-    value = YAML_MALLOC(1);
-    if (!value) {
-        parser->error = YAML_MEMORY_ERROR;
-        return 0;
-    }
-    value[0] = '\0';
-
-    SCALAR_EVENT_INIT(*event, NULL, NULL, value, 0,
+    SCALAR_EVENT_INIT(*event, NULL, NULL,
+            (yaml_char_t *)yaml_interned_empty_scalar, 0,
             1, 0, YAML_PLAIN_SCALAR_STYLE, mark, mark);
 
     return 1;

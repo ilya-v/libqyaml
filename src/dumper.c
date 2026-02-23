@@ -181,7 +181,8 @@ yaml_emitter_delete_document_and_anchors(yaml_emitter_t *emitter)
             if (!YAML_TAG_IS_INTERNED(node.tag))
                 yaml_free(node.tag);
             if (node.type == YAML_SCALAR_NODE
-                    && !emitter->document->string_arena) {
+                    && !emitter->document->string_arena
+                    && !YAML_VALUE_IS_INTERNED(node.data.scalar.value)) {
                 yaml_free(node.data.scalar.value);
             }
         }

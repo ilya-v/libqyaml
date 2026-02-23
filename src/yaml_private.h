@@ -52,6 +52,17 @@ extern const yaml_char_t yaml_interned_map_tag[];
      (const yaml_char_t *)(tag) == yaml_interned_map_tag)
 
 /*
+ * Interned empty scalar value (defined in parser.c).
+ * Used by yaml_parser_process_empty_scalar to avoid malloc(1) per empty scalar.
+ * Free functions must check before calling yaml_free on scalar values.
+ */
+
+extern const yaml_char_t yaml_interned_empty_scalar[];
+
+#define YAML_VALUE_IS_INTERNED(val) \
+    ((const yaml_char_t *)(val) == yaml_interned_empty_scalar)
+
+/*
  * Interned default tag directive strings (defined in parser.c).
  * The two default tag directives ("!" -> "!" and "!!" -> "tag:yaml.org,2002:")
  * use these instead of strdup'd copies to avoid malloc/free per document.

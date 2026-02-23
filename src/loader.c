@@ -484,7 +484,8 @@ yaml_parser_load_scalar(yaml_parser_t *parser, yaml_event_t *event,
     yaml_char_t *arena_value = yaml_arena_alloc(parser->document, length + 1);
     if (!arena_value) goto error;
     memcpy(arena_value, value, length + 1);
-    yaml_free_internal(value);
+    if (!YAML_VALUE_IS_INTERNED(value))
+        yaml_free_internal(value);
     value = arena_value;
 
     node = parser->document->nodes.top;
@@ -511,7 +512,8 @@ error:
     if (!YAML_TAG_IS_INTERNED(tag))
         yaml_free(tag);
     yaml_free(event->data.scalar.anchor);
-    yaml_free(event->data.scalar.value);
+    if (!YAML_VALUE_IS_INTERNED(event->data.scalar.value))
+        yaml_free(event->data.scalar.value);
     return 0;
 }
 

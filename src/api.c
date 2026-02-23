@@ -621,7 +621,8 @@ yaml_token_delete(yaml_token_t *token)
             break;
 
         case YAML_SCALAR_TOKEN:
-            yaml_free(token->data.scalar.value);
+            if (!YAML_VALUE_IS_INTERNED(token->data.scalar.value))
+                yaml_free(token->data.scalar.value);
             break;
 
         default:
@@ -1025,7 +1026,8 @@ yaml_event_delete(yaml_event_t *event)
                 yaml_free(event->data.scalar.anchor);
             if (event->data.scalar.tag)
                 yaml_free(event->data.scalar.tag);
-            yaml_free(event->data.scalar.value);
+            if (!YAML_VALUE_IS_INTERNED(event->data.scalar.value))
+                yaml_free(event->data.scalar.value);
             break;
 
         case YAML_SEQUENCE_START_EVENT:
@@ -1169,7 +1171,8 @@ yaml_document_delete(yaml_document_t *document)
                 yaml_free_internal(node->tag);
             switch (node->type) {
                 case YAML_SCALAR_NODE:
-                    yaml_free_internal(node->data.scalar.value);
+                    if (!YAML_VALUE_IS_INTERNED(node->data.scalar.value))
+                        yaml_free_internal(node->data.scalar.value);
                     break;
                 case YAML_SEQUENCE_NODE:
                     STACK_DEL(&context, node->data.sequence.items);
