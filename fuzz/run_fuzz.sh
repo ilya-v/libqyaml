@@ -8,6 +8,7 @@ set -e
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
 OUTPUT_DIR="${PROJECT_DIR}/test-output/fuzz"
+BIN_DIR="${OUTPUT_DIR}/bin"
 
 HARNESS="${1:-all}"
 MAX_TIME="${2:-300}"
@@ -19,17 +20,18 @@ mkdir -p "${OUTPUT_DIR}/corpus_load"
 mkdir -p "${OUTPUT_DIR}/corpus_structured"
 mkdir -p "${OUTPUT_DIR}/crashes"
 mkdir -p "${OUTPUT_DIR}/logs"
+mkdir -p "${BIN_DIR}"
 
 # Build if needed
-if [ ! -f "${SCRIPT_DIR}/fuzz_scan" ] || [ ! -f "${SCRIPT_DIR}/fuzz_parse" ] || \
-   [ ! -f "${SCRIPT_DIR}/fuzz_load" ] || [ ! -f "${SCRIPT_DIR}/fuzz_parse_structured" ]; then
+if [ ! -f "${BIN_DIR}/fuzz_scan" ] || [ ! -f "${BIN_DIR}/fuzz_parse" ] || \
+   [ ! -f "${BIN_DIR}/fuzz_load" ] || [ ! -f "${BIN_DIR}/fuzz_parse_structured" ]; then
     echo "Building fuzz harnesses..."
     "${SCRIPT_DIR}/build.sh"
 fi
 
 run_harness() {
     local name="$1"
-    local binary="${SCRIPT_DIR}/fuzz_${name}"
+    local binary="${BIN_DIR}/fuzz_${name}"
     local corpus_dir="${OUTPUT_DIR}/corpus_${name}"
     local log_file="${OUTPUT_DIR}/logs/fuzz-${name}.log"
     local seed_dir="${SCRIPT_DIR}/seeds"

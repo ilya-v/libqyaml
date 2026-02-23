@@ -1,18 +1,8 @@
 logs/
 build/
-build-*/
 reference/
 test-output/
 .worktree/
-
-# Fuzz artifacts
-fuzz/corpus*/
-fuzz/fuzz_load
-fuzz/fuzz_parse
-fuzz/fuzz_scan
-fuzz/fuzz_parse_structured
-fuzz-*.log
-crash-*
 
 # Session archives
 sessions/
