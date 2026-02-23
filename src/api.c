@@ -611,8 +611,6 @@ yaml_token_delete(yaml_token_t *token)
         default:
             break;
     }
-
-    memset(token, 0, sizeof(yaml_token_t));
 }
 
 /*
@@ -1029,8 +1027,6 @@ yaml_event_delete(yaml_event_t *event)
         default:
             break;
     }
-
-    memset(event, 0, sizeof(yaml_event_t));
 }
 
 /*
