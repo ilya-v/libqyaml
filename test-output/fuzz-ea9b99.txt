@@ -1,0 +1,24 @@
+Fuzz Testing Report: ea9b995
+==============================
+
+All 4 harnesses run for 60 seconds each with ASAN enabled.
+Zero crashes, zero ASAN errors across all runs.
+
+Harness              | Runs       | Exec/s | New Units | Peak RSS
+---------------------|------------|--------|-----------|--------
+fuzz_scan            | 2,616,716  | 42,896 | 1,354     | 398 MB
+fuzz_parse           | 2,726,155  | 44,691 | 1,396     | 451 MB
+fuzz_load            | 1,902,990  | 31,196 | 1,240     | 579 MB
+fuzz_parse_structured| 2,857,525  | 46,844 | 487       | 333 MB
+---------------------|------------|--------|-----------|--------
+TOTAL                | 10,103,386 |        | 4,477     |
+
+Corpus sizes (cumulative from all previous sessions):
+  corpus_scan: 42,047 inputs (40,693 + 1,354 new)
+  corpus_parse: 41,604 inputs (40,208 + 1,396 new)
+  corpus_load: 41,033 inputs (39,793 + 1,240 new)
+  corpus_structured: 12,474 inputs (11,987 + 487 new)
+
+Coverage achieved (fuzz_parse_structured): 1,924 edges, 10,511 features
+
+No crashes or memory errors found.

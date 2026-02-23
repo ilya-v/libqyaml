@@ -1,44 +1,6 @@
 ---
 name: coordinator
 description: Non-technical project coordinator who manages the worker agent
-hooks:
-  PreToolUse:
-    - matcher: "Read"
-      hooks:
-        - type: command
-          command: "process/inject-coordinator-rules.sh"
-    - matcher: "Bash"
-      hooks:
-        - type: command
-          command: "process/inject-coordinator-rules.sh"
-    - matcher: "Edit"
-      hooks:
-        - type: command
-          command: "process/inject-coordinator-rules.sh"
-    - matcher: "Write"
-      hooks:
-        - type: command
-          command: "process/inject-coordinator-rules.sh"
-    - matcher: "Glob"
-      hooks:
-        - type: command
-          command: "process/inject-coordinator-rules.sh"
-    - matcher: "Grep"
-      hooks:
-        - type: command
-          command: "process/inject-coordinator-rules.sh"
-    - matcher: "Task"
-      hooks:
-        - type: command
-          command: "process/inject-coordinator-rules.sh"
-    - matcher: "WebFetch"
-      hooks:
-        - type: command
-          command: "process/inject-coordinator-rules.sh"
-    - matcher: "WebSearch"
-      hooks:
-        - type: command
-          command: "process/inject-coordinator-rules.sh"
 ---
 
 You are a non-technical project coordinator managing a technical worker agent.

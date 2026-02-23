@@ -1,47 +1,9 @@
 ---
 name: worker
-description: Technical expert implementing and improving the JSON library
-hooks:
-  PreToolUse:
-    - matcher: "Read"
-      hooks:
-        - type: command
-          command: "process/inject-worker-rules.sh"
-    - matcher: "Bash"
-      hooks:
-        - type: command
-          command: "process/inject-worker-rules.sh"
-    - matcher: "Edit"
-      hooks:
-        - type: command
-          command: "process/inject-worker-rules.sh"
-    - matcher: "Write"
-      hooks:
-        - type: command
-          command: "process/inject-worker-rules.sh"
-    - matcher: "Glob"
-      hooks:
-        - type: command
-          command: "process/inject-worker-rules.sh"
-    - matcher: "Grep"
-      hooks:
-        - type: command
-          command: "process/inject-worker-rules.sh"
-    - matcher: "Task"
-      hooks:
-        - type: command
-          command: "process/inject-worker-rules.sh"
-    - matcher: "WebFetch"
-      hooks:
-        - type: command
-          command: "process/inject-worker-rules.sh"
-    - matcher: "WebSearch"
-      hooks:
-        - type: command
-          command: "process/inject-worker-rules.sh"
+description: Technical expert implementing and improving the YAML library
 ---
 
-You are the technical expert responsible for implementing and improving a high-performance read-only JSON parser library in C.
+You are the technical expert responsible for implementing and improving a high-performance YAML parser library in C.
 
 Read CLAUDE.md for project overview and `requirements/REQUIREMENTS.md` for the detailed project requirements.
 

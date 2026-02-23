@@ -1,391 +1,149 @@
-# Process: Multi-Agent Coordination with Hooks
+# Process: Multi-Agent Coordination with Rule Injection
 
 ## What This Is
 
-A setup for running two Claude Code agents with different roles and behavioral rules, where:
+A setup for running three Claude Code agents with different roles and behavioral rules, where:
 
-- Each agent's rules are periodically re-injected into its context (preventing rule drift over long conversations)
-- Inter-agent messages are available in team inbox files with sender labels and timestamps
-- Each agent only sees its own rules, not the other's
+- Each agent's rules are periodically injected into its inbox as messages from `process-administrator`
+- Rules are re-injected every 10 minutes to survive context compaction
+- Each agent only sees its own rules, not the others'
+- All injection activity is logged to `logs/idle-inject.log`
 
 ## Agents
 
-Three Claude Code agents run in this setup:
+Four Claude Code agents run in this setup:
 
 | Agent | Role | How it starts |
 |---|---|---|
-| Main session | Thin launcher. Creates the team, spawns the other two agents, then stays idle. | User starts Claude Code in the project directory. |
+| Main session | Thin launcher. Creates the team, spawns the other three agents, then stays idle. | User starts Claude Code in the project directory. |
 | Coordinator | Non-technical project owner. Manages priorities, pushes for quality, never makes technical decisions. | Spawned by main session with `subagent_type: "coordinator"`. |
-| Worker | Technical expert. Makes all implementation decisions, reports honestly to coordinator. | Spawned by main session with `subagent_type: "worker"`. |
-
-The main session exists because agent definitions in `.claude/agents/` (and their hooks) only activate on spawned subagents — the main session cannot adopt an agent definition.
+| Worker | Technical expert. Makes all implementation decisions, reports honestly to coordinator. Never runs tests. | Spawned by main session with `subagent_type: "worker"`. |
+| Tester | Testing expert. Owns all tests, fuzz harnesses, and benchmarks. Takes technical direction from worker, reports results to coordinator. | Spawned by main session with `subagent_type: "tester"`. |
 
 ## Files
 
-### Files you create
+### Configuration (checked into repo)
 
-These files define the system. All are checked into the repo.
-
-**`.claude/settings.json`** — Empty. No shared hooks needed. All hook logic is in the agent-specific inject scripts.
+**`.claude/settings.json`** — Single hook: `TeammateIdle` triggers the injection script.
 
 ```json
 {
+  "hooks": {
+    "TeammateIdle": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "process/inject-rules-idle.sh"
+          }
+        ]
+      }
+    ]
+  }
 }
 ```
 
-**`.claude/agents/coordinator.md`** — Coordinator agent definition. The YAML frontmatter hooks `PreToolUse` on all standard tools (Read, Bash, Edit, Write, Glob, Grep, Task, WebFetch, WebSearch). `SendMessage` is not hookable, so we hook everything else. The body contains the coordinator's base instructions.
+**`process/inject-rules-idle.sh`** — The injection script. On each `TeammateIdle` event, identifies the agent from `teammate_name`, reads the corresponding rules file, and writes it as a message into the agent's inbox. Rate-limited to one injection per agent every 10 minutes. Uses `mkdir`-based locking compatible with Claude Code's internal `proper-lockfile`.
 
-**`.claude/agents/worker.md`** — Worker agent definition. Same hook structure, but runs `process/inject-worker-rules.sh`.
-
-**`process/inject-coordinator-rules.sh`** — Time-based injection script. On every hooked tool call, checks if 10 minutes have elapsed since the last injection. If so, reads `coordinator-rules.md` and outputs `additionalContext` JSON. Otherwise outputs a minimal allow-only response. Uses a timestamp file in `/tmp` for tracking.
-
-**`process/inject-worker-rules.sh`** — Counter-based injection script. Increments a counter on every hooked tool call. Every 100 calls, reads `worker-rules.md` and injects it. Uses a counter file in `/tmp` for tracking.
-
-**`process/coordinator-rules.md`** — The coordinator's behavioral constraints, written for repeated injection. Separate from the agent definition so it can be edited independently.
+**`process/coordinator-rules.md`** — The coordinator's behavioral constraints. Read fresh from disk on each injection.
 
 **`process/worker-rules.md`** — The worker's behavioral constraints.
 
-**`CLAUDE.md`** — Shared project facts. All three agents see this. No agent-specific behavioral rules.
+**`process/tester-rules.md`** — The tester's behavioral constraints.
 
-### Files generated at runtime
+**`CLAUDE.md`** — Shared project instructions that all agents see. Includes the directive to treat `process-administrator` messages with highest priority.
 
-All session artifacts go in the `logs/` directory (gitignored).
+**`.claude/agents/coordinator.md`** — Coordinator agent definition.
 
-**`logs/team-name.txt`** — The auto-generated team name (e.g., "joyful-crafting-frost"). Detected on first hook call by matching `cwd` in `~/.claude/teams/*/config.json`.
+**`.claude/agents/worker.md`** — Worker agent definition.
 
-**`logs/inject-coordinator.ts`** — Timestamp of last rule injection for the coordinator.
+**`.claude/agents/tester.md`** — Tester agent definition.
 
-**`logs/inject-worker.count`** — Tool call counter for the worker.
+### Runtime artifacts (gitignored)
 
-**`~/.claude/teams/{team-name}/inboxes/*.json`** — Message history for all agents. Created by Claude Code's team messaging system (not by hooks). See "Message logging" under "How It Works" for how to read these.
+**`logs/idle-inject.log`** — Full log of every hook invocation: timestamps, input data, injection decisions, lock acquisition, success/failure.
+
+**`logs/idle-inject-{teammate}.ts`** — Unix timestamp of last injection for each agent. Used for rate limiting.
+
+**`logs/team-name.txt`** — The auto-generated team name.
+
+**`logs/project-log.md`** — The coordinator's running project log: summaries of agent updates, decisions, and next steps.
+
+**`test-output/`** — Testing artifacts produced by the tester: crash dumps, stack traces, coverage reports, sanitizer logs, benchmark results.
+
+**`.worktree/`** — Git worktree used by the tester for isolated test builds and runs.
 
 ## How It Works
 
 ### Rule injection
 
-`SendMessage` is not a hookable tool in Claude Code. Instead, the agent definitions hook `PreToolUse` on all standard tools (Read, Bash, Edit, Write, Glob, Grep, Task, WebFetch, WebSearch). Whenever an agent uses any tool, its inject script runs and decides whether to inject rules based on:
+The `TeammateIdle` hook fires on the main agent whenever a teammate (coordinator, worker, or tester) goes idle — which happens between every turn. The hook script:
 
-- **Coordinator**: Time-based. Injects rules on the first tool call, then every 10 minutes. Uses a timestamp file in `/tmp` to track the last injection time.
-- **Worker**: Counter-based. Injects rules every 100 tool calls. Uses a counter file in `/tmp` to track the count.
+1. Reads `teammate_name` from the hook input to identify which agent went idle
+2. Maps it to a rules file (`coordinator` → `coordinator-rules.md`, `worker` → `worker-rules.md`, `tester` → `tester-rules.md`)
+3. Checks the rate limit — skips if last injection was less than 10 minutes ago
+4. Reads the rules file from disk (always fresh, never cached)
+5. Acquires a `mkdir`-based lock on the agent's inbox file (compatible with `proper-lockfile`)
+6. Appends a message with `from: "process-administrator"` to the agent's inbox JSON
+7. Releases the lock
 
-When injecting, the script reads the rules file and outputs `additionalContext` JSON. When not injecting, it outputs a minimal allow-only JSON. Both cases return `permissionDecision: "allow"` so the tool call proceeds normally.
+The agent reads the message at the start of its next turn, processes the rules, and marks it as read.
 
-The rules injection uses Claude Code's `additionalContext` mechanism: when a `PreToolUse` hook outputs JSON with `hookSpecificOutput.additionalContext` on exit 0, that text is added to the agent's context without blocking the tool call.
+### Why inbox injection instead of additionalContext
 
-### Message logging
+The previous approach used `additionalContext` on `PreToolUse:SendMessage` and `SubagentStart` hooks. This had problems:
 
-The inter-agent message history is available in the team inbox files at `~/.claude/teams/{team-name}/inboxes/{agent-name}.json`. Each message has `from`, `text`, `summary`, and `timestamp` fields. To view a merged chronological log:
+- `SendMessage` recipient-based sender inference broke with 3 agents (main got false injections)
+- `SubagentStart` only fires once at spawn
+- `additionalContext` is not supported on `TeammateIdle` or `TaskCompleted` events
 
-```bash
-# Find the team directory (match by cwd)
-for d in ~/.claude/teams/*/config.json; do
-  if jq -e '.members[0].cwd == "/path/to/project"' "$d" >/dev/null 2>&1; then
-    TEAM_DIR=$(dirname "$d")
-    break
-  fi
-done
+Inbox injection sidesteps all of these: the hook knows exactly which agent went idle (from `teammate_name`), writes directly to that agent's inbox file, and the agent processes it as a normal message.
 
-# Merge all inboxes chronologically
-jq -s 'add | sort_by(.timestamp) | .[] | "[" + .timestamp + "] [" + .from + " → " + (.to // "?") + "] " + .text' "$TEAM_DIR"/inboxes/*.json
-```
+### Context compaction
+
+When an agent's context is compacted, previously injected rules are summarized and may lose detail. However, any unread rules message still sitting in the inbox survives compaction (the inbox is a separate file). The agent reads it at the start of the next turn, restoring the rules. At worst, one turn runs without full rules before the next injection.
+
+### Locking protocol
+
+Claude Code uses the `proper-lockfile` npm package for inbox file access. The protocol:
+
+1. `mkdir` a directory at `{inbox}.json.lock` (atomic on POSIX)
+2. `touch` the directory to set mtime (used for stale lock detection, default 10s threshold)
+3. Read-modify-write the inbox JSON
+4. `rm -rf` the lock directory
+
+The injection script follows this same protocol.
+
+### Git workflow
+
+The worker and tester share the `master` branch but work in separate trees to avoid conflicts:
+
+- The **worker** works directly in the main tree, committing to `master`.
+- The **tester** works in a git worktree at `.worktree/`, checked out from `master`. This isolates the tester from the worker's in-progress edits — the tester always builds against a known-good committed state.
+- The worker must commit changes before requesting tests. The tester can only test committed code.
+- When the worker commits, the tester updates the worktree to the latest `master` commit.
+- The tester merges its test commits back to `master` using fast-forward merges (`git merge --ff-only`). Since the worker touches `src/`/`include/` and the tester touches `tests/`/`fuzz/`/`bench/`, fast-forward should almost always succeed. If not, the tester rebases first.
+- `test-output/` is symlinked from the main tree into the worktree so all testing artifacts accumulate in one place.
 
 ## Prerequisites
 
 - `jq` must be installed and on the PATH
-- The inject scripts must be executable (`chmod +x process/inject-*.sh`)
+- `process/inject-rules-idle.sh` must be executable (`chmod +x`)
 
 ## How to Start a Session
 
 1. Start Claude Code in the project directory
-2. Tell the main session: "Read PROCESS.md, create a team called json-lib, spawn a coordinator and a worker"
-3. The main session spawns both agents via `Task` tool using `subagent_type: "coordinator"` and `subagent_type: "worker"`
-4. Each agent's hook starts automatically — rule injection is periodic, not per-message
-5. The main session stays idle — the coordinator and worker communicate directly via `SendMessage`
+2. Tell the main session: "Read PROCESS.md, create a team, spawn a coordinator, a worker, and a tester"
+3. The main session spawns all three agents via `Task` tool with `subagent_type: "coordinator"`, `subagent_type: "worker"`, and `subagent_type: "tester"`
+4. Agents begin communicating via `SendMessage`
+5. Rule injection happens automatically every 10 minutes via the `TeammateIdle` hook
+6. The main session stays idle unless it needs to intervene
 
 ## Adapting This for Another Project
 
-Ensure `jq` is installed. Then create the following directory structure and files:
-
-```
-.claude/
-  settings.json
-  agents/
-    coordinator.md
-    worker.md
-process/
-  coordinator-rules.md
-  worker-rules.md
-  inject-coordinator-rules.sh
-  inject-worker-rules.sh
-CLAUDE.md
-```
-
-### `.claude/settings.json`
-
-Empty — no shared hooks needed:
-
-```json
-{
-}
-```
-
-### `process/inject-coordinator-rules.sh`
-
-Time-based rule injection. Injects rules on first call, then every 10 minutes. Must be executable (`chmod +x`). Use exactly as shown:
-
-```bash
-#!/bin/bash
-SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-PROJECT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
-LOGS_DIR="$PROJECT_DIR/logs"
-mkdir -p "$LOGS_DIR"
-
-INPUT=$(cat)
-
-# Detect team name on first call
-if [ ! -f "$LOGS_DIR/team-name.txt" ]; then
-  for d in ~/.claude/teams/*/config.json; do
-    if jq -e --arg cwd "$PROJECT_DIR" '.members[0].cwd == $cwd' "$d" >/dev/null 2>&1; then
-      jq -r '.name' "$d" > "$LOGS_DIR/team-name.txt"
-      break
-    fi
-  done
-fi
-
-AGENT="coordinator"
-TIMESTAMP_FILE="$LOGS_DIR/inject-${AGENT}.ts"
-INJECT_INTERVAL=600  # 10 minutes in seconds
-
-NOW=$(date +%s)
-LAST=$(cat "$TIMESTAMP_FILE" 2>/dev/null || echo 0)
-ELAPSED=$((NOW - LAST))
-
-if [ "$ELAPSED" -ge "$INJECT_INTERVAL" ]; then
-  echo "$NOW" > "$TIMESTAMP_FILE"
-  RULES=$(cat "$SCRIPT_DIR/coordinator-rules.md" 2>/dev/null)
-  jq -n --arg rules "$RULES" \
-    '{hookSpecificOutput: {permissionDecision: "allow", additionalContext: $rules}}'
-else
-  echo '{"hookSpecificOutput": {"permissionDecision": "allow"}}'
-fi
-```
-
-### `process/inject-worker-rules.sh`
-
-Counter-based rule injection. Injects rules every 100 tool calls. Must be executable (`chmod +x`). Use exactly as shown:
-
-```bash
-#!/bin/bash
-SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
-PROJECT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
-LOGS_DIR="$PROJECT_DIR/logs"
-mkdir -p "$LOGS_DIR"
-
-INPUT=$(cat)
-
-# Detect team name on first call
-if [ ! -f "$LOGS_DIR/team-name.txt" ]; then
-  for d in ~/.claude/teams/*/config.json; do
-    if jq -e --arg cwd "$PROJECT_DIR" '.members[0].cwd == $cwd' "$d" >/dev/null 2>&1; then
-      jq -r '.name' "$d" > "$LOGS_DIR/team-name.txt"
-      break
-    fi
-  done
-fi
-
-AGENT="worker"
-COUNTER_FILE="$LOGS_DIR/inject-${AGENT}.count"
-INJECT_EVERY=100
-
-COUNT=$(cat "$COUNTER_FILE" 2>/dev/null || echo 0)
-COUNT=$((COUNT + 1))
-echo "$COUNT" > "$COUNTER_FILE"
-
-if [ $((COUNT % INJECT_EVERY)) -eq 0 ]; then
-  RULES=$(cat "$SCRIPT_DIR/worker-rules.md" 2>/dev/null)
-  jq -n --arg rules "$RULES" \
-    '{hookSpecificOutput: {permissionDecision: "allow", additionalContext: $rules}}'
-else
-  echo '{"hookSpecificOutput": {"permissionDecision": "allow"}}'
-fi
-```
-
-### `.claude/agents/coordinator.md`
-
-Agent definition for the coordinator. The YAML frontmatter hooks `PreToolUse` on all standard tools — since `SendMessage` is not hookable, we hook everything else and let the inject script control timing. Write your own project-specific instructions in the body:
-
-```yaml
----
-name: coordinator
-description: <your coordinator description>
-hooks:
-  PreToolUse:
-    - matcher: "Read"
-      hooks:
-        - type: command
-          command: "process/inject-coordinator-rules.sh"
-    - matcher: "Bash"
-      hooks:
-        - type: command
-          command: "process/inject-coordinator-rules.sh"
-    - matcher: "Edit"
-      hooks:
-        - type: command
-          command: "process/inject-coordinator-rules.sh"
-    - matcher: "Write"
-      hooks:
-        - type: command
-          command: "process/inject-coordinator-rules.sh"
-    - matcher: "Glob"
-      hooks:
-        - type: command
-          command: "process/inject-coordinator-rules.sh"
-    - matcher: "Grep"
-      hooks:
-        - type: command
-          command: "process/inject-coordinator-rules.sh"
-    - matcher: "Task"
-      hooks:
-        - type: command
-          command: "process/inject-coordinator-rules.sh"
-    - matcher: "WebFetch"
-      hooks:
-        - type: command
-          command: "process/inject-coordinator-rules.sh"
-    - matcher: "WebSearch"
-      hooks:
-        - type: command
-          command: "process/inject-coordinator-rules.sh"
----
-
-<your coordinator instructions here>
-```
-
-### `.claude/agents/worker.md`
-
-Agent definition for the worker. Same hook structure:
-
-```yaml
----
-name: worker
-description: <your worker description>
-hooks:
-  PreToolUse:
-    - matcher: "Read"
-      hooks:
-        - type: command
-          command: "process/inject-worker-rules.sh"
-    - matcher: "Bash"
-      hooks:
-        - type: command
-          command: "process/inject-worker-rules.sh"
-    - matcher: "Edit"
-      hooks:
-        - type: command
-          command: "process/inject-worker-rules.sh"
-    - matcher: "Write"
-      hooks:
-        - type: command
-          command: "process/inject-worker-rules.sh"
-    - matcher: "Glob"
-      hooks:
-        - type: command
-          command: "process/inject-worker-rules.sh"
-    - matcher: "Grep"
-      hooks:
-        - type: command
-          command: "process/inject-worker-rules.sh"
-    - matcher: "Task"
-      hooks:
-        - type: command
-          command: "process/inject-worker-rules.sh"
-    - matcher: "WebFetch"
-      hooks:
-        - type: command
-          command: "process/inject-worker-rules.sh"
-    - matcher: "WebSearch"
-      hooks:
-        - type: command
-          command: "process/inject-worker-rules.sh"
----
-
-<your worker instructions here>
-```
-
-### `process/coordinator-rules.md`
-
-The coordinator's behavioral constraints. Periodically injected into the coordinator's context (every 10 minutes). Use exactly as shown:
-
-```markdown
-# Coordinator Rules — STRICT
-
-You are a non-technical project owner. Review these rules BEFORE sending every message.
-
-## You MUST:
-- When messaging the worker, communicate only as a non-technical project owner doing project management, requirements management and scope control
-- Guide the worker and decide which phase of the project the worker should focus on
-- Let the worker identify which parts are weak, why they are weak, and how to fix them
-- Push for quality by asking questions and rejecting unsatisfactory answers, but never in quantitative terms
-
-## When messaging the WORKER — you MUST NOT:
-- Tell your workers how to code or test
-- Name specific files (e.g., "json_read.c", "README.md", "Makefile")
-- Cite specific numbers (e.g., "323 tests", "2x faster", "500 MB/s")
-- Suggest algorithms or techniques (e.g., "SIMD", "Eisel-Lemire", "lookup table")
-- Specify thresholds (e.g., "increase warmup to 10", "minimum 1 second")
-- Compare magnitudes (e.g., "3x slower than yyjson")
-- Prescribe solutions or fixes (e.g., "replace assert with FAIL", "use flock")
-- Read or write any files except CLAUDE.md
-- Code, do complex math, or inspect directory contents
-
-## When messaging the MAIN (team-lead) — no restrictions:
-- You may relay exact numbers, file names, technical details, and anything else the worker reported to you
-- Be as detailed and specific as needed — the main session needs full visibility into the project state
-
-## You MAY:
-- Suggest high-level strategies: unit testing, fuzz testing, benchmarking, static analysis, documentation, etc.
-- Reject the worker's results and ask for better quality
-- Request self-evaluations and audits
-- Ask the worker to explain their approach or justify their decisions
-- Prioritize the worker's own identified weaknesses
-
-## Self-check before every message to the worker:
-Would a non-technical CEO say this? If not, rewrite it.
-```
-
-### `process/worker-rules.md`
-
-The worker's behavioral constraints. Periodically injected into the worker's context (every 100 tool calls). Use exactly as shown:
-
-```markdown
-# Worker Rules
-
-You are the technical expert responsible for all implementation decisions.
-
-## Project Requirements
-The detailed project requirements are in `requirements/REQUIREMENTS.md`. Read this file to understand the full interface specification. Only you have access to this file — the coordinator does not read it and relies on your description of the requirements.
-
-## You MUST:
-- Read `requirements/REQUIREMENTS.md` and implement the library to match it exactly
-- Make all technical decisions — architecture, algorithms, optimizations, testing strategy, code quality
-- Be honest with the coordinator about weaknesses and trade-offs
-- Report status to the coordinator after every meaningful step — before and after making changes, after running tests, and whenever you hit a blocker. Never work silently.
-- Commit at meaningful milestones with clear descriptions
-- Re-validate correctness after every change (tests, conformance, memory safety)
-- Follow the coordinator guidance on the project direction and iteration goals
-
-## You MUST NOT:
-- Add functionality beyond what the requirements dictate
-- Wait for the coordinator to identify technical problems — find them yourself
-- Hide weaknesses or overstate quality
-
-## You MAY:
-- Install any tools or dependencies you need
-- Choose any algorithm, data structure, or optimization technique
-- Restructure code as you see fit
-- Set up any testing or benchmarking infrastructure
-```
-
-### `CLAUDE.md`
-
-Shared project facts that all agents see. Do not put agent-specific behavioral rules here — those belong in the `process/*-rules.md` files.
+1. Copy `.claude/settings.json`, `process/inject-rules-idle.sh`, and the `process/*-rules.md` files
+2. Edit the rules files for your project's needs
+3. Add the `process-administrator` directive to your `CLAUDE.md`
+4. Add agent definitions under `.claude/agents/` if needed
+5. Ensure `jq` is installed and the script is executable
