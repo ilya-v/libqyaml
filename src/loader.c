@@ -1041,6 +1041,7 @@ yaml_parser_load_sequence_items_batch(yaml_parser_t *parser,
             if (!arena_val) return 0;
             memcpy(arena_val, val, len + 1);
             yaml_free_internal(val);
+            token->data.scalar.value = NULL;  /* prevent double-free */
 
             yaml_node_t *node = document->nodes.top;
             node->type = YAML_SCALAR_NODE;
