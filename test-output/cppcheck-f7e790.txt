@@ -1,0 +1,183 @@
+Checking /var/home/user/x/claude-play/libqyaml/src/api.c ...
+/var/home/user/x/claude-play/libqyaml/src/api.c:0:0: information: Limiting analysis of branches. Use --check-level=exhaustive to analyze all branches. [normalCheckLevelMaxBranches]
+
+^
+/var/home/user/x/claude-play/libqyaml/src/api.c:770:30: style: Local variable 'value' shadows outer variable [shadowVariable]
+        yaml_tag_directive_t value = POP(context, tag_directives_copy);
+                             ^
+/var/home/user/x/claude-play/libqyaml/src/api.c:723:26: note: Shadowed declaration
+    yaml_tag_directive_t value = { NULL, NULL };
+                         ^
+/var/home/user/x/claude-play/libqyaml/src/api.c:770:30: note: Shadow variable
+        yaml_tag_directive_t value = POP(context, tag_directives_copy);
+                             ^
+/var/home/user/x/claude-play/libqyaml/src/api.c:1118:30: style: Local variable 'value' shadows outer variable [shadowVariable]
+        yaml_tag_directive_t value = POP(&context, tag_directives_copy);
+                             ^
+/var/home/user/x/claude-play/libqyaml/src/api.c:1067:26: note: Shadowed declaration
+    yaml_tag_directive_t value = { NULL, NULL };
+                         ^
+/var/home/user/x/claude-play/libqyaml/src/api.c:1118:30: note: Shadow variable
+        yaml_tag_directive_t value = POP(&context, tag_directives_copy);
+                             ^
+/var/home/user/x/claude-play/libqyaml/src/api.c:425:54: style: Parameter 'buffer' can be declared as pointer to const. However it seems that 'yaml_string_write_handler' is a callback function, if 'buffer' is declared with const you might also need to cast function pointer(s). [constParameterCallback]
+yaml_string_write_handler(void *data, unsigned char *buffer, size_t size)
+                                                     ^
+/var/home/user/x/claude-play/libqyaml/src/api.c:469:30: note: You might need to cast the function pointer here
+    emitter->write_handler = yaml_string_write_handler;
+                             ^
+/var/home/user/x/claude-play/libqyaml/src/api.c:425:54: note: Parameter 'buffer' can be declared as pointer to const
+yaml_string_write_handler(void *data, unsigned char *buffer, size_t size)
+                                                     ^
+/var/home/user/x/claude-play/libqyaml/src/api.c:451:52: style: Parameter 'buffer' can be declared as pointer to const. However it seems that 'yaml_file_write_handler' is a callback function, if 'buffer' is declared with const you might also need to cast function pointer(s). [constParameterCallback]
+yaml_file_write_handler(void *data, unsigned char *buffer, size_t size)
+                                                   ^
+/var/home/user/x/claude-play/libqyaml/src/api.c:489:30: note: You might need to cast the function pointer here
+    emitter->write_handler = yaml_file_write_handler;
+                             ^
+/var/home/user/x/claude-play/libqyaml/src/api.c:451:52: note: Parameter 'buffer' can be declared as pointer to const
+yaml_file_write_handler(void *data, unsigned char *buffer, size_t size)
+                                                   ^
+/var/home/user/x/claude-play/libqyaml/src/api.c:708:35: style: Parameter 'version_directive' can be declared as pointer to const [constParameterPointer]
+        yaml_version_directive_t *version_directive,
+                                  ^
+/var/home/user/x/claude-play/libqyaml/src/api.c:1048:35: style: Parameter 'version_directive' can be declared as pointer to const [constParameterPointer]
+        yaml_version_directive_t *version_directive,
+                                  ^
+/var/home/user/x/claude-play/libqyaml/src/api.c:1115:5: style: Variable '(nodes).top' is assigned a value that is never used. [unreadVariable]
+    STACK_DEL(&context, nodes);
+    ^
+/var/home/user/x/claude-play/libqyaml/src/api.c:1115:5: style: Variable '(nodes).end' is assigned a value that is never used. [unreadVariable]
+    STACK_DEL(&context, nodes);
+    ^
+/var/home/user/x/claude-play/libqyaml/src/api.c:1149:17: style: Variable '(node.data.sequence.items).top' is assigned a value that is never used. [unreadVariable]
+                STACK_DEL(&context, node.data.sequence.items);
+                ^
+/var/home/user/x/claude-play/libqyaml/src/api.c:1149:17: style: Variable '(node.data.sequence.items).end' is assigned a value that is never used. [unreadVariable]
+                STACK_DEL(&context, node.data.sequence.items);
+                ^
+/var/home/user/x/claude-play/libqyaml/src/api.c:1152:17: style: Variable '(node.data.mapping.pairs).top' is assigned a value that is never used. [unreadVariable]
+                STACK_DEL(&context, node.data.mapping.pairs);
+                ^
+/var/home/user/x/claude-play/libqyaml/src/api.c:1152:17: style: Variable '(node.data.mapping.pairs).end' is assigned a value that is never used. [unreadVariable]
+                STACK_DEL(&context, node.data.mapping.pairs);
+                ^
+/var/home/user/x/claude-play/libqyaml/src/api.c:1291:5: style: Variable '(items).top' is assigned a value that is never used. [unreadVariable]
+    STACK_DEL(&context, items);
+    ^
+/var/home/user/x/claude-play/libqyaml/src/api.c:1291:5: style: Variable '(items).end' is assigned a value that is never used. [unreadVariable]
+    STACK_DEL(&context, items);
+    ^
+/var/home/user/x/claude-play/libqyaml/src/api.c:1336:5: style: Variable '(pairs).top' is assigned a value that is never used. [unreadVariable]
+    STACK_DEL(&context, pairs);
+    ^
+/var/home/user/x/claude-play/libqyaml/src/api.c:1336:5: style: Variable '(pairs).end' is assigned a value that is never used. [unreadVariable]
+    STACK_DEL(&context, pairs);
+    ^
+/var/home/user/x/claude-play/libqyaml/src/yaml_private.h:2:2: information: Include file: "config.h" not found. [missingInclude]
+#include "config.h"
+ ^
+Checking /var/home/user/x/claude-play/libqyaml/src/api.c: HAVE_CONFIG_H...
+Checking /var/home/user/x/claude-play/libqyaml/src/api.c: YAML_DECLARE_EXPORT;_WIN32...
+Checking /var/home/user/x/claude-play/libqyaml/src/api.c: YAML_DECLARE_STATIC;_WIN32...
+Checking /var/home/user/x/claude-play/libqyaml/src/api.c: _WIN32...
+Checking /var/home/user/x/claude-play/libqyaml/src/api.c: __GNUC__;__clang__...
+Checking /var/home/user/x/claude-play/libqyaml/src/api.c: __MINGW32__...
+Checking /var/home/user/x/claude-play/libqyaml/src/api.c: __clang__...
+1/8 files checked 10% done
+Checking /var/home/user/x/claude-play/libqyaml/src/dumper.c ...
+/var/home/user/x/claude-play/libqyaml/src/dumper.c:0:0: information: Limiting analysis of branches. Use --check-level=exhaustive to analyze all branches. [normalCheckLevelMaxBranches]
+
+^
+/var/home/user/x/claude-play/libqyaml/src/dumper.c:211:23: style: The scope of the variable 'item' can be reduced. [variableScope]
+    yaml_node_item_t *item;
+                      ^
+/var/home/user/x/claude-play/libqyaml/src/dumper.c:212:23: style: The scope of the variable 'pair' can be reduced. [variableScope]
+    yaml_node_pair_t *pair;
+                      ^
+/var/home/user/x/claude-play/libqyaml/src/dumper.c:210:18: style: Variable 'node' can be declared as pointer to const [constVariablePointer]
+    yaml_node_t *node = emitter->document->nodes.start + index - 1;
+                 ^
+/var/home/user/x/claude-play/libqyaml/src/dumper.c:211:23: style: Variable 'item' can be declared as pointer to const [constVariablePointer]
+    yaml_node_item_t *item;
+                      ^
+/var/home/user/x/claude-play/libqyaml/src/dumper.c:212:23: style: Variable 'pair' can be declared as pointer to const [constVariablePointer]
+    yaml_node_pair_t *pair;
+                      ^
+/var/home/user/x/claude-play/libqyaml/src/dumper.c:355:23: style: Variable 'item' can be declared as pointer to const [constVariablePointer]
+    yaml_node_item_t *item;
+                      ^
+/var/home/user/x/claude-play/libqyaml/src/dumper.c:391:23: style: Variable 'pair' can be declared as pointer to const [constVariablePointer]
+    yaml_node_pair_t *pair;
+                      ^
+/var/home/user/x/claude-play/libqyaml/src/dumper.c:191:13: style: Variable '(node.data.mapping.pairs).top' is assigned a value that is never used. [unreadVariable]
+            STACK_DEL(emitter, node.data.mapping.pairs);
+            ^
+/var/home/user/x/claude-play/libqyaml/src/dumper.c:191:13: style: Variable '(node.data.mapping.pairs).end' is assigned a value that is never used. [unreadVariable]
+            STACK_DEL(emitter, node.data.mapping.pairs);
+            ^
+Checking /var/home/user/x/claude-play/libqyaml/src/dumper.c: HAVE_CONFIG_H...
+Checking /var/home/user/x/claude-play/libqyaml/src/dumper.c: YAML_DECLARE_EXPORT;_WIN32...
+Checking /var/home/user/x/claude-play/libqyaml/src/dumper.c: YAML_DECLARE_STATIC;_WIN32...
+Checking /var/home/user/x/claude-play/libqyaml/src/dumper.c: _WIN32...
+Checking /var/home/user/x/claude-play/libqyaml/src/dumper.c: __GNUC__;__clang__...
+Checking /var/home/user/x/claude-play/libqyaml/src/dumper.c: __MINGW32__...
+Checking /var/home/user/x/claude-play/libqyaml/src/dumper.c: __clang__...
+2/8 files checked 13% done
+Checking /var/home/user/x/claude-play/libqyaml/src/emitter.c ...
+/var/home/user/x/claude-play/libqyaml/src/emitter.c:0:0: information: Limiting analysis of branches. Use --check-level=exhaustive to analyze all branches. [normalCheckLevelMaxBranches]
+
+^
+/var/home/user/x/claude-play/libqyaml/src/emitter.c:638:46: style: Condition 'yaml_emitter_check_empty_document(emitter)' is always false [knownConditionTrueFalse]
+        if (yaml_emitter_check_empty_document(emitter)) {
+                                             ^
+/var/home/user/x/claude-play/libqyaml/src/emitter.c:638:46: note: Calling function 'yaml_emitter_check_empty_document' returns 0
+        if (yaml_emitter_check_empty_document(emitter)) {
+                                             ^
+/var/home/user/x/claude-play/libqyaml/src/emitter.c:638:46: note: Condition 'yaml_emitter_check_empty_document(emitter)' is always false
+        if (yaml_emitter_check_empty_document(emitter)) {
+                                             ^
+/var/home/user/x/claude-play/libqyaml/src/emitter.c:1733:17: style: Condition '!yaml_emitter_analyze_scalar(emitter,event->data.scalar.value,event->data.scalar.length)' is always false [knownConditionTrueFalse]
+            if (!yaml_emitter_analyze_scalar(emitter,
+                ^
+/var/home/user/x/claude-play/libqyaml/src/emitter.c:1733:45: note: Calling function 'yaml_emitter_analyze_scalar' returns 1
+            if (!yaml_emitter_analyze_scalar(emitter,
+                                            ^
+/var/home/user/x/claude-play/libqyaml/src/emitter.c:1733:17: note: Condition '!yaml_emitter_analyze_scalar(emitter,event->data.scalar.value,event->data.scalar.length)' is always false
+            if (!yaml_emitter_analyze_scalar(emitter,
+                ^
+/var/home/user/x/claude-play/libqyaml/src/emitter.c:1898:26: style: The scope of the variable 'octet' can be reduced. [variableScope]
+            unsigned int octet;
+                         ^
+/var/home/user/x/claude-play/libqyaml/src/emitter.c:2210:10: style: The scope of the variable 'indent_hint' can be reduced. [variableScope]
+    char indent_hint[2];
+         ^
+/var/home/user/x/claude-play/libqyaml/src/emitter.c:309:47: style: Parameter 'emitter' can be declared as pointer to const [constParameterPointer]
+yaml_emitter_need_more_events(yaml_emitter_t *emitter)
+                                              ^
+/var/home/user/x/claude-play/libqyaml/src/emitter.c:313:19: style: Variable 'event' can be declared as pointer to const [constVariablePointer]
+    yaml_event_t *event;
+                  ^
+/var/home/user/x/claude-play/libqyaml/src/emitter.c:367:27: style: Variable 'tag_directive' can be declared as pointer to const [constVariablePointer]
+    yaml_tag_directive_t *tag_directive;
+                          ^
+/var/home/user/x/claude-play/libqyaml/src/emitter.c:706:23: style: Parameter 'event' can be declared as pointer to const [constParameterPointer]
+        yaml_event_t *event)
+                      ^
+/var/home/user/x/claude-play/libqyaml/src/emitter.c:1061:73: style: Parameter 'event' can be declared as pointer to const [constParameterPointer]
+yaml_emitter_emit_sequence_start(yaml_emitter_t *emitter, yaml_event_t *event)
+                                                                        ^
+/var/home/user/x/claude-play/libqyaml/src/emitter.c:1085:72: style: Parameter 'event' can be declared as pointer to const [constParameterPointer]
+yaml_emitter_emit_mapping_start(yaml_emitter_t *emitter, yaml_event_t *event)
+                                                                       ^
+/var/home/user/x/claude-play/libqyaml/src/emitter.c:1109:35: style: Parameter 'emitter' can be declared as pointer to const [constParameterPointer]
+yaml_emitter_check_empty_document(SHIM(yaml_emitter_t *emitter))
+                                  ^
+/var/home/user/x/claude-play/libqyaml/src/emitter.c:1149:19: style: Variable 'event' can be declared as pointer to const [constVariablePointer]
+    yaml_event_t *event = emitter->events.head;
+                  ^
+Checking /var/home/user/x/claude-play/libqyaml/src/emitter.c: HAVE_CONFIG_H...
+Checking /var/home/user/x/claude-play/libqyaml/src/emitter.c: YAML_DECLARE_EXPORT;_WIN32...
+Checking /var/home/user/x/claude-play/libqyaml/src/emitter.c: YAML_DECLARE_STATIC;_WIN32...
+Checking /var/home/user/x/claude-play/libqyaml/src/emitter.c: _WIN32...
+Checking /var/home/user/x/claude-play/libqyaml/src/emitter.c: __GNUC__;__clang__...
