@@ -2,6 +2,48 @@
 
 ---
 
+## 2026-02-23 15:07–15:11 UTC — Feed #2
+
+**Window:** 4 minutes (journalist startup cycle — no new code commits in window)
+
+### Commits
+- No new code commits since Feed #1 (c9165e4e and 58b869fa are journalist feed commits, not code changes)
+- **Working tree has 4 uncommitted files:** `src/scanner.c` (+7 lines, flow_level fix staged), `.claude/agents/strategic-tester.md` (+3 lines), `.claude/agents/tester.md` (+12 lines), `process/inject-rules-idle.sh` (+1 line)
+- **Pending commit:** `src/scanner.c` fix for `fetch_flow_entry_scalar` flow_level=0 bug — coordinator-approved, assigned to worker-2 (task #23)
+
+### Test Results
+- No new validation reports since Feed #1
+- Most recent: `validation-b137e8.md` (15:33, covers b137e8d4+03d77aef) — **~2,250+ assertions, 0 failures, ASAN clean**
+
+### Benchmarks
+- No changes. Last known: **1.5x–7.1x** vs libyaml (team-lead corrected figure; contention-affected run showed 1.44–5.97x)
+
+### Coverage
+- No changes. Last: scanner.c 94.4%, parser.c 92.1%, loader.c 88.9%, reader.c 83.8% (read-path combined ~92% line, ~98% function)
+
+### Agent Activity
+
+| Agent | Total Messages | Unread | Status |
+|-------|---------------|--------|--------|
+| coordinator | 133 | 0 | Active |
+| worker-2 | 64 | **24** | **FALLING BEHIND — 24 unread** |
+| tester-2 | 29 | 0 | Active |
+| strategic-tester | 23 | **15** | **FALLING BEHIND — 15 unread** |
+
+- **coordinator:** Last message received from strategic-tester (error divergence detection update, 10b2872e). Rules re-injected by team-lead.
+- **worker-2:** Last task assignment was #23 (fix fetch_flow_entry_scalar flow_level check). Fix is staged in working tree but not yet committed. 24 unread messages — likely processing inbox before committing.
+- **tester-2:** All messages read. Waiting for worker-2's next commit to validate.
+- **strategic-tester:** 15 unread — likely busy processing backlog from post-campaign activity.
+
+### News
+- **Flow_level fix imminent:** Worker-2 has the `fetch_flow_entry_scalar` fix ready in `src/scanner.c` (coordinator-approved). This will close 15 of the remaining 21 real divergences, leaving only 6 BOM-related cases.
+- **Agent definition files modified (uncommitted):** `.claude/agents/tester.md` (+12 lines) and `.claude/agents/strategic-tester.md` (+3 lines) have changes not yet committed. These appear to be rule updates — not source code.
+- **inject-rules-idle.sh modified (+1 line):** Process script updated, uncommitted.
+- **Strategic-tester inbox backlog:** 15 unread messages suggest the agent is in a long processing turn or has stalled. Last committed output was error divergence detection (10b2872e, ~15:07 window).
+- **Journalist spawned:** This agent (journalist) joined the team and published Feed #1 covering full project state. Worktree established at `.worktree/journalist/`.
+
+---
+
 ## 2026-02-23 ~15:07 UTC — Feed #1 (Initial Entry)
 
 **Coverage window:** Project inception through current state (first feed entry — full state snapshot)
