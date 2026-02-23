@@ -659,6 +659,39 @@ error:
 }
 
 /*
+ * Create a plain scalar node from a malloc'd value string by copying it
+ * into the document's string arena. The caller must have already called
+ * STACK_PUSH_RESERVE to ensure space at document->nodes.top.
+ *
+ * On success: frees the original value, fills the node, commits it,
+ * and returns the 1-based node index (always > 0).
+ * On failure (OOM): leaves the original value unfreed (caller must
+ * handle cleanup) and returns 0.
+ */
+static int
+loader_create_plain_scalar(yaml_document_t *document,
+        yaml_char_t *value, size_t length,
+        yaml_mark_t start_mark, yaml_mark_t end_mark)
+{
+    yaml_char_t *arena_val = yaml_arena_alloc(document, length + 1);
+    if (!arena_val) return 0;
+    memcpy(arena_val, value, length + 1);
+    yaml_free_internal(value);
+
+    yaml_node_t *node = document->nodes.top;
+    node->type = YAML_SCALAR_NODE;
+    node->tag = (yaml_char_t *)yaml_interned_str_tag;
+    node->data.scalar.value = arena_val;
+    node->data.scalar.length = length;
+    node->data.scalar.style = YAML_PLAIN_SCALAR_STYLE;
+    node->start_mark = start_mark;
+    node->end_mark = end_mark;
+    STACK_PUSH_COMMIT(document->nodes);
+
+    return (int)(document->nodes.top - document->nodes.start);
+}
+
+/*
  * Batch-load plain scalar key-value pairs directly from the token queue.
  * This bypasses the parser state machine for the common case of block
  * mappings containing only plain scalar keys and values without anchors
@@ -757,57 +790,24 @@ yaml_parser_load_mapping_pairs_batch(yaml_parser_t *parser,
             goto error_free_key;
 
         /* Create key node. */
-        {
-            yaml_char_t *arena_kval = yaml_arena_alloc(document, key_length + 1);
-            if (!arena_kval) goto error_free_key;
-            memcpy(arena_kval, key_value, key_length + 1);
-            yaml_free_internal(key_value);
-            key_value = NULL;
-
-            yaml_node_t *knode = document->nodes.top;
-            knode->type = YAML_SCALAR_NODE;
-            knode->tag = (yaml_char_t *)yaml_interned_str_tag;
-            knode->data.scalar.value = arena_kval;
-            knode->data.scalar.length = key_length;
-            knode->data.scalar.style = YAML_PLAIN_SCALAR_STYLE;
-            knode->start_mark = key_start_mark;
-            knode->end_mark = key_end_mark;
-            STACK_PUSH_COMMIT(document->nodes);
-        }
-
-        int key_index = document->nodes.top - document->nodes.start;
+        int key_index = loader_create_plain_scalar(document,
+                key_value, key_length, key_start_mark, key_end_mark);
+        if (!key_index) goto error_free_key;
+        key_value = NULL;  /* helper freed it */
 
         if (!STACK_PUSH_RESERVE(parser, document->nodes)) return 0;
 
         /* Create value node.
-         * Note: value_scalar is peeked, not skipped. On error, the token
-         * is still in the queue and yaml_parser_delete will clean it up.
-         * We NULL the value pointer after freeing to prevent double-free
-         * since the token remains in the queue. */
-        {
-            yaml_char_t *vval = value_scalar->data.scalar.value;
-            size_t vlen = value_scalar->data.scalar.length;
-            yaml_char_t *arena_vval = yaml_arena_alloc(document, vlen + 1);
-            if (!arena_vval) {
-                value_scalar->data.scalar.value = NULL;
-                return 0;
-            }
-            memcpy(arena_vval, vval, vlen + 1);
-            yaml_free_internal(vval);
-            value_scalar->data.scalar.value = NULL;
-
-            yaml_node_t *vnode = document->nodes.top;
-            vnode->type = YAML_SCALAR_NODE;
-            vnode->tag = (yaml_char_t *)yaml_interned_str_tag;
-            vnode->data.scalar.value = arena_vval;
-            vnode->data.scalar.length = vlen;
-            vnode->data.scalar.style = YAML_PLAIN_SCALAR_STYLE;
-            vnode->start_mark = value_scalar->start_mark;
-            vnode->end_mark = value_scalar->end_mark;
-            STACK_PUSH_COMMIT(document->nodes);
-        }
-
-        int value_index = document->nodes.top - document->nodes.start;
+         * value_scalar is peeked, not skipped. On success, the helper
+         * frees the value string so we NULL the token's copy to prevent
+         * double-free during parser cleanup. On failure, the value is
+         * still in the token and parser cleanup handles it correctly. */
+        int value_index = loader_create_plain_scalar(document,
+                value_scalar->data.scalar.value,
+                value_scalar->data.scalar.length,
+                value_scalar->start_mark, value_scalar->end_mark);
+        if (!value_index) return 0;
+        value_scalar->data.scalar.value = NULL;  /* helper freed it */
 
         /* Add key-value pair to the mapping node. */
         {
@@ -838,23 +838,10 @@ yaml_parser_load_mapping_pairs_batch(yaml_parser_t *parser,
                 goto error_free_key;
 
             /* Create key node. */
-            yaml_char_t *arena_kval = yaml_arena_alloc(document, key_length + 1);
-            if (!arena_kval) goto error_free_key;
-            memcpy(arena_kval, key_value, key_length + 1);
-            yaml_free_internal(key_value);
-            key_value = NULL;
-
-            yaml_node_t *knode = document->nodes.top;
-            knode->type = YAML_SCALAR_NODE;
-            knode->tag = (yaml_char_t *)yaml_interned_str_tag;
-            knode->data.scalar.value = arena_kval;
-            knode->data.scalar.length = key_length;
-            knode->data.scalar.style = YAML_PLAIN_SCALAR_STYLE;
-            knode->start_mark = key_start_mark;
-            knode->end_mark = key_end_mark;
-            STACK_PUSH_COMMIT(document->nodes);
-
-            int ki = document->nodes.top - document->nodes.start;
+            int ki = loader_create_plain_scalar(document,
+                    key_value, key_length, key_start_mark, key_end_mark);
+            if (!ki) goto error_free_key;
+            key_value = NULL;  /* helper freed it */
 
             /* Create empty value node. */
             if (!STACK_PUSH_RESERVE(parser, document->nodes)) return 0;
@@ -905,23 +892,10 @@ yaml_parser_load_mapping_pairs_batch(yaml_parser_t *parser,
             if (!STACK_PUSH_RESERVE(parser, document->nodes))
                 goto error_free_key;
 
-            yaml_char_t *arena_kval = yaml_arena_alloc(document, key_length + 1);
-            if (!arena_kval) goto error_free_key;
-            memcpy(arena_kval, key_value, key_length + 1);
-            yaml_free_internal(key_value);
-            key_value = NULL;
-
-            yaml_node_t *knode = document->nodes.top;
-            knode->type = YAML_SCALAR_NODE;
-            knode->tag = (yaml_char_t *)yaml_interned_str_tag;
-            knode->data.scalar.value = arena_kval;
-            knode->data.scalar.length = key_length;
-            knode->data.scalar.style = YAML_PLAIN_SCALAR_STYLE;
-            knode->start_mark = key_start_mark;
-            knode->end_mark = key_end_mark;
-            STACK_PUSH_COMMIT(document->nodes);
-
-            int ki = document->nodes.top - document->nodes.start;
+            int ki = loader_create_plain_scalar(document,
+                    key_value, key_length, key_start_mark, key_end_mark);
+            if (!ki) goto error_free_key;
+            key_value = NULL;  /* helper freed it */
 
             /* Add partial pair (key only) to mapping. */
             yaml_node_t *mapping = &document->nodes.start[mapping_index - 1];
@@ -943,23 +917,10 @@ yaml_parser_load_mapping_pairs_batch(yaml_parser_t *parser,
             if (!STACK_PUSH_RESERVE(parser, document->nodes))
                 goto error_free_key;
 
-            yaml_char_t *arena_kval = yaml_arena_alloc(document, key_length + 1);
-            if (!arena_kval) goto error_free_key;
-            memcpy(arena_kval, key_value, key_length + 1);
-            yaml_free_internal(key_value);
-            key_value = NULL;
-
-            yaml_node_t *knode = document->nodes.top;
-            knode->type = YAML_SCALAR_NODE;
-            knode->tag = (yaml_char_t *)yaml_interned_str_tag;
-            knode->data.scalar.value = arena_kval;
-            knode->data.scalar.length = key_length;
-            knode->data.scalar.style = YAML_PLAIN_SCALAR_STYLE;
-            knode->start_mark = key_start_mark;
-            knode->end_mark = key_end_mark;
-            STACK_PUSH_COMMIT(document->nodes);
-
-            int ki = document->nodes.top - document->nodes.start;
+            int ki = loader_create_plain_scalar(document,
+                    key_value, key_length, key_start_mark, key_end_mark);
+            if (!ki) goto error_free_key;
+            key_value = NULL;  /* helper freed it */
 
             /* Add partial pair (key only) to mapping. */
             yaml_node_t *mapping = &document->nodes.start[mapping_index - 1];
@@ -1039,27 +1000,13 @@ yaml_parser_load_sequence_items_batch(yaml_parser_t *parser,
         if (!STACK_LIMIT(parser, document->nodes, INT_MAX-1)) return 0;
         if (!STACK_PUSH_RESERVE(parser, document->nodes)) return 0;
 
-        {
-            yaml_char_t *val = token->data.scalar.value;
-            size_t len = token->data.scalar.length;
-            yaml_char_t *arena_val = yaml_arena_alloc(document, len + 1);
-            if (!arena_val) return 0;
-            memcpy(arena_val, val, len + 1);
-            yaml_free_internal(val);
-            token->data.scalar.value = NULL;  /* prevent double-free */
-
-            yaml_node_t *node = document->nodes.top;
-            node->type = YAML_SCALAR_NODE;
-            node->tag = (yaml_char_t *)yaml_interned_str_tag;
-            node->data.scalar.value = arena_val;
-            node->data.scalar.length = len;
-            node->data.scalar.style = YAML_PLAIN_SCALAR_STYLE;
-            node->start_mark = token->start_mark;
-            node->end_mark = token->end_mark;
-            STACK_PUSH_COMMIT(document->nodes);
-        }
-
-        int item_index = document->nodes.top - document->nodes.start;
+        /* Create scalar node via helper. On success, helper frees the
+         * value string; NULL the token's copy to prevent double-free. */
+        int item_index = loader_create_plain_scalar(document,
+                token->data.scalar.value, token->data.scalar.length,
+                token->start_mark, token->end_mark);
+        if (!item_index) return 0;
+        token->data.scalar.value = NULL;  /* helper freed it */
 
         /* Add item to the sequence node. */
         {
