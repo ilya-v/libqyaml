@@ -221,6 +221,12 @@ yaml_parser_delete(yaml_parser_t *parser)
     assert(parser); /* Non-NULL parser object expected. */
 
     BUFFER_DEL(parser, parser->raw_buffer);
+    /* In zero-copy mode, buffer.start points into the input string and must
+     * not be freed.  Restore the original allocated buffer first. */
+    if (parser->buffer_alloc) {
+        parser->buffer.start = parser->buffer_alloc;
+        parser->buffer_alloc = NULL;
+    }
     BUFFER_DEL(parser, parser->buffer);
     while (!QUEUE_EMPTY(parser, parser->tokens)) {
         yaml_token_delete(&DEQUEUE(parser, parser->tokens));

@@ -1309,6 +1309,11 @@ typedef struct yaml_parser_s {
     /** Number of simple keys with possible==1 (for fast path in fetch_more_tokens). */
     int possible_simple_key_count;
 
+    /** Original allocated buffer start (saved when zero-copy mode redirects
+     *  buffer.start to point into the input string). NULL when not in
+     *  zero-copy mode. */
+    yaml_char_t *buffer_alloc;
+
 } yaml_parser_t;
 
 /**

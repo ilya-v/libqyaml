@@ -59,6 +59,12 @@ YAML_DECLARE(int)
 yaml_parser_update_buffer(yaml_parser_t *parser, size_t length);
 
 /*
+ * Reader: Check if input data is all YAML-safe ASCII (printable + tab/LF/CR).
+ */
+int
+yaml_input_is_ascii(const unsigned char *data, size_t size);
+
+/*
  * The string read handler (used by reader.c for fast-path detection).
  */
 

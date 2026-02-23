@@ -49,6 +49,62 @@ yaml_reader_scan_ascii_sse2(const unsigned char *src, size_t len)
 #endif /* __SSE2__ && __x86_64__ */
 
 /*
+ * Check if a byte buffer is entirely composed of YAML-safe ASCII:
+ * printable (0x20-0x7E), tab (0x09), LF (0x0A), CR (0x0D).
+ * Returns 1 if all bytes are safe, 0 otherwise.
+ */
+int
+yaml_input_is_ascii(const unsigned char *data, size_t size)
+{
+    const unsigned char *p = data;
+    size_t remaining = size;
+
+#if defined(__SSE2__) && defined(__x86_64__)
+    /* SIMD: check 16 bytes at a time.
+     * A byte is valid if: (0x20 <= b <= 0x7E) || b == 0x09 || b == 0x0A || b == 0x0D.
+     * Equivalently, invalid if: b < 0x09, b == 0x0B, b == 0x0C, b in [0x0E..0x1F], b == 0x7F, b >= 0x80. */
+    {
+        const __m128i v_tab = _mm_set1_epi8(0x09);
+        const __m128i v_lf  = _mm_set1_epi8(0x0A);
+        const __m128i v_cr  = _mm_set1_epi8(0x0D);
+        const __m128i v_lo  = _mm_set1_epi8(0x1F);
+        const __m128i v_del = _mm_set1_epi8(0x7F);
+
+        while (remaining >= 16) {
+            __m128i data16 = _mm_loadu_si128((const __m128i *)p);
+            /* is_printable: 0x20..0x7E (not control, not DEL, not high) */
+            __m128i le_ctrl = _mm_cmpeq_epi8(_mm_max_epu8(data16, v_lo), v_lo);
+            __m128i eq_del = _mm_cmpeq_epi8(data16, v_del);
+            int hi_mask = _mm_movemask_epi8(data16);
+            int bad_mask = _mm_movemask_epi8(_mm_or_si128(le_ctrl, eq_del)) | hi_mask;
+
+            if (bad_mask) {
+                /* Some bytes are not printable. Check if they're tab/LF/CR. */
+                __m128i is_tab = _mm_cmpeq_epi8(data16, v_tab);
+                __m128i is_lf  = _mm_cmpeq_epi8(data16, v_lf);
+                __m128i is_cr  = _mm_cmpeq_epi8(data16, v_cr);
+                int ok_mask = _mm_movemask_epi8(_mm_or_si128(is_tab,
+                        _mm_or_si128(is_lf, is_cr)));
+                /* Any bad byte that's not tab/LF/CR is truly invalid */
+                if (bad_mask & ~ok_mask)
+                    return 0;
+            }
+            p += 16;
+            remaining -= 16;
+        }
+    }
+#endif
+
+    while (remaining > 0) {
+        unsigned char c = *p;
+        if (c >= 0x20 && c <= 0x7E) { p++; remaining--; continue; }
+        if (c == 0x09 || c == 0x0A || c == 0x0D) { p++; remaining--; continue; }
+        return 0;
+    }
+    return 1;
+}
+
+/*
  * Declarations.
  */
 
@@ -191,6 +247,54 @@ yaml_parser_update_buffer(yaml_parser_t *parser, size_t length)
     int first = 1;
 
     assert(parser->read_handler);   /* Read handler must be set. */
+
+    /* Zero-copy fast path for ASCII string input.  On the very first call
+     * to update_buffer, check if the entire input is YAML-safe ASCII.
+     * If so, point the scanner's buffer directly into the input string,
+     * eliminating all buffer copy and memmove overhead. */
+
+    if (parser->buffer_alloc) {
+        /* Already in zero-copy mode.  The only reason we're called is
+         * EOF (unread < length).  Transition back to the allocated buffer. */
+        if (parser->unread >= length)
+            return 1;
+        {
+            yaml_char_t *alloc = parser->buffer_alloc;
+            size_t remaining = parser->unread;
+            if (remaining > 0)
+                memcpy(alloc, parser->buffer.pointer, remaining);
+            alloc[remaining] = '\0';
+            parser->buffer.start = alloc;
+            parser->buffer.pointer = alloc;
+            parser->buffer.last = alloc + remaining + 1;
+            parser->buffer.end = alloc + INPUT_BUFFER_SIZE;
+            parser->unread = remaining + 1;
+            parser->buffer_alloc = NULL;
+            parser->eof = 1;
+            return 1;
+        }
+    }
+
+    if (!parser->encoding
+            && parser->read_handler == yaml_string_read_handler
+            && parser->raw_buffer.pointer == parser->raw_buffer.last)
+    {
+        /* First call: try to activate zero-copy mode. */
+        const unsigned char *input = parser->input.string.start;
+        size_t size = (size_t)(parser->input.string.end - parser->input.string.start);
+        if (size > 0 && yaml_input_is_ascii(input, size)) {
+            parser->buffer_alloc = parser->buffer.start;
+            parser->buffer.start = (yaml_char_t *)input;
+            parser->buffer.pointer = (yaml_char_t *)input;
+            parser->buffer.last = (yaml_char_t *)(input + size);
+            parser->buffer.end = (yaml_char_t *)(input + size);
+            parser->unread = size;
+            parser->offset = size;
+            parser->encoding = YAML_UTF8_ENCODING;
+            parser->input.string.current = parser->input.string.end;
+            return 1;
+        }
+    }
 
     /* If the EOF flag is set and the raw buffer is empty, do nothing. */
 
