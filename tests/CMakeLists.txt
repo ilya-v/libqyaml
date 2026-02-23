@@ -33,6 +33,7 @@ qyaml_add_test(reader-comprehensive test_reader_comprehensive.c)
 qyaml_add_test(errors-comprehensive test_errors_comprehensive.c)
 qyaml_add_test(emitter-comprehensive test_emitter_comprehensive.c)
 qyaml_add_test(loader-comprehensive test_loader_comprehensive.c)
+qyaml_add_test(truncation test_truncation.c)
 
 # OOM injection test: requires --wrap linker flag (Linux/GNU ld)
 # Tests that all allocation failure paths return errors cleanly
