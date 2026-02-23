@@ -66,6 +66,19 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
         target_link_options(test-alloc-tracker PRIVATE --coverage)
     endif()
     add_test(NAME alloc-tracker COMMAND test-alloc-tracker)
+
+    # Guard-page allocator test (Requirement 4.6)
+    # Places each allocation right-aligned against an inaccessible guard page.
+    # Any buffer overrun (even 1 byte) triggers an immediate segfault.
+    # Also catches use-after-free via munmap on free.
+    add_executable(test-guard-page test_guard_page.c)
+    target_link_libraries(test-guard-page qyaml)
+    target_compile_definitions(test-guard-page PRIVATE YAML_DECLARE_STATIC)
+    target_compile_options(test-guard-page PRIVATE -O0)
+    target_link_options(test-guard-page PRIVATE
+        -Wl,--wrap=malloc -Wl,--wrap=realloc -Wl,--wrap=calloc
+        -Wl,--wrap=free -Wl,--wrap=strdup)
+    add_test(NAME guard-page COMMAND test-guard-page)
 endif()
 
 # True differential test: compare against system libyaml via dlopen
