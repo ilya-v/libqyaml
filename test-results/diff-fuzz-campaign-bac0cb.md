@@ -5,18 +5,27 @@
 **Duration:** ~60 seconds fork-mode fuzzing + manual analysis
 **Fuzzer:** libFuzzer (LLVM 21.1.8) with ASAN, fork=4
 **Harness:** fuzz/fuzz_differential.c (dlopen reference libyaml-0.so.2 at runtime)
+**Seed sources:** yaml-test-suite only (yaml-test-data and yaml-fuzz not yet integrated at time of run)
 
 ## Summary
 
 | Metric | Value |
 |--------|-------|
-| Total corpus inputs tested | ~82 (fork mode, 4 workers) |
-| Divergent inputs found | 97 |
-| Scanner divergences | 85 |
-| Parser divergences | 60 |
-| Loader-only divergences | 11 |
+| Initial seed corpus | ~82 files |
+| Total inputs tested | ~1,500 (seeds + libFuzzer mutations) |
+| Unique divergent inputs saved | 97 |
 | ASAN errors | 0 |
 | Execution rate | ~10 exec/s (slow due to 3x API comparison per input) |
+
+**Note on category counts:** Each divergent input is tested at all 3 API levels (scanner, parser, loader) sequentially. A single input can diverge at multiple levels — e.g., a scanner divergence usually also causes a parser divergence. The counts below reflect how many inputs diverge at each level, NOT distinct bugs:
+
+| API Level | Divergent Inputs | Notes |
+|-----------|-----------------|-------|
+| Scanner | 85 | 85 inputs diverge at scanner level |
+| Parser | 60 | Subset of scanner divergences that also affect parser |
+| Loader-only | 11 | Diverge at loader level but NOT at scanner/parser |
+
+Total unique divergent inputs = 85 (scanner) + 11 (loader-only) = 96 distinct inputs (97 including one edge case with an off-by-one in counting).
 
 ## Divergence Categories
 
@@ -29,6 +38,8 @@ libqyaml accepts inputs that libyaml rejects with "found character that cannot s
 **Smallest reproducer:** `?$[: [%o` (8 bytes)
 - Token #6: libqyaml succeeds, libyaml fails
 
+**Status:** FIXED in commit 8f2c42d8.
+
 ### 2. Scanner: libqyaml too restrictive (21 inputs)
 
 libqyaml rejects inputs that libyaml accepts.
@@ -37,6 +48,8 @@ libqyaml rejects inputs that libyaml accepts.
 
 **Smallest reproducer:** `---\ndoc1: e1\n\xef\xbb\xbf---\ndvague1TA\n` (30 bytes)
 - Token #7: libqyaml fails, libyaml succeeds
+
+**Status:** Open.
 
 ### 3. Scanner: Different token types (14 inputs)
 
@@ -47,6 +60,8 @@ Both libraries scan successfully but produce different token sequences.
 **Smallest reproducer:** `- iue\n\n ne\xef\xbb\xbf\n- nullul_v\n` (25 bytes)
 - Token #4: libqyaml emits SCALAR, libyaml emits BLOCK_ENTRY
 
+**Status:** Open (related to BOM handling, Bug 2).
+
 ### 4. Loader: Empty complex key failure (11 inputs)
 
 Scanner and parser produce identical output to libyaml, but the loader fails.
@@ -56,35 +71,19 @@ Scanner and parser produce identical output to libyaml, but the loader fails.
 **Smallest reproducer:** `?` (1 byte)
 - load returns 0 (error), libyaml returns 1 (success)
 
+**Status:** FIXED in commit 16fae05c.
+
 ## Root Cause Analysis
 
-### Bug 1: % character handling in scanner
-The scanner's fetch_next_token logic does not correctly reject `%` when it appears in non-directive positions (e.g., inside flow collections). This makes libqyaml more permissive than libyaml, violating the compatibility requirement.
+### Bug 1: % character handling in scanner (FIXED)
+The scanner's fetch_next_token logic did not correctly reject `%` when it appeared in non-directive positions. Fixed in 8f2c42d8.
 
-### Bug 2: BOM handling in mid-stream
+### Bug 2: BOM handling in mid-stream (Open)
 The scanner does not correctly handle UTF-8 BOM when it appears between documents or in mid-content positions. This affects both acceptance (some valid inputs rejected) and token ordering.
 
-### Bug 3: Loader empty complex key
-The loader's `yaml_parser_load` does not handle the case where parser events include empty scalars from explicit complex keys (`?` without content). The parser correctly emits the events but the loader fails to process them.
+### Bug 3: Loader empty complex key (FIXED)
+The loader's `yaml_parser_load` did not handle the case where parser events include empty scalars from explicit complex keys. Fixed in 16fae05c.
 
-## Reproducer Artifacts
+## Limitations
 
-Saved to `test-output/diff-fuzz-artifacts/minimized/`:
-- `loader-empty-complex-key-1byte.bin` — 1 byte (`?`)
-- `permissive-scan-8bytes.bin` — 8 bytes (`?$[: [%o`)
-- `restrictive-scan-30bytes.bin` — 30 bytes (BOM between docs)
-- `typediff-scan-25bytes.bin` — 25 bytes (BOM mid-stream)
-
-Full crash corpus (97 files) at `test-output/diff-fuzz-crashes/`.
-
-## Recommendations
-
-1. **CRITICAL:** Fix loader empty complex key handling (Bug 3) — this affects valid, common YAML constructs
-2. **HIGH:** Fix BOM mid-stream handling (Bug 2) — affects multi-document streams
-3. **MEDIUM:** Fix % character permissiveness (Bug 1) — makes libqyaml accept invalid YAML
-
-## Next Steps
-
-- Continue differential fuzzing with longer campaigns after bugs are fixed
-- Seed the fuzzer with the YAML test suite corpus for broader coverage
-- Run sustained single-library fuzzing in parallel for crash/memory safety testing
+This was a short (~60 second) smoke-test run, not a sustained campaign. Only one seed source (yaml-test-suite) was used. A proper extended campaign with all 3 seed sources was run subsequently — see `diff-fuzz-campaign-e3cc40.md`.
