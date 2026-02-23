@@ -102,7 +102,7 @@ yaml_parser_load(yaml_parser_t *parser, yaml_document_t *document)
     assert(document);   /* Non-NULL document object is expected. */
 
     memset(document, 0, sizeof(yaml_document_t));
-    if (!STACK_INIT(parser, document->nodes, yaml_node_t*))
+    if (!STACK_INIT_SIZED(parser, document->nodes, yaml_node_t*, 256))
         goto error;
 
     if (!parser->stream_start_produced) {
@@ -120,8 +120,17 @@ yaml_parser_load(yaml_parser_t *parser, yaml_document_t *document)
         return 1;
     }
 
-    if (!STACK_INIT(parser, parser->aliases, yaml_alias_data_t*))
-        goto error_with_event;
+    /* Reuse existing aliases stack if already allocated (avoids
+     * malloc/free per load call). Allocate only on first use. */
+    if (parser->aliases.start) {
+        /* Free any leftover anchors (shouldn't happen, but defensive) */
+        while (!STACK_EMPTY(parser, parser->aliases)) {
+            yaml_free(POP(parser, parser->aliases).anchor);
+        }
+    } else {
+        if (!STACK_INIT(parser, parser->aliases, yaml_alias_data_t*))
+            goto error_with_event;
+    }
 
     parser->document = document;
 
@@ -188,7 +197,9 @@ yaml_parser_delete_aliases(yaml_parser_t *parser)
     while (!STACK_EMPTY(parser, parser->aliases)) {
         yaml_free(POP(parser, parser->aliases).anchor);
     }
-    STACK_DEL(parser, parser->aliases);
+    /* Don't free the stack itself -- it will be reused by the next
+     * yaml_parser_load call. The stack memory is freed when the
+     * parser is destroyed (yaml_parser_delete). */
 }
 
 /*

@@ -459,9 +459,12 @@ YAML_DECLARE(int)
 yaml_queue_extend(void **start, void **head, void **tail, void **end);
 
 #define STACK_INIT(context,stack,type)                                     \
-  (((stack).start = (type)yaml_malloc_internal(INITIAL_STACK_SIZE*sizeof(*(stack).start))) ? \
+    STACK_INIT_SIZED(context,stack,type,INITIAL_STACK_SIZE)
+
+#define STACK_INIT_SIZED(context,stack,type,size)                              \
+  (((stack).start = (type)yaml_malloc_internal((size)*sizeof(*(stack).start))) ? \
         ((stack).top = (stack).start,                                           \
-         (stack).end = (stack).start+INITIAL_STACK_SIZE,                        \
+         (stack).end = (stack).start+(size),                                    \
          1) :                                                                   \
         ((context)->error = YAML_MEMORY_ERROR,                                  \
          0))

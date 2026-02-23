@@ -237,6 +237,12 @@ yaml_parser_delete(yaml_parser_t *parser)
     }
     STACK_DEL(parser, parser->tag_directives);
 
+    /* Free the aliases stack (kept alive across load calls for reuse). */
+    while (!STACK_EMPTY(parser, parser->aliases)) {
+        yaml_free(POP(parser, parser->aliases).anchor);
+    }
+    STACK_DEL(parser, parser->aliases);
+
     memset(parser, 0, sizeof(yaml_parser_t));
 }
 
