@@ -573,6 +573,71 @@ static void test_emitter_options(void) {
     yaml_emitter_delete(&emitter);
 }
 
+/* Test UTF-16 emitter with surrogate pairs (writer.c lines 89,94,116-122) */
+static int utf16_write_handler(void *data, unsigned char *buffer, size_t size) {
+    (void)data; (void)buffer; (void)size;
+    return 1; /* Accept all output */
+}
+
+static void test_emitter_utf16_surrogate_pairs(void) {
+    yaml_emitter_t emitter;
+    yaml_event_t event;
+
+    /* U+1F600 (grinning face) is a 4-byte UTF-8 sequence: F0 9F 98 80
+     * In UTF-16, it requires a surrogate pair: D83D DE00 */
+    const unsigned char scalar_with_surrogate[] = {
+        0xF0, 0x9F, 0x98, 0x80, 0x00  /* U+1F600 + null terminator */
+    };
+
+    /* Test UTF-16LE */
+    yaml_emitter_initialize(&emitter);
+    yaml_emitter_set_output(&emitter, utf16_write_handler, NULL);
+    yaml_emitter_set_encoding(&emitter, YAML_UTF16LE_ENCODING);
+
+    yaml_stream_start_event_initialize(&event, YAML_UTF16LE_ENCODING);
+    yaml_emitter_emit(&emitter, &event);
+
+    yaml_document_start_event_initialize(&event, NULL, NULL, NULL, 1);
+    yaml_emitter_emit(&emitter, &event);
+
+    yaml_scalar_event_initialize(&event, NULL, NULL,
+        (yaml_char_t *)scalar_with_surrogate, 4,
+        1, 1, YAML_PLAIN_SCALAR_STYLE);
+    yaml_emitter_emit(&emitter, &event);
+
+    yaml_document_end_event_initialize(&event, 1);
+    yaml_emitter_emit(&emitter, &event);
+
+    yaml_stream_end_event_initialize(&event);
+    int result = yaml_emitter_emit(&emitter, &event);
+    ASSERT(result, "UTF-16LE emitter with surrogate pair should succeed");
+    yaml_emitter_delete(&emitter);
+
+    /* Test UTF-16BE */
+    yaml_emitter_initialize(&emitter);
+    yaml_emitter_set_output(&emitter, utf16_write_handler, NULL);
+    yaml_emitter_set_encoding(&emitter, YAML_UTF16BE_ENCODING);
+
+    yaml_stream_start_event_initialize(&event, YAML_UTF16BE_ENCODING);
+    yaml_emitter_emit(&emitter, &event);
+
+    yaml_document_start_event_initialize(&event, NULL, NULL, NULL, 1);
+    yaml_emitter_emit(&emitter, &event);
+
+    yaml_scalar_event_initialize(&event, NULL, NULL,
+        (yaml_char_t *)scalar_with_surrogate, 4,
+        1, 1, YAML_PLAIN_SCALAR_STYLE);
+    yaml_emitter_emit(&emitter, &event);
+
+    yaml_document_end_event_initialize(&event, 1);
+    yaml_emitter_emit(&emitter, &event);
+
+    yaml_stream_end_event_initialize(&event);
+    result = yaml_emitter_emit(&emitter, &event);
+    ASSERT(result, "UTF-16BE emitter with surrogate pair should succeed");
+    yaml_emitter_delete(&emitter);
+}
+
 /* Test alias resolution in loader */
 static void test_loader_alias(void) {
     const char *input = "---\na: &anchor value\nb: *anchor\n";
@@ -831,6 +896,7 @@ int main(void) {
     test_emitter_options();
     test_emitter_unicode();
     test_emitter_explicit_tags();
+    test_emitter_utf16_surrogate_pairs();
 
     printf("  Scanner edge cases:\n");
     test_tab_character_errors();
