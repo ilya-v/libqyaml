@@ -123,8 +123,29 @@ yaml_parser_load(yaml_parser_t *parser, yaml_document_t *document)
     assert(document);   /* Non-NULL document object is expected. */
 
     memset(document, 0, sizeof(yaml_document_t));
-    if (!STACK_INIT_SIZED(parser, document->nodes, yaml_node_t*, 256))
-        goto error;
+
+    /* Estimate initial node count from input size to avoid reallocs.
+     * Each node represents roughly 10 bytes of YAML on average.
+     * Clamp to [256, 16384] to avoid excessive allocation for huge inputs
+     * and ensure reasonable minimum for small inputs.
+     * Only for string inputs (file inputs don't know total size upfront). */
+    {
+        size_t init_nodes = 256;
+        if (parser->input.string.start && parser->input.string.end
+                && parser->input.string.end > parser->input.string.start) {
+            size_t input_size = parser->input.string.end
+                    - parser->input.string.start;
+            size_t estimate = input_size / 10;
+            if (estimate > init_nodes) {
+                /* Round up to next power of 2 */
+                init_nodes = 256;
+                while (init_nodes < estimate && init_nodes < 16384)
+                    init_nodes *= 2;
+            }
+        }
+        if (!STACK_INIT_SIZED(parser, document->nodes, yaml_node_t*, init_nodes))
+            goto error;
+    }
 
     if (!parser->stream_start_produced) {
         if (!yaml_parser_parse(parser, &event)) goto error;
