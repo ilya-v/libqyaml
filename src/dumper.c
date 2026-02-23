@@ -178,7 +178,8 @@ yaml_emitter_delete_document_and_anchors(yaml_emitter_t *emitter)
             < emitter->document->nodes.top; index ++) {
         yaml_node_t node = emitter->document->nodes.start[index];
         if (!emitter->anchors[index].serialized) {
-            yaml_free(node.tag);
+            if (!YAML_TAG_IS_INTERNED(node.tag))
+                yaml_free(node.tag);
             if (node.type == YAML_SCALAR_NODE) {
                 yaml_free(node.data.scalar.value);
             }
@@ -318,13 +319,19 @@ yaml_emitter_dump_scalar(yaml_emitter_t *emitter, yaml_node_t *node,
 {
     yaml_event_t event;
     yaml_mark_t mark  = { 0, 0, 0 };
+    yaml_char_t *tag = node->tag;
 
-    int plain_implicit = (strcmp((char *)node->tag,
+    int plain_implicit = (strcmp((char *)tag,
                 YAML_DEFAULT_SCALAR_TAG) == 0);
-    int quoted_implicit = (strcmp((char *)node->tag,
+    int quoted_implicit = (strcmp((char *)tag,
                 YAML_DEFAULT_SCALAR_TAG) == 0);
 
-    SCALAR_EVENT_INIT(event, anchor, node->tag, node->data.scalar.value,
+    if (YAML_TAG_IS_INTERNED(tag)) {
+        tag = yaml_strdup(tag);
+        if (!tag) return 0;
+    }
+
+    SCALAR_EVENT_INIT(event, anchor, tag, node->data.scalar.value,
             node->data.scalar.length, plain_implicit, quoted_implicit,
             node->data.scalar.style, mark, mark);
 
@@ -341,12 +348,18 @@ yaml_emitter_dump_sequence(yaml_emitter_t *emitter, yaml_node_t *node,
 {
     yaml_event_t event;
     yaml_mark_t mark  = { 0, 0, 0 };
+    yaml_char_t *tag = node->tag;
 
-    int implicit = (strcmp((char *)node->tag, YAML_DEFAULT_SEQUENCE_TAG) == 0);
+    int implicit = (strcmp((char *)tag, YAML_DEFAULT_SEQUENCE_TAG) == 0);
 
     yaml_node_item_t *item;
 
-    SEQUENCE_START_EVENT_INIT(event, anchor, node->tag, implicit,
+    if (YAML_TAG_IS_INTERNED(tag)) {
+        tag = yaml_strdup(tag);
+        if (!tag) return 0;
+    }
+
+    SEQUENCE_START_EVENT_INIT(event, anchor, tag, implicit,
             node->data.sequence.style, mark, mark);
     if (!yaml_emitter_emit(emitter, &event)) return 0;
 
@@ -371,12 +384,18 @@ yaml_emitter_dump_mapping(yaml_emitter_t *emitter, yaml_node_t *node,
 {
     yaml_event_t event;
     yaml_mark_t mark  = { 0, 0, 0 };
+    yaml_char_t *tag = node->tag;
 
-    int implicit = (strcmp((char *)node->tag, YAML_DEFAULT_MAPPING_TAG) == 0);
+    int implicit = (strcmp((char *)tag, YAML_DEFAULT_MAPPING_TAG) == 0);
 
     yaml_node_pair_t *pair;
 
-    MAPPING_START_EVENT_INIT(event, anchor, node->tag, implicit,
+    if (YAML_TAG_IS_INTERNED(tag)) {
+        tag = yaml_strdup(tag);
+        if (!tag) return 0;
+    }
+
+    MAPPING_START_EVENT_INIT(event, anchor, tag, implicit,
             node->data.mapping.style, mark, mark);
     if (!yaml_emitter_emit(emitter, &event)) return 0;
 

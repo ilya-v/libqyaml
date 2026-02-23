@@ -1134,7 +1134,8 @@ yaml_document_delete(yaml_document_t *document)
 
     while (!STACK_EMPTY(&context, document->nodes)) {
         yaml_node_t node = POP(&context, document->nodes);
-        yaml_free(node.tag);
+        if (!YAML_TAG_IS_INTERNED(node.tag))
+            yaml_free(node.tag);
         switch (node.type) {
             case YAML_SCALAR_NODE:
                 yaml_free(node.data.scalar.value);

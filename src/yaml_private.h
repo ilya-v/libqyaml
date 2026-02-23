@@ -25,6 +25,20 @@ YAML_DECLARE(yaml_char_t *)
 yaml_strdup(const yaml_char_t *);
 
 /*
+ * Interned default tag strings (defined in loader.c).
+ * Used by yaml_document_delete to skip freeing shared tag pointers.
+ */
+
+extern const yaml_char_t yaml_interned_str_tag[];
+extern const yaml_char_t yaml_interned_seq_tag[];
+extern const yaml_char_t yaml_interned_map_tag[];
+
+#define YAML_TAG_IS_INTERNED(tag) \
+    ((const yaml_char_t *)(tag) == yaml_interned_str_tag || \
+     (const yaml_char_t *)(tag) == yaml_interned_seq_tag || \
+     (const yaml_char_t *)(tag) == yaml_interned_map_tag)
+
+/*
  * Reader: Ensure that the buffer contains at least `length` characters.
  */
 
