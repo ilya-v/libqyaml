@@ -3345,14 +3345,76 @@ yaml_parser_scan_flow_scalar(yaml_parser_t *parser, yaml_token_t *token,
     yaml_string_t whitespaces = NULL_STRING;
     int leading_blanks;
 
-    if (!STRING_INIT(parser, string, INITIAL_STRING_SIZE)) goto error;
-    /* Auxiliary buffers allocated lazily -- only needed for multiline scalars */
-
     /* Eat the left quote. */
 
     start_mark = parser->mark;
 
     SKIP(parser);
+
+    /*
+     * Fast path for simple quoted scalars: scan for the closing quote
+     * in the buffer without escape sequences, line breaks, or non-ASCII.
+     * For single-quoted strings: no '' escape pairs allowed.
+     * For double-quoted strings: no backslash escapes allowed.
+     */
+    if (__builtin_expect(parser->unread >= 1, 1)) {
+        yaml_char_t *src = parser->buffer.pointer;
+        size_t avail = parser->unread;
+        size_t n;
+        yaml_char_t quote_ch = single ? '\'' : '"';
+
+#ifdef HAVE_SIMD_SCAN
+        n = yaml_scan_flow_scalar_sse2(src, avail, quote_ch);
+#else
+        {
+            yaml_char_t *p = src;
+            yaml_char_t *lim = src + avail;
+            if (single) {
+                while (p < lim) {
+                    unsigned char ch = *p;
+                    if (ch <= 0x20 || ch >= 0x80 || ch == '\'')
+                        break;
+                    p++;
+                }
+            } else {
+                while (p < lim) {
+                    unsigned char ch = *p;
+                    if (ch <= 0x20 || ch >= 0x80 || ch == '"' || ch == '\\')
+                        break;
+                    p++;
+                }
+            }
+            n = (size_t)(p - src);
+        }
+#endif
+        /* Fast path: the scan stopped at the closing quote.
+         * For single-quoted strings, reject '' escape pairs. */
+        if (n < avail && src[n] == quote_ch
+                && !(single && n + 1 < avail && src[n + 1] == '\'')) {
+            yaml_char_t *value = (yaml_char_t *)yaml_malloc(n + 1);
+            if (!value) {
+                parser->error = YAML_MEMORY_ERROR;
+                return 0;
+            }
+            memcpy(value, src, n);
+            value[n] = '\0';
+
+            parser->buffer.pointer += n + 1; /* skip content + closing quote */
+            parser->mark.index += n + 1;
+            parser->mark.column += n + 1;
+            parser->unread -= n + 1;
+            end_mark = parser->mark;
+
+            SCALAR_TOKEN_INIT(*token, value, n,
+                    single ? YAML_SINGLE_QUOTED_SCALAR_STYLE
+                           : YAML_DOUBLE_QUOTED_SCALAR_STYLE,
+                    start_mark, end_mark);
+            return 1;
+        }
+    }
+
+    if (!STRING_INIT(parser, string, INITIAL_STRING_SIZE)) goto error;
+    /* Auxiliary buffers allocated lazily -- only needed for multiline scalars */
 
     /* Consume the content of the quoted scalar. */
 
