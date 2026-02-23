@@ -54,11 +54,11 @@ Four Claude Code agents run in this setup:
 
 **`CLAUDE.md`** — Shared project instructions that all agents see. Includes the directive to treat `process-administrator` messages with highest priority.
 
-**`.claude/agents/coordinator.md`** — Coordinator agent definition.
+**`.claude/agents/coordinator.md`** — Coordinator agent definition. **Self-contained:** includes the full contents of `process/coordinator-rules.md` embedded directly, so the agent has its rules from the moment it spawns (no inbox delivery needed).
 
-**`.claude/agents/worker.md`** — Worker agent definition.
+**`.claude/agents/worker.md`** — Worker agent definition. **Self-contained:** includes the full contents of `process/worker-rules.md`.
 
-**`.claude/agents/tester.md`** — Tester agent definition.
+**`.claude/agents/tester.md`** — Tester agent definition. **Self-contained:** includes the full contents of `process/tester-rules.md`.
 
 ### Runtime artifacts (gitignored)
 
@@ -76,7 +76,13 @@ Four Claude Code agents run in this setup:
 
 ## How It Works
 
-### Rule injection
+### Agent definitions are self-contained
+
+Each agent's `.claude/agents/*.md` file includes its full behavioral rules embedded directly. This means agents have their rules from the moment they spawn — no inbox delivery needed. This solves the "first-turn deafness" problem: agents don't read their inbox until their first turn completes, which can take hours. With rules in the agent definition, they're loaded as part of the system prompt at spawn time.
+
+The `process/*-rules.md` files remain the canonical source of truth. When updating rules, edit the `process/` file first, then re-embed it in the corresponding agent definition.
+
+### Rule injection (backup for context compaction)
 
 The `TeammateIdle` hook fires on the main agent whenever a teammate (coordinator, worker, or tester) goes idle — which happens between every turn. The hook script:
 
@@ -136,9 +142,11 @@ The worker and tester share the `master` branch but work in separate trees to av
 1. Start Claude Code in the project directory
 2. Tell the main session: "Read PROCESS.md, create a team, spawn a coordinator, a worker, and a tester"
 3. The main session spawns all three agents via `Task` tool with `subagent_type: "coordinator"`, `subagent_type: "worker"`, and `subagent_type: "tester"`
-4. Agents begin communicating via `SendMessage`
-5. Rule injection happens automatically every 10 minutes via the `TeammateIdle` hook
-6. The main session stays idle unless it needs to intervene
+4. Agents start with their full rules already loaded (embedded in `.claude/agents/*.md`)
+5. The main session sends each agent its rules via `SendMessage` — this creates the inbox files (needed for the injection hook) and provides a redundant copy
+6. Agents begin communicating via `SendMessage`
+7. Rule injection happens automatically every 10 minutes via the `TeammateIdle` hook (backup for context compaction)
+8. The main session stays idle unless it needs to intervene
 
 ## Adapting This for Another Project
 

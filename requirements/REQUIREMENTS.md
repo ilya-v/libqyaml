@@ -82,10 +82,57 @@ Create an API-compatible drop-in replacement for libyaml, focused on optimizatio
   - Benchmark results against the baseline reference library (libyaml) across the standard workload set
 - The fast validation pass (compile + unit test subset + benchmarks) must complete within 30 seconds — this requires a dedicated curated subset of tests designed to fit the time budget while still providing meaningful coverage
 - Benchmarks against the reference library should run at least once per validation, and may run multiple times for statistical confidence if time permits
-- Validation reports are committed to the repository as artifacts, tagged with the commit ID they validated
+- Validation reports are committed to `test-results/`, tagged with the commit ID they validated
 - The full test suite (sanitizers, fuzzing, OOM injection, etc.) runs separately and does not need to fit in the 30-second budget
 
-## 5. Performance
+## 5. Directory Structure
+
+### 5.1 Source Code (git-tracked)
+
+| Directory | Contents | Owner |
+|-----------|----------|-------|
+| `src/` | Library implementation (C source files) | Worker |
+| `include/` | Public API headers | Worker |
+| `tests/` | Test source code (unit tests, integration tests, conformance tests) | Tester |
+| `bench/` | Benchmark source code and workload data | Tester |
+| `fuzz/` | Fuzz harness source code | Tester |
+
+### 5.2 Build Output (gitignored)
+
+| Directory | Contents |
+|-----------|----------|
+| `build/` | CMake build output (main tree) |
+| `build-*/` | Variant builds (debug, release, asan, coverage, pgo, etc.) |
+| `.worktree/` | Git worktree used by the tester for isolated builds |
+
+### 5.3 Testing Artifacts
+
+| Directory | Contents | Tracked |
+|-----------|----------|---------|
+| `test-output/` | Transient testing artifacts — raw logs, intermediate results, scratch data. Gitignored. May be deleted at any time without loss. | No |
+| `test-results/` | Permanent testing records — per-commit validation reports, benchmark reports, coverage reports, fuzz campaign summaries, safety audit reports. All significant testing artifacts must be written here or copied here. Tagged with the commit ID they cover. | Yes |
+
+**Rules for `test-results/`:**
+- Every per-commit validation report goes here (not `test-output/`)
+- Benchmark comparison reports go here
+- Coverage analysis reports go here
+- Fuzz campaign summaries go here (corpus stats, crashes found, time run)
+- Safety audit reports (ASAN, UBSAN, Valgrind, guard-page, alloc-tracker) go here
+- Files must be tagged with the 6-character commit ID they cover (e.g., `validation-a1b2c3.md`, `benchmark-a1b2c3.md`)
+- This directory is the permanent record of the project's quality history
+
+### 5.4 Other Directories
+
+| Directory | Contents | Tracked |
+|-----------|----------|---------|
+| `reference/` | Reference libyaml source and pre-built library | Yes |
+| `requirements/` | Project requirements (this file) | Yes |
+| `process/` | Agent rules and process scripts | Yes |
+| `cmake/` | CMake modules and helpers | Yes |
+| `scripts/` | Utility scripts | Yes |
+| `logs/` | Runtime logs (injection, project log) | No |
+
+## 6. Performance
 
 - Benchmark against libyaml and other best-in-class YAML parsers
 - Target: at least 10x faster than libyaml on most throughput metrics
@@ -93,7 +140,7 @@ Create an API-compatible drop-in replacement for libyaml, focused on optimizatio
 - Benchmark on a variety of input types (small documents, large documents, deeply nested, many scalars, etc.)
 - A major or total architecture rework is a viable path to achieving the throughput targets — do not limit optimization to incremental micro-optimizations on the existing libyaml architecture if a redesign would yield better results
 
-## 6. Process
+## 7. Process
 
 - Report status to the coordinator after every meaningful step — before and after making changes, after running tests, whenever hitting a blocker. Never work silently.
 - Listen to the coordinator's guidance on priorities and project direction
