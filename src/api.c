@@ -245,7 +245,7 @@ yaml_parser_delete(yaml_parser_t *parser)
  * String read handler.
  */
 
-static int
+int
 yaml_string_read_handler(void *data, unsigned char *buffer, size_t size,
         size_t *size_read)
 {
@@ -1006,19 +1006,25 @@ yaml_event_delete(yaml_event_t *event)
             break;
 
         case YAML_SCALAR_EVENT:
-            yaml_free(event->data.scalar.anchor);
-            yaml_free(event->data.scalar.tag);
+            if (event->data.scalar.anchor)
+                yaml_free(event->data.scalar.anchor);
+            if (event->data.scalar.tag)
+                yaml_free(event->data.scalar.tag);
             yaml_free(event->data.scalar.value);
             break;
 
         case YAML_SEQUENCE_START_EVENT:
-            yaml_free(event->data.sequence_start.anchor);
-            yaml_free(event->data.sequence_start.tag);
+            if (event->data.sequence_start.anchor)
+                yaml_free(event->data.sequence_start.anchor);
+            if (event->data.sequence_start.tag)
+                yaml_free(event->data.sequence_start.tag);
             break;
 
         case YAML_MAPPING_START_EVENT:
-            yaml_free(event->data.mapping_start.anchor);
-            yaml_free(event->data.mapping_start.tag);
+            if (event->data.mapping_start.anchor)
+                yaml_free(event->data.mapping_start.anchor);
+            if (event->data.mapping_start.tag)
+                yaml_free(event->data.mapping_start.tag);
             break;
 
         default:

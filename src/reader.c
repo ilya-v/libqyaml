@@ -176,6 +176,77 @@ yaml_parser_update_buffer(yaml_parser_t *parser, size_t length)
         parser->buffer.last = parser->buffer.start;
     }
 
+    /*
+     * Fast path for string input with UTF-8 encoding: copy ASCII content
+     * directly from the input string to the decoded buffer, bypassing
+     * the raw buffer entirely.  This eliminates one full memcpy and all
+     * raw buffer management overhead for the common case.
+     */
+
+    if (parser->encoding == YAML_UTF8_ENCODING
+            && parser->read_handler == yaml_string_read_handler
+            && parser->raw_buffer.pointer == parser->raw_buffer.last)
+    {
+        while (parser->unread < length)
+        {
+            const unsigned char *src = parser->input.string.current;
+            const unsigned char *src_end = parser->input.string.end;
+
+            if (src >= src_end) {
+                /* EOF: put NUL sentinel and return */
+                if (!parser->eof) {
+                    parser->eof = 1;
+                }
+                *(parser->buffer.last++) = '\0';
+                parser->unread ++;
+                return 1;
+            }
+
+            /* Scan for valid ASCII run directly in the input string */
+            {
+                const unsigned char *run_start = src;
+                size_t buf_avail = (size_t)(parser->buffer.end
+                                    - parser->buffer.last);
+                const unsigned char *scan_end = src_end;
+                if ((size_t)(scan_end - src) > buf_avail)
+                    scan_end = src + buf_avail;
+
+                while (src < scan_end) {
+                    unsigned char c = *src;
+                    if (c >= 0x20) {
+                        if (c <= 0x7E) { src++; continue; }
+                        break; /* c == 0x7F or c >= 0x80 */
+                    }
+                    if (c == 0x0A || c == 0x0D || c == 0x09) {
+                        src++; continue;
+                    }
+                    break; /* control character or non-ASCII */
+                }
+
+                if (src > run_start) {
+                    size_t n = (size_t)(src - run_start);
+                    memcpy(parser->buffer.last, run_start, n);
+                    parser->buffer.last += n;
+                    parser->offset += n;
+                    parser->unread += n;
+                    parser->input.string.current = src;
+                    continue;
+                }
+            }
+
+            /* Non-ASCII or control character: fall back to normal path */
+            break;
+        }
+
+        /* If we got enough characters, return success */
+        if (parser->unread >= length)
+            return 1;
+
+        /* Otherwise fall through to the normal raw-buffer path for
+         * non-ASCII content. First, ensure the raw buffer has data
+         * by loading from the input string via the normal handler. */
+    }
+
     /* Fill the buffer until it has enough characters. */
 
     while (parser->unread < length)

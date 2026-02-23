@@ -431,8 +431,10 @@ yaml_parser_load_scalar(yaml_parser_t *parser, yaml_event_t *event,
 
     index = parser->document->nodes.top - parser->document->nodes.start;
 
-    if (!yaml_parser_register_anchor(parser, index,
-                event->data.scalar.anchor)) return 0;
+    if (event->data.scalar.anchor) {
+        if (!yaml_parser_register_anchor(parser, index,
+                    event->data.scalar.anchor)) return 0;
+    }
 
     return yaml_parser_load_node_add(parser, ctx, index);
 
@@ -478,8 +480,10 @@ yaml_parser_load_sequence(yaml_parser_t *parser, yaml_event_t *event,
 
     index = parser->document->nodes.top - parser->document->nodes.start;
 
-    if (!yaml_parser_register_anchor(parser, index,
-                event->data.sequence_start.anchor)) return 0;
+    if (event->data.sequence_start.anchor) {
+        if (!yaml_parser_register_anchor(parser, index,
+                    event->data.sequence_start.anchor)) return 0;
+    }
 
     if (!yaml_parser_load_node_add(parser, ctx, index)) return 0;
 
@@ -549,8 +553,10 @@ yaml_parser_load_mapping(yaml_parser_t *parser, yaml_event_t *event,
 
     index = parser->document->nodes.top - parser->document->nodes.start;
 
-    if (!yaml_parser_register_anchor(parser, index,
-                event->data.mapping_start.anchor)) return 0;
+    if (event->data.mapping_start.anchor) {
+        if (!yaml_parser_register_anchor(parser, index,
+                    event->data.mapping_start.anchor)) return 0;
+    }
 
     if (!yaml_parser_load_node_add(parser, ctx, index)) return 0;
 

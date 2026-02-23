@@ -823,16 +823,25 @@ yaml_parser_fetch_more_tokens(yaml_parser_t *parser)
         {
             yaml_simple_key_t *simple_key;
             size_t tokens_parsed = parser->tokens_parsed;
+            size_t mark_line = parser->mark.line;
+            size_t mark_index = parser->mark.index;
 
-            /* Check if any potential simple key may occupy the head position. */
-
-            if (!yaml_parser_stale_simple_keys(parser))
-                return 0;
+            /* Combined: check stale simple keys + head-position check. */
 
             for (simple_key = parser->simple_keys.start;
                     simple_key != parser->simple_keys.top; simple_key++) {
-                if (simple_key->possible
-                        && simple_key->token_number == tokens_parsed) {
+                if (!simple_key->possible) continue;
+                if (simple_key->mark.line < mark_line
+                        || simple_key->mark.index+1024 < mark_index) {
+                    if (simple_key->required) {
+                        return yaml_parser_set_scanner_error(parser,
+                                "while scanning a simple key", simple_key->mark,
+                                "could not find expected ':'");
+                    }
+                    simple_key->possible = 0;
+                    continue;
+                }
+                if (simple_key->token_number == tokens_parsed) {
                     need_more_tokens = 1;
                     break;
                 }
@@ -882,9 +891,10 @@ yaml_parser_fetch_next_token(yaml_parser_t *parser)
     if (!yaml_parser_stale_simple_keys(parser))
         return 0;
 
-    /* Check the indentation level against the current column (block context only). */
+    /* Check the indentation level against the current column (block context only).
+     * Inline the common case where indent <= column (no unrolling needed). */
 
-    if (!parser->flow_level) {
+    if (!parser->flow_level && parser->indent > (ptrdiff_t)parser->mark.column) {
         if (!yaml_parser_unroll_indent(parser, parser->mark.column))
             return 0;
     }
@@ -2341,11 +2351,49 @@ yaml_parser_scan_anchor(yaml_parser_t *parser, yaml_token_t *token,
 
     SKIP(parser);
 
-    /* Consume the value. */
+    /* Consume the value (batch-copy alphanumeric ASCII). */
 
     if (!CACHE(parser, 1)) goto error;
 
     while (IS_ALPHA(parser->buffer)) {
+        /* Batch-copy anchor/alias characters */
+        {
+            yaml_char_t *src = parser->buffer.pointer;
+            yaml_char_t *lim = src + parser->unread;
+            yaml_char_t *start = src;
+            while (src < lim) {
+                unsigned char ch = *src;
+                if ((ch >= '0' && ch <= '9')
+                    || (ch >= 'A' && ch <= 'Z')
+                    || (ch >= 'a' && ch <= 'z')
+                    || ch == '_' || ch == '-') {
+                    src++;
+                } else {
+                    break;
+                }
+            }
+            if (src > start) {
+                size_t n = (size_t)(src - start);
+                while (string.pointer + n + 5 >= string.end) {
+                    if (!yaml_string_extend(&string.start,
+                            &string.pointer, &string.end)) {
+                        parser->error = YAML_MEMORY_ERROR;
+                        goto error;
+                    }
+                }
+                memcpy(string.pointer, start, n);
+                string.pointer += n;
+                parser->buffer.pointer = src;
+                parser->mark.index += n;
+                parser->mark.column += n;
+                parser->unread -= n;
+                length += (int)n;
+                if (parser->unread == 0) {
+                    if (!CACHE(parser, 1)) goto error;
+                }
+                continue;
+            }
+        }
         if (!READ(parser, string)) goto error;
         if (!CACHE(parser, 1)) goto error;
         length ++;
@@ -3015,14 +3063,35 @@ yaml_parser_scan_block_scalar_breaks(yaml_parser_t *parser,
 
     while (1)
     {
-        /* Eat the indentation spaces. */
+        /* Eat the indentation spaces (batch skip). */
 
         if (!CACHE(parser, 1)) return 0;
 
-        while ((!*indent || (int)parser->mark.column < *indent)
-                && IS_SPACE(parser->buffer)) {
-            SKIP(parser);
-            if (!CACHE(parser, 1)) return 0;
+        {
+            int target_col = *indent;
+            while ((!target_col || (int)parser->mark.column < target_col)
+                    && IS_SPACE(parser->buffer))
+            {
+                /* Batch-skip spaces up to indent limit or buffer end */
+                yaml_char_t *ptr = parser->buffer.pointer;
+                yaml_char_t *limit = ptr + parser->unread;
+                if (target_col) {
+                    size_t max_skip = (size_t)(target_col - (int)parser->mark.column);
+                    if ((size_t)(limit - ptr) > max_skip)
+                        limit = ptr + max_skip;
+                }
+                while (ptr < limit && *ptr == ' ') ptr++;
+                if (ptr > parser->buffer.pointer) {
+                    size_t n = (size_t)(ptr - parser->buffer.pointer);
+                    parser->buffer.pointer = ptr;
+                    parser->mark.index += n;
+                    parser->mark.column += n;
+                    parser->unread -= n;
+                }
+                if (parser->unread == 0) {
+                    if (!CACHE(parser, 1)) return 0;
+                }
+            }
         }
 
         if ((int)parser->mark.column > max_indent)
@@ -3322,18 +3391,26 @@ yaml_parser_scan_flow_scalar(yaml_parser_t *parser, yaml_token_t *token,
                  * Non-escaped non-blank character. Try batch copy for
                  * ASCII characters that cannot be special in this context.
                  */
-                if (parser->unread >= 4) {
+                {
                     yaml_char_t *src = parser->buffer.pointer;
                     yaml_char_t *lim = src + parser->unread - 1;
                     yaml_char_t *start = src;
-                    unsigned char quote = single ? '\'' : '"';
 
-                    while (src < lim) {
-                        unsigned char ch = *src;
-                        if (ch <= 0x20 || ch >= 0x80
-                            || ch == quote || ch == '\\')
-                            break;
-                        src++;
+                    if (single) {
+                        while (src < lim) {
+                            unsigned char ch = *src;
+                            if (ch <= 0x20 || ch >= 0x80 || ch == '\'')
+                                break;
+                            src++;
+                        }
+                    } else {
+                        while (src < lim) {
+                            unsigned char ch = *src;
+                            if (ch <= 0x20 || ch >= 0x80
+                                || ch == '"' || ch == '\\')
+                                break;
+                            src++;
+                        }
                     }
 
                     if (src > start) {

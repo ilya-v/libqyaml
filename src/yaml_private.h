@@ -32,6 +32,14 @@ YAML_DECLARE(int)
 yaml_parser_update_buffer(yaml_parser_t *parser, size_t length);
 
 /*
+ * The string read handler (used by reader.c for fast-path detection).
+ */
+
+int
+yaml_string_read_handler(void *data, unsigned char *buffer, size_t size,
+        size_t *size_read);
+
+/*
  * Scanner: Ensure that the token stack contains at least one token ready.
  */
 
