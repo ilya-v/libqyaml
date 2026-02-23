@@ -33,24 +33,28 @@ if [ -z "$TEAMMATE" ] || [ -z "$TEAM" ]; then
   exit 0
 fi
 
-# Map teammate name to rules file
-RULES_FILE=""
+# Map teammate name to agent definition file (single source of truth)
+AGENTS_DIR="$PROJECT_DIR/.claude/agents"
+AGENT_FILE=""
 case "$TEAMMATE" in
-  coordinator)  RULES_FILE="$SCRIPT_DIR/coordinator-rules.md" ;;
-  worker|worker-*)  RULES_FILE="$SCRIPT_DIR/worker-rules.md" ;;
-  strategic-tester|strategic-tester-*)  RULES_FILE="$SCRIPT_DIR/strategic-tester-rules.md" ;;
-  tester|tester-*)  RULES_FILE="$SCRIPT_DIR/tester-rules.md" ;;
+  coordinator)  AGENT_FILE="$AGENTS_DIR/coordinator.md" ;;
+  worker|worker-*)  AGENT_FILE="$AGENTS_DIR/worker.md" ;;
+  strategic-tester|strategic-tester-*)  AGENT_FILE="$AGENTS_DIR/strategic-tester.md" ;;
+  tester|tester-*)  AGENT_FILE="$AGENTS_DIR/tester.md" ;;
 esac
 
-if [ -z "$RULES_FILE" ]; then
-  echo "$TS   SKIP: no rules mapping for teammate=$TEAMMATE" >> "$LOG"
+if [ -z "$AGENT_FILE" ]; then
+  echo "$TS   SKIP: no agent definition mapping for teammate=$TEAMMATE" >> "$LOG"
   exit 0
 fi
 
-if [ ! -f "$RULES_FILE" ]; then
-  echo "$TS   ERROR: rules file not found: $RULES_FILE" >> "$LOG"
+if [ ! -f "$AGENT_FILE" ]; then
+  echo "$TS   ERROR: agent definition not found: $AGENT_FILE" >> "$LOG"
   exit 0
 fi
+
+# Use the agent definition file for rate limiting and content
+RULES_FILE="$AGENT_FILE"
 
 # Inbox path
 INBOX="$HOME/.claude/teams/$TEAM/inboxes/${TEAMMATE}.json"
@@ -81,9 +85,9 @@ elif [ "$ELAPSED" -lt "$INJECT_INTERVAL" ]; then
 fi
 echo "$TS   rate check: last inject ${ELAPSED}s ago, proceeding" >> "$LOG"
 
-# Read rules content
-RULES=$(cat "$RULES_FILE")
-echo "$TS   rules loaded: $(echo "$RULES" | wc -c) bytes" >> "$LOG"
+# Read rules content, stripping YAML frontmatter (---\n...\n---) if present
+RULES=$(awk 'BEGIN{f=0; hf=0} NR==1 && /^---$/{hf=1; f++; next} hf && f<2 && /^---$/{f++; next} f>=2 || hf==0{print}' "$RULES_FILE")
+echo "$TS   rules loaded: $(echo "$RULES" | wc -c) bytes (from $RULES_FILE)" >> "$LOG"
 
 # Build the message JSON
 MSG=$(jq -n \

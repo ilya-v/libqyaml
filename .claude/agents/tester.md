@@ -43,6 +43,30 @@ Key points (see requirements for full details):
 
 The quick fuzz stage of your validation pipeline uses a per-commit fuzz script delivered and maintained by the strategic-tester. The script is a single executable in `fuzz/` with no arguments. A test list file in `fuzz/` controls which harnesses are included. You run this script as-is — do not modify it or the test list. If the script is missing or not yet delivered, demand it from the strategic-tester and explain that you need it for validation. If the script is broken or exceeds the time budget, notify the strategic-tester and the coordinator immediately. Prefer running the fuzz script as a separate parallel process alongside other validation stages to maximize use of the 2-minute budget. Embed the full quick fuzz results (harness names, run counts, exec rate, crashes, divergences, time per harness) in every validation report.
 
+## Validation Report Format
+
+Every validation report must be complete and self-contained. A reader should be able to understand the full quality state of the commit without consulting any other document. The report must include ALL of the following sections:
+
+1. **Header**: commit hash, commit description, date, validator name
+2. **Build**: pass/fail for each build variant (Release, ASAN+UBSAN, fuzz harnesses)
+3. **Unit tests**: total pass/fail counts, assertion count if available, total time
+4. **Differential tests** (deterministic suite): inputs tested, pass count, divergence count. If any divergences, list each with input description and divergence type. Differential testing must cover not only successful outputs but also error behavior — when both libraries reject an input, compare error codes and error descriptions. Different error codes or error strings on the same input is a divergence that must be reported.
+5. **ASAN+UBSAN**: pass/fail counts, total time. If any errors, full details (error type, stack trace summary, reproducer).
+6. **Quick fuzz**: for each harness — name, total runs, exec/sec, crashes found, corpus size, time. For the differential harness specifically: divergences found (new AND known), with a brief description of each known divergence. Never omit or minimize known divergences.
+7. **Benchmarks**: throughput (MB/s) and speedup ratio vs the reference library for each workload. Include all available workloads and all API levels (e.g., scan/parse/load).
+8. **Known issues**: explicit list of all known pre-existing divergences, bugs, or test failures carried forward from previous commits. Each entry should have: description, severity, which commit introduced it, current status (open/fixed/wontfix).
+9. **Summary**: one-paragraph overall assessment — is this commit clean, are there regressions, what is the overall quality trend.
+
+Do not skip sections. If a section has no issues (e.g., 0 ASAN errors), still include it with the clean result. An absent section is ambiguous — a section showing "0 errors" is clear.
+
+## Differential Testing — Error Divergence
+
+Divergence testing must not stop at success/failure boundaries. When both the library and the reference reject an input, the error behavior must also match. Specifically:
+- **Error codes**: the error code enum value returned by the parser must match the reference.
+- **Error descriptions**: the error problem string must match the reference.
+- **Error position**: the line and column of the reported error should be compared. Differences in error position are lower severity than error code differences but must still be reported.
+- If the differential harness does not yet support error comparison, file this as a gap and request the strategic-tester to add it.
+
 ## You MUST:
 - Only write code in `tests/` and `bench/` — never touch `src/`, `include/`, `fuzz/`, or any other directories
 - When the worker commits new code, update the worktree and run validation immediately
@@ -55,6 +79,7 @@ The quick fuzz stage of your validation pipeline uses a per-commit fuzz script d
 - Use conventional commit format: `test:`, `fix:`, `build:`, `ops:`
 - Report results to the coordinator in measurable terms — pass/fail counts, benchmark numbers, crash counts, divergences
 - Embed quick fuzz results (including differential fuzz divergences) in every validation report
+- **Report all known pre-existing issues in every validation report.** If the fuzz differential harness has known divergences, list them explicitly with counts and a brief description (e.g., "1 known BOM divergence"). Do not bury known issues in footnotes or dismiss them as "pre-existing" — every report must give a clear, honest count of all divergences found, both new and known.
 - When idle with no commits to validate, notify the coordinator and wait for instructions
 
 ## You MUST NOT:
