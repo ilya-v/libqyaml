@@ -37,8 +37,10 @@ Create an API-compatible drop-in replacement for libyaml, focused on optimizatio
 - **Bonus: if fuzzing discovers bugs in libyaml itself, document them and ensure libqyaml avoids them**
 
 ### 4.4 Differential Testing
-- Compare libqyaml output against libyaml output on the same inputs
+- Feed identical inputs to both libqyaml and the reference libyaml, and compare their outputs byte-for-byte at every API level (scanner tokens, parser events, loaded documents)
 - Any divergence is a bug in libqyaml (unless it's a documented libyaml bug)
+- Inputs must include: the standard benchmark workloads, the YAML test suite corpus, the fuzz corpus, and any regression inputs from previously found bugs
+- Differential testing must be part of the per-commit validation pipeline (see the per-commit validation section) — it is not optional background work
 
 ### 4.5 OOM Injection
 - Systematically fail every allocation point (malloc, realloc, calloc) and verify the library handles it gracefully — no crashes, no leaks, no undefined behavior
@@ -75,15 +77,45 @@ Create an API-compatible drop-in replacement for libyaml, focused on optimizatio
   - **Full test set**: includes all tests, run before commits and during CI
 - Development iteration always uses the light test set to keep the feedback loop fast
 
-### 4.11 Per-Commit Validation Reports
-- Every code change commit must be followed by a committed validation report covering that commit
-- Each validation report must include:
-  - A fast unit test subset providing overall test coverage (pass/fail counts, assertion counts, coverage percentage)
-  - Benchmark results against the baseline reference library (libyaml) across the standard workload set
-- The fast validation pass (compile + unit test subset + benchmarks) must complete within 30 seconds — this requires a dedicated curated subset of tests designed to fit the time budget while still providing meaningful coverage
-- Benchmarks against the reference library should run at least once per validation, and may run multiple times for statistical confidence if time permits
-- Validation reports are committed to `test-results/`, tagged with the commit ID they validated
-- The full test suite (sanitizers, fuzzing, OOM injection, etc.) runs separately and does not need to fit in the 30-second budget
+### 4.11 Per-Commit Validation
+
+Every code change commit must be followed by a validation pass. The validation pass must take **at least 2 minutes and at most 2 minutes** per commit. If the pipeline finishes early, add more tests or repeat tests to fill the budget. If it exceeds the budget, trim lower-priority items.
+
+#### 4.11.1 Validation Pipeline
+
+The validation pipeline runs the following stages in order. All stages are mandatory for every commit.
+
+| Stage | Description | Failure action |
+|-------|-------------|----------------|
+| **Build** | Compile the library and all test targets in both Release and ASAN/UBSAN modes | Abort validation, report build failure |
+| **Unit tests** | Run the full unit test suite (or a curated fast subset if the full suite exceeds the time budget) | Report pass/fail counts, continue |
+| **Differential** | Run the differential test suite: feed the same inputs to both libqyaml and the reference libyaml, compare outputs at all API levels (tokens, events, documents). Any divergence is a correctness bug. | Report any divergences immediately — divergences are critical bugs |
+| **ASAN+UBSAN** | Run the full unit test suite under AddressSanitizer and UndefinedBehaviorSanitizer | Report any errors immediately — ASAN failures are critical bugs |
+| **Quick fuzz** | Run all fuzz harnesses with ASAN enabled, dividing remaining time equally among harnesses (minimum 10 seconds per harness) | Report any crashes immediately — fuzz crashes are critical bugs |
+| **Benchmarks** | Run the standard benchmark workloads against the reference library (libyaml). Run at least once; run multiple times for statistical confidence if time permits | Report throughput numbers (MB/s) and speedup ratios |
+
+#### 4.11.2 Time Budget
+
+- **Minimum:** 2 minutes. If all stages complete in less than 2 minutes, extend the quick fuzz stage or add benchmark repetitions to fill the remaining time. Every second of the 2-minute budget should be used productively.
+- **Maximum:** 2 minutes. If the pipeline cannot complete within 2 minutes, trim the unit test subset or reduce fuzz time (but never below 10 seconds per harness) to fit. ASAN and benchmarks are never trimmed.
+
+#### 4.11.3 Validation Report
+
+Each validation produces a report committed to `test-results/`, tagged with the 6-character commit ID (e.g., `validation-a1b2c3.md`). The report must include:
+
+- Commit hash and description
+- Unit test results: pass/fail counts, assertion counts, total time
+- Differential test results: inputs tested, divergences found (with details if any)
+- ASAN+UBSAN results: pass/fail counts, any errors found (with details)
+- Quick fuzz results: harness names, run counts, execution rate, crashes found, time per harness
+- Benchmark results: throughput (MB/s) and speedup ratio vs libyaml for each workload
+- Total validation time
+
+#### 4.11.4 Escalation
+
+- Any ASAN error, fuzz crash, or differential divergence is a **critical bug**. The tester must immediately notify the worker and coordinator with full details (stack trace, reproducer, root cause if known).
+- No new optimization work may begin until all critical bugs from the current commit are fixed.
+- The full test suite (Valgrind, OOM injection, extended fuzzing, coverage analysis) runs separately as background work and does not need to fit in the 2-minute budget.
 
 ## 5. Directory Structure
 
@@ -101,8 +133,7 @@ Create an API-compatible drop-in replacement for libyaml, focused on optimizatio
 
 | Directory | Contents |
 |-----------|----------|
-| `build/` | CMake build output (main tree) |
-| `build-*/` | Variant builds (debug, release, asan, coverage, pgo, etc.) |
+| `build/` | CMake build output (main tree). All variant builds (debug, release, asan, coverage, pgo, etc.) must go under `build/` or `test-output/`, not as separate top-level directories. |
 | `.worktree/` | Git worktree used by the tester for isolated builds |
 
 ### 5.3 Testing Artifacts

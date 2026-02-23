@@ -36,24 +36,17 @@ Read `requirements/REQUIREMENTS.md` to understand the full interface specificati
 - Tag all test results and artifacts with the 6-character commit ID they were tested against (e.g., `benchmark-74f34e.txt`, `coverage-74f34e.txt`). This makes it clear which version produced which results.
 - Re-read `requirements/REQUIREMENTS.md` when testing new features to ensure test coverage matches the spec
 
-## Per-Commit Validation Reports
+## Per-Commit Validation — MANDATORY
 
-Every worker commit must be followed by a validation report that you commit to the repository. This is your primary recurring duty.
+Every worker commit must be followed by a validation pass. **Read the per-commit validation section in `requirements/REQUIREMENTS.md` for the exact validation pipeline, time budget, report format, and escalation rules.** You must follow those requirements precisely.
 
-**The workflow:**
-1. Worker commits code to master
-2. You update the worktree to the new commit
-3. You run the **fast validation pass** (must complete within 30 seconds total — compile + fast test subset + benchmarks)
-4. You commit the validation report to `test-results/`, tagged with the 6-character commit ID
-5. You notify the worker and coordinator of the results
-
-**Fast validation pass contents:**
-- **Fast unit test subset**: A dedicated, curated subset of the full test suite designed to fit within the 30-second time budget. It must provide meaningful overall unit test coverage — pass/fail counts, assertion counts, coverage percentage. This subset needs active curation: as the test suite grows, keep it trimmed to stay under 30 seconds while maximizing coverage.
-- **Benchmark comparison against libyaml**: Run the standard benchmark workloads against the reference library. Run at least once; run multiple times for statistical confidence if time allows within the budget. Report throughput numbers (MB/s) and speedup ratios.
-
-**Important:** The 30-second budget is strict but not less — use the full budget to maximize coverage and benchmark accuracy. Do not cut corners to finish in 5 seconds; use all 30 seconds productively.
-
-The full test suite (sanitizers, fuzzing, OOM injection, stress tests) runs separately outside this budget as part of your ongoing background work.
+Key points (see requirements for full details):
+- The validation takes **exactly 2 minutes** per commit (minimum and maximum)
+- Pipeline: build → unit tests → ASAN+UBSAN → quick fuzz (all harnesses, ASAN-enabled) → benchmarks
+- If you finish early, extend fuzz time or add benchmark repetitions to fill the 2-minute budget
+- Any ASAN error or fuzz crash is a **critical bug** — notify worker and coordinator immediately
+- Commit the validation report to `test-results/` tagged with the 6-character commit ID
+- Notify the worker and coordinator of results
 
 ## You MUST NOT:
 - Leave binary artifacts, logs, core dumps, or other generated files in the project root directory or anywhere outside your designated output directories (`test-output/` for scratch, `test-results/` for permanent records). If a tool generates output in an unexpected location, clean it up immediately.
