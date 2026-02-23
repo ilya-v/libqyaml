@@ -211,7 +211,7 @@ static void test_emitter_wrong_event_sequence(void) {
     yaml_emitter_set_output_string(&emitter, buffer, sizeof(buffer), &written);
 
     yaml_document_start_event_initialize(&event, NULL, NULL, NULL, 1);
-    result = yaml_emitter_emit(&emitter, &event);
+    (void)yaml_emitter_emit(&emitter, &event);
     /* libyaml accepts this with auto STREAM_START, just verify no crash */
     ASSERT(1, "Emitting DOCUMENT_START exercises auto-stream-start path");
 
@@ -400,10 +400,8 @@ static void test_tab_character_errors(void) {
     yaml_parser_initialize(&parser);
     yaml_parser_set_input_string(&parser, (const unsigned char *)input, strlen(input));
 
-    int got_error = 0;
     while (1) {
         if (!yaml_parser_parse(&parser, &event)) {
-            got_error = 1;
             break;
         }
         if (event.type == YAML_STREAM_END_EVENT) {
@@ -753,7 +751,7 @@ static void test_complex_keys(void) {
     char long_input[2048];
     memset(long_input, 'a', 1500);
     strcpy(long_input + 1500, ": value\n");
-    result = scan_string_tokens(long_input, tokens, 32, &count);
+    (void)scan_string_tokens(long_input, tokens, 32, &count);
     /* libyaml treats >1024 char keys as not simple keys, may cause parse issues */
     ASSERT(1, "Long key scan completed without crash");
 }
