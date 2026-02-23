@@ -1102,9 +1102,8 @@ static void test_p_malformed_yaml_directive(void) {
     /* %YAML with bad version */
     yaml_parser_initialize(&parser);
     yaml_parser_set_input_string(&parser, (const yaml_char_t *)"%YAML 2.0\n---\nfoo\n", 19);
-    int got_error = 0;
     while (1) {
-        if (!yaml_parser_parse(&parser, &event)) { got_error = 1; break; }
+        if (!yaml_parser_parse(&parser, &event)) break;
         int done = (event.type == YAML_STREAM_END_EVENT);
         yaml_event_delete(&event);
         if (done) break;

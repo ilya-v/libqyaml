@@ -212,7 +212,6 @@ static void test_parser_parse_oom(const char *name,
     /* Now fail at each allocation point during parsing
      * (skip the init allocs, start failing during parse) */
     int failures_tested = 0;
-    int crashes = 0;
     for (int n = 0; n < allocs_needed; n++) {
         oom_set_fail_after(n);
         if (!yaml_parser_initialize(&parser)) {

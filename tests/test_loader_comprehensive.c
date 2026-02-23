@@ -274,7 +274,7 @@ static void test_l_anchor_alias_scalar(void) {
         int id1 = root->data.sequence.items.start[0];
         int id2 = root->data.sequence.items.start[1];
         yaml_node_t *n1 = yaml_document_get_node(&doc, id1);
-        yaml_node_t *n2 = yaml_document_get_node(&doc, id2);
+        (void)yaml_document_get_node(&doc, id2);
         ASSERT_EQ_STR(n1->data.scalar.value, "hello", "anchor value");
         /* Alias resolves to same node */
         ASSERT_EQ_INT(id1, id2, "alias same node id");

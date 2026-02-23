@@ -6,6 +6,7 @@
  */
 
 /* Helper: parse input and check if stream start succeeds */
+__attribute__((unused))
 static int parse_starts_ok(const unsigned char *input, size_t len) {
     yaml_parser_t parser;
     yaml_event_t event;
@@ -173,8 +174,9 @@ static void test_r_invalid_truncated_3byte(void) {
 static void test_r_invalid_fe(void) {
     /* 0xFE is never valid in UTF-8 */
     const unsigned char input[] = {0xFE};
-    /* May be interpreted as BOM start */
-    ASSERT(1, "0xFE handled");
+    /* May be interpreted as BOM start - just verify no crash */
+    (void)parse_completes(input, 1);
+    ASSERT(1, "0xFE handled without crash");
 }
 
 /* ========== Control characters ========== */

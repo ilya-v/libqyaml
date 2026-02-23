@@ -79,6 +79,7 @@ static int tests_failed = 0;
 } while(0)
 
 /* Helper: parse a YAML string and collect all events */
+__attribute__((unused))
 static int parse_string_events(const char *input, yaml_event_type_t *event_types,
                                 int max_events, int *event_count) {
     yaml_parser_t parser;
@@ -109,6 +110,7 @@ static int parse_string_events(const char *input, yaml_event_type_t *event_types
 }
 
 /* Helper: parse a YAML string and collect all tokens */
+__attribute__((unused))
 static int scan_string_tokens(const char *input, yaml_token_type_t *token_types,
                                int max_tokens, int *token_count) {
     yaml_parser_t parser;

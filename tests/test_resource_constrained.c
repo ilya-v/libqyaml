@@ -36,6 +36,7 @@ static void *limited_malloc(size_t size) {
     return hdr + 1;
 }
 
+__attribute__((unused))
 static void *limited_realloc(void *ptr, size_t size) {
     if (!ptr) return limited_malloc(size);
     alloc_header_t *hdr = ((alloc_header_t *)ptr) - 1;
@@ -49,6 +50,7 @@ static void *limited_realloc(void *ptr, size_t size) {
     return hdr + 1;
 }
 
+__attribute__((unused))
 static void limited_free(void *ptr) {
     if (!ptr) return;
     alloc_header_t *hdr = ((alloc_header_t *)ptr) - 1;

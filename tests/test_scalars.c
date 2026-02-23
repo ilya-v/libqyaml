@@ -474,7 +474,6 @@ static void test_double_quoted_edge_cases(void) {
 }
 
 static void test_scalar_as_seq_item(void) {
-    char buf[256];
     /* Extract first scalar from sequence context */
     yaml_parser_t parser;
     yaml_event_t event;

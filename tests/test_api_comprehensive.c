@@ -883,7 +883,7 @@ static void test_api_parser_error_mark(void) {
         if (done) break;
     }
     if (got_error) {
-        ASSERT(parser.problem_mark.line >= 0, "error mark line set");
+        ASSERT(parser.problem != NULL, "error problem string set");
     }
     yaml_parser_delete(&parser);
     ASSERT(1, "error mark ok");
