@@ -388,7 +388,7 @@ static int
 yaml_parser_load_scalar(yaml_parser_t *parser, yaml_event_t *event,
         struct loader_ctx *ctx)
 {
-    yaml_node_t node;
+    yaml_node_t *node;
     int index;
     yaml_char_t *tag = event->data.scalar.tag;
 
@@ -401,11 +401,18 @@ yaml_parser_load_scalar(yaml_parser_t *parser, yaml_event_t *event,
         tag = (yaml_char_t *)yaml_interned_str_tag;
     }
 
-    SCALAR_NODE_INIT(node, tag, event->data.scalar.value,
-            event->data.scalar.length, event->data.scalar.style,
-            event->start_mark, event->end_mark);
+    if (!STACK_PUSH_RESERVE(parser, parser->document->nodes)) goto error;
 
-    if (!PUSH(parser, parser->document->nodes, node)) goto error;
+    node = parser->document->nodes.top;
+    node->type = YAML_SCALAR_NODE;
+    node->tag = tag;
+    node->data.scalar.value = event->data.scalar.value;
+    node->data.scalar.length = event->data.scalar.length;
+    node->data.scalar.style = event->data.scalar.style;
+    node->start_mark = event->start_mark;
+    node->end_mark = event->end_mark;
+
+    STACK_PUSH_COMMIT(parser->document->nodes);
 
     index = parser->document->nodes.top - parser->document->nodes.start;
 
@@ -432,7 +439,7 @@ static int
 yaml_parser_load_sequence(yaml_parser_t *parser, yaml_event_t *event,
         struct loader_ctx *ctx)
 {
-    yaml_node_t node;
+    yaml_node_t *node;
     struct {
         yaml_node_item_t *start;
         yaml_node_item_t *end;
@@ -452,11 +459,20 @@ yaml_parser_load_sequence(yaml_parser_t *parser, yaml_event_t *event,
 
     if (!STACK_INIT(parser, items, yaml_node_item_t*)) goto error;
 
-    SEQUENCE_NODE_INIT(node, tag, items.start, items.end,
-            event->data.sequence_start.style,
-            event->start_mark, event->end_mark);
+    if (!STACK_PUSH_RESERVE(parser, parser->document->nodes))
+        goto error_after_items;
 
-    if (!PUSH(parser, parser->document->nodes, node)) goto error_after_items;
+    node = parser->document->nodes.top;
+    node->type = YAML_SEQUENCE_NODE;
+    node->tag = tag;
+    node->data.sequence.items.start = items.start;
+    node->data.sequence.items.end = items.end;
+    node->data.sequence.items.top = items.start;
+    node->data.sequence.style = event->data.sequence_start.style;
+    node->start_mark = event->start_mark;
+    node->end_mark = event->end_mark;
+
+    STACK_PUSH_COMMIT(parser->document->nodes);
 
     index = parser->document->nodes.top - parser->document->nodes.start;
 
@@ -507,7 +523,7 @@ static int
 yaml_parser_load_mapping(yaml_parser_t *parser, yaml_event_t *event,
         struct loader_ctx *ctx)
 {
-    yaml_node_t node;
+    yaml_node_t *node;
     struct {
         yaml_node_pair_t *start;
         yaml_node_pair_t *end;
@@ -527,11 +543,20 @@ yaml_parser_load_mapping(yaml_parser_t *parser, yaml_event_t *event,
 
     if (!STACK_INIT(parser, pairs, yaml_node_pair_t*)) goto error;
 
-    MAPPING_NODE_INIT(node, tag, pairs.start, pairs.end,
-            event->data.mapping_start.style,
-            event->start_mark, event->end_mark);
+    if (!STACK_PUSH_RESERVE(parser, parser->document->nodes))
+        goto error_after_pairs;
 
-    if (!PUSH(parser, parser->document->nodes, node)) goto error_after_pairs;
+    node = parser->document->nodes.top;
+    node->type = YAML_MAPPING_NODE;
+    node->tag = tag;
+    node->data.mapping.pairs.start = pairs.start;
+    node->data.mapping.pairs.end = pairs.end;
+    node->data.mapping.pairs.top = pairs.start;
+    node->data.mapping.style = event->data.mapping_start.style;
+    node->start_mark = event->start_mark;
+    node->end_mark = event->end_mark;
+
+    STACK_PUSH_COMMIT(parser->document->nodes);
 
     index = parser->document->nodes.top - parser->document->nodes.start;
 

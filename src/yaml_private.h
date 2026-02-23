@@ -488,6 +488,23 @@ yaml_queue_extend(void **start, void **head, void **tail, void **end);
         ((context)->error = YAML_MEMORY_ERROR,                                  \
          0))
 
+/*
+ * Reserve space at the top of a stack for direct writes, avoiding a
+ * struct copy. Returns 1 on success (stack.top is writable), 0 on OOM.
+ * Must be followed by STACK_PUSH_COMMIT after the slot is populated.
+ */
+
+#define STACK_PUSH_RESERVE(context,stack)                                       \
+    (__builtin_expect((stack).top != (stack).end, 1)                            \
+      || yaml_stack_extend((void **)&(stack).start,                             \
+              (void **)&(stack).top, (void **)&(stack).end) ?                   \
+        1 :                                                                     \
+        ((context)->error = YAML_MEMORY_ERROR,                                  \
+         0))
+
+#define STACK_PUSH_COMMIT(stack)                                                \
+    ((stack).top++)
+
 #define POP(context,stack)                                                      \
     (*(--(stack).top))
 
