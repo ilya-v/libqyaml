@@ -4188,7 +4188,12 @@ yaml_parser_scan_flow_scalar(yaml_parser_t *parser, yaml_token_t *token,
             /* Do we need to fold line breaks? */
 
             if (!leading_break.start || leading_break.start[0] == '\0') {
-                /* Escaped line break: no stored break content, just continue */
+                /* Escaped line break: skip the leading break, but still
+                 * join any trailing breaks that followed it. */
+                if (trailing_breaks.start && trailing_breaks.start[0] != '\0') {
+                    if (!JOIN(parser, string, trailing_breaks)) goto error;
+                    CLEAR(parser, trailing_breaks);
+                }
             }
             else if (leading_break.start[0] == '\n') {
                 if (!trailing_breaks.start || trailing_breaks.start[0] == '\0') {
