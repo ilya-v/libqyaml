@@ -130,11 +130,12 @@ yaml_parser_load(yaml_parser_t *parser, yaml_document_t *document)
 
     /* Estimate initial node count from input size to avoid reallocs.
      * Each node represents roughly 10 bytes of YAML on average.
-     * Clamp to [256, 16384] to avoid excessive allocation for huge inputs
-     * and ensure reasonable minimum for small inputs.
-     * Only for string inputs (file inputs don't know total size upfront). */
+     * Use the default stack size (16) for small inputs to avoid
+     * over-allocating for tiny documents. Scale up for larger inputs,
+     * clamped to 16384. Only for string inputs (file inputs don't
+     * know total size upfront). */
     {
-        size_t init_nodes = 256;
+        size_t init_nodes = INITIAL_STACK_SIZE;
         if (parser->input.string.start && parser->input.string.end
                 && parser->input.string.end > parser->input.string.start) {
             size_t input_size = parser->input.string.end
@@ -142,7 +143,7 @@ yaml_parser_load(yaml_parser_t *parser, yaml_document_t *document)
             size_t estimate = input_size / 10;
             if (estimate > init_nodes) {
                 /* Round up to next power of 2 */
-                init_nodes = 256;
+                init_nodes = INITIAL_STACK_SIZE;
                 while (init_nodes < estimate && init_nodes < 16384)
                     init_nodes *= 2;
             }
