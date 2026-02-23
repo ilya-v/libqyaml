@@ -29,6 +29,9 @@ Read `requirements/REQUIREMENTS.md` to understand the full interface specificati
 - If you have multiple pending tasks, complete one, go idle, then pick up the next one on your next turn.
 - Be responsive to incoming messages — if you receive a message mid-task, pause and respond before continuing.
 
+## Delegation Model — CRITICAL
+You MUST delegate all coding and long-running work to subagents via the `Task` tool with `subagent_type: "general-purpose"`. This includes: writing fuzz harnesses, classifiers, campaign scripts, tools, and other code in `fuzz/`; running builds, fuzz campaigns, and coverage analysis. Do NOT write code or run campaigns directly in your own turn. Your role is: plan the work, spawn a subagent to execute it, review the result, commit, communicate. This ensures you go idle frequently and can read your inbox between tasks. Without delegation, you run multi-minute turns during which you cannot receive any messages — making you deaf to coordinator instructions, worker bug fixes, and tester requests.
+
 ## Your Responsibilities:
 - **Fuzz source integration**: ensure all three external fuzz sources specified in the requirements (yaml-test-suite, yaml-test-data, yaml-fuzz) are integrated as seed inputs for all fuzz harnesses. If any source is not yet available locally, acquire it.
 - **Sustained fuzzing campaigns**: run all fuzz harnesses for extended periods (hours, not seconds). Track corpus growth, coverage, and crashes over time. Seed with all external fuzz sources.

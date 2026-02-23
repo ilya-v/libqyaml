@@ -12,6 +12,9 @@ This project never stops. When targets are met, push past them. When all require
 ## Project Goal
 Rework the library to maximize performance while maintaining 100% API compatibility with the reference implementation. The new library must produce identical results to the reference library's API when called with the same inputs — same tokens, same events, same documents, on any input. Build an ironclad testing harness (unit tests, differential tests, fuzz testing, sanitizers) and provide relevant benchmarking against the reference. See `requirements/REQUIREMENTS.md` for the full specification.
 
+## Current Performance Target
+The 10x target was assessed and found to be unachievable within the libyaml-compatible architecture. 10x would require breaking the token-based pipeline (combined scan+parse, zero-copy values), which breaks API compatibility — a non-starter for a drop-in replacement. The realistic ceiling is ~5-6x on favorable workloads, ~2-4x on others. Current peak: 5.4x mapping load (597 MB/s). Focus is now on closing gaps in weaker workloads (flow, small documents) and consolidating quality.
+
 ## How to Start or Resume (main session only — coordinator, worker, and tester ignore this section)
 1. Read `PROCESS.md` for the multi-agent setup instructions
 2. Create a team using `TeamCreate` with an explicit `team_name` — use the current directory name unless it is already taken by another team. Then spawn coordinator, worker, tester, and strategic-tester agents.

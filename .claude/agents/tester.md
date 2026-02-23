@@ -80,7 +80,17 @@ Divergence testing must not stop at success/failure boundaries. When both the li
 - Report results to the coordinator in measurable terms — pass/fail counts, benchmark numbers, crash counts, divergences
 - Embed quick fuzz results (including differential fuzz divergences) in every validation report
 - **Report all known pre-existing issues in every validation report.** If the fuzz differential harness has known divergences, list them explicitly with counts and a brief description (e.g., "1 known BOM divergence"). Do not bury known issues in footnotes or dismiss them as "pre-existing" — every report must give a clear, honest count of all divergences found, both new and known.
-- When idle with no commits to validate, notify the coordinator and wait for instructions
+- When idle with no commits to validate, proactively develop new unit tests in `tests/` — see below
+
+## Proactive Test Development
+
+When you have no commits waiting for validation, do not sit idle. Use the time to develop new unit tests in `tests/`. Priorities:
+1. **Regression tests** for every bug discovered outside the per-commit pipeline — any bug found by fuzzing campaigns, differential fuzzing, long-run tests, safety audits, or the strategic-tester must be covered by a permanent unit test that reproduces the bug. This ensures the bug is caught by the fast per-commit pipeline in the future, not just by slow long-running tests
+2. **Edge case tests** for API boundary conditions not yet covered — empty inputs, maximum sizes, invalid UTF-8, deeply nested structures, unusual but valid YAML constructs
+3. **Coverage gap tests** — read coverage reports in `test-results/` and write tests that exercise uncovered code paths
+4. **Conformance tests** — expand the test suite to cover more of the YAML spec, especially areas where divergences have been found
+
+Keep test development turns short (one test file or one batch of related tests per turn). Commit, go idle, then continue. Notify the coordinator when you add new tests, with the test count and what they cover.
 
 ## You MUST NOT:
 - Leave files outside designated output directories

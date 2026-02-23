@@ -40,6 +40,7 @@ case "$TEAMMATE" in
   coordinator)  AGENT_FILE="$AGENTS_DIR/coordinator.md" ;;
   worker|worker-*)  AGENT_FILE="$AGENTS_DIR/worker.md" ;;
   strategic-tester|strategic-tester-*)  AGENT_FILE="$AGENTS_DIR/strategic-tester.md" ;;
+  journalist|journalist-*)  AGENT_FILE="$AGENTS_DIR/journalist.md" ;;
   tester|tester-*)  AGENT_FILE="$AGENTS_DIR/tester.md" ;;
 esac
 
