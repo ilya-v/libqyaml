@@ -3786,10 +3786,112 @@ yaml_parser_scan_plain_scalar(yaml_parser_t *parser, yaml_token_t *token)
     int leading_blanks = 0;
     int indent = parser->indent+1;
 
+    start_mark = end_mark = parser->mark;
+
+    /*
+     * Fast path for single-line plain scalars: scan the decoded buffer
+     * directly without allocating an intermediate string buffer.
+     * This avoids STRING_INIT malloc and the incremental copy loop.
+     */
+    if (__builtin_expect(parser->unread >= 2, 1)) {
+        yaml_char_t *src = parser->buffer.pointer;
+        size_t avail = parser->unread - 1; /* reserve 1 for lookahead */
+        size_t n;
+
+#ifdef HAVE_SIMD_SCAN
+        n = !parser->flow_level
+            ? yaml_scan_plain_block_sse2(src, avail)
+            : yaml_scan_plain_flow_sse2(src, avail);
+#else
+        {
+            yaml_char_t *p = src;
+            yaml_char_t *lim = src + avail;
+            if (!parser->flow_level) {
+                while (p < lim) {
+                    unsigned char ch = *p;
+                    if (ch <= 0x20 || ch == '#' || ch == ':' || ch >= 0x80)
+                        break;
+                    p++;
+                }
+            } else {
+                while (p < lim) {
+                    unsigned char ch = *p;
+                    if (ch <= 0x20 || ch == '#' || ch == ':' || ch >= 0x80
+                        || ch == ',' || ch == '[' || ch == ']'
+                        || ch == '{' || ch == '}')
+                        break;
+                    p++;
+                }
+            }
+            n = (size_t)(p - src);
+        }
+#endif
+        /*
+         * Check if the fast path applies:
+         * - We found at least 1 character
+         * - The character after the scalar is a definitive terminator:
+         *   NUL (end of stream), colon+blank, or flow indicator
+         * - Newlines are NOT definitive -- plain scalars can span lines
+         * - Spaces/tabs are NOT terminators -- they are intra-scalar whitespace
+         */
+        if (n > 0) {
+            yaml_char_t next_ch = src[n];
+            int is_end = 0;
+
+            if (next_ch == '\0') {
+                is_end = 1;
+            } else if ((next_ch == '\n' || next_ch == '\r') && !parser->flow_level) {
+                /* Check if the next line has less indentation, ending the scalar.
+                 * Skip past the line break (LF, CR, or CR+LF) and count spaces. */
+                size_t skip = 1;
+                if (next_ch == '\r' && n + skip < parser->unread
+                        && src[n + skip] == '\n')
+                    skip++;
+                size_t next_col = 0;
+                while (n + skip + next_col < parser->unread
+                        && src[n + skip + next_col] == ' ')
+                    next_col++;
+                /* If we can see a non-space char and it's at lower indent, scalar ends */
+                if (n + skip + next_col < parser->unread
+                        && src[n + skip + next_col] != ' '
+                        && (int)next_col < indent) {
+                    is_end = 1;
+                }
+            } else if (next_ch == ':' && n + 1 < parser->unread
+                    && (src[n+1] == ' ' || src[n+1] == '\t' || src[n+1] == '\n'
+                        || src[n+1] == '\r' || src[n+1] == '\0')) {
+                is_end = 1;
+            } else if (parser->flow_level
+                    && (next_ch == ',' || next_ch == '[' || next_ch == ']'
+                        || next_ch == '{' || next_ch == '}')) {
+                is_end = 1;
+            }
+
+            if (is_end) {
+                /* Fast path: single-line scalar, all content in buffer */
+                yaml_char_t *value = (yaml_char_t *)yaml_malloc(n + 1);
+                if (!value) {
+                    parser->error = YAML_MEMORY_ERROR;
+                    return 0;
+                }
+                memcpy(value, src, n);
+                value[n] = '\0';
+
+                parser->buffer.pointer += n;
+                parser->mark.index += n;
+                parser->mark.column += n;
+                parser->unread -= n;
+                end_mark = parser->mark;
+
+                SCALAR_TOKEN_INIT(*token, value, n,
+                        YAML_PLAIN_SCALAR_STYLE, start_mark, end_mark);
+                return 1;
+            }
+        }
+    }
+
     if (!STRING_INIT(parser, string, INITIAL_STRING_SIZE)) goto error;
     /* Auxiliary buffers allocated lazily -- only needed for multiline scalars */
-
-    start_mark = end_mark = parser->mark;
 
     /* Consume the content of the plain scalar. */
 
