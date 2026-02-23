@@ -1446,12 +1446,6 @@ yaml_parser_fetch_next_token(yaml_parser_t *parser)
      * If we don't determine the token type so far, it is an error.
      */
 
-    if (parser->buffer.pointer[0] == '\t') {
-        return yaml_parser_set_scanner_error(parser,
-                "while scanning for the next token", parser->mark,
-                "found a tab character that violates indentation");
-    }
-
     return yaml_parser_set_scanner_error(parser,
             "while scanning for the next token", parser->mark,
             "found character that cannot start any token");
