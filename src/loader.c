@@ -139,6 +139,7 @@ error:
 
     yaml_parser_delete_aliases(parser);
     yaml_document_delete(document);
+    memset(document, 0, sizeof(*document));
     parser->document = NULL;
 
     return 0;
