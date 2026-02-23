@@ -234,32 +234,44 @@ yaml_parser_update_buffer(yaml_parser_t *parser, size_t length)
                      * 0x0D, 0x20-0x7E) directly without full decode.
                      * For UTF-8, ASCII bytes are single-byte and pass
                      * through unchanged.
+                     *
+                     * First scan to find the end of the valid ASCII run,
+                     * then memcpy the whole run at once.
                      */
                     if ((octet & 0x80) == 0x00) {
                         unsigned char *rp = parser->raw_buffer.pointer;
                         unsigned char *rl = parser->raw_buffer.last;
-                        yaml_char_t *bp = parser->buffer.last;
+                        unsigned char *run_start = rp;
+                        /* Limit scan to available decoded buffer space. */
+                        size_t buf_avail = (size_t)(parser->buffer.end
+                                            - parser->buffer.last);
+                        if ((size_t)(rl - rp) > buf_avail) {
+                            rl = rp + buf_avail;
+                        }
 
                         while (rp < rl) {
                             unsigned char c = *rp;
-                            if (c >= 0x80) break;
                             if (c >= 0x20) {
-                                if (c > 0x7E) break;
-                                /* Printable ASCII 0x20-0x7E */
-                            } else if (c != 0x09 && c != 0x0A && c != 0x0D) {
-                                /* Control character not allowed */
-                                break;
+                                if (c <= 0x7E) {
+                                    rp++;
+                                    continue;
+                                }
+                                break; /* c == 0x7F or c >= 0x80 */
                             }
-                            *bp++ = c;
-                            rp++;
+                            if (c == 0x0A || c == 0x0D || c == 0x09) {
+                                rp++;
+                                continue;
+                            }
+                            break; /* invalid control character */
                         }
 
-                        if (rp > parser->raw_buffer.pointer) {
-                            size_t n = (size_t)(rp - parser->raw_buffer.pointer);
+                        if (rp > run_start) {
+                            size_t n = (size_t)(rp - run_start);
+                            memcpy(parser->buffer.last, run_start, n);
+                            parser->buffer.last += n;
                             parser->offset += n;
                             parser->unread += n;
                             parser->raw_buffer.pointer = rp;
-                            parser->buffer.last = bp;
                             continue;
                         }
 

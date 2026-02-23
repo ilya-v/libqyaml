@@ -822,6 +822,7 @@ yaml_parser_fetch_more_tokens(yaml_parser_t *parser)
         else
         {
             yaml_simple_key_t *simple_key;
+            size_t tokens_parsed = parser->tokens_parsed;
 
             /* Check if any potential simple key may occupy the head position. */
 
@@ -831,7 +832,7 @@ yaml_parser_fetch_more_tokens(yaml_parser_t *parser)
             for (simple_key = parser->simple_keys.start;
                     simple_key != parser->simple_keys.top; simple_key++) {
                 if (simple_key->possible
-                        && simple_key->token_number == parser->tokens_parsed) {
+                        && simple_key->token_number == tokens_parsed) {
                     need_more_tokens = 1;
                     break;
                 }
@@ -894,151 +895,109 @@ yaml_parser_fetch_next_token(yaml_parser_t *parser)
     if (!CACHE(parser, 4))
         return 0;
 
-    /* Is it the end of the stream? */
-
-    if (IS_Z(parser->buffer))
-        return yaml_parser_fetch_stream_end(parser);
-
-    /* Is it a directive? */
-
-    if (parser->mark.column == 0 && CHECK(parser->buffer, '%'))
-        return yaml_parser_fetch_directive(parser);
-
-    /* Is it the document start indicator? */
-
-    if (parser->mark.column == 0
-            && CHECK_AT(parser->buffer, '-', 0)
-            && CHECK_AT(parser->buffer, '-', 1)
-            && CHECK_AT(parser->buffer, '-', 2)
-            && IS_BLANKZ_AT(parser->buffer, 3))
-        return yaml_parser_fetch_document_indicator(parser,
-                YAML_DOCUMENT_START_TOKEN);
-
-    /* Is it the document end indicator? */
-
-    if (parser->mark.column == 0
-            && CHECK_AT(parser->buffer, '.', 0)
-            && CHECK_AT(parser->buffer, '.', 1)
-            && CHECK_AT(parser->buffer, '.', 2)
-            && IS_BLANKZ_AT(parser->buffer, 3))
-        return yaml_parser_fetch_document_indicator(parser,
-                YAML_DOCUMENT_END_TOKEN);
-
-    /* Is it the flow sequence start indicator? */
-
-    if (CHECK(parser->buffer, '['))
-        return yaml_parser_fetch_flow_collection_start(parser,
-                YAML_FLOW_SEQUENCE_START_TOKEN);
-
-    /* Is it the flow mapping start indicator? */
-
-    if (CHECK(parser->buffer, '{'))
-        return yaml_parser_fetch_flow_collection_start(parser,
-                YAML_FLOW_MAPPING_START_TOKEN);
-
-    /* Is it the flow sequence end indicator? */
-
-    if (CHECK(parser->buffer, ']'))
-        return yaml_parser_fetch_flow_collection_end(parser,
-                YAML_FLOW_SEQUENCE_END_TOKEN);
-
-    /* Is it the flow mapping end indicator? */
-
-    if (CHECK(parser->buffer, '}'))
-        return yaml_parser_fetch_flow_collection_end(parser,
-                YAML_FLOW_MAPPING_END_TOKEN);
-
-    /* Is it the flow entry indicator? */
-
-    if (CHECK(parser->buffer, ','))
-        return yaml_parser_fetch_flow_entry(parser);
-
-    /* Is it the block entry indicator? */
-
-    if (CHECK(parser->buffer, '-') && IS_BLANKZ_AT(parser->buffer, 1))
-        return yaml_parser_fetch_block_entry(parser);
-
-    /* Is it the key indicator? */
-
-    if (CHECK(parser->buffer, '?')
-            && (parser->flow_level || IS_BLANKZ_AT(parser->buffer, 1)))
-        return yaml_parser_fetch_key(parser);
-
-    /* Is it the value indicator? */
-
-    if (CHECK(parser->buffer, ':')
-            && (parser->flow_level || IS_BLANKZ_AT(parser->buffer, 1)))
-        return yaml_parser_fetch_value(parser);
-
-    /* Is it an alias? */
-
-    if (CHECK(parser->buffer, '*'))
-        return yaml_parser_fetch_anchor(parser, YAML_ALIAS_TOKEN);
-
-    /* Is it an anchor? */
-
-    if (CHECK(parser->buffer, '&'))
-        return yaml_parser_fetch_anchor(parser, YAML_ANCHOR_TOKEN);
-
-    /* Is it a tag? */
-
-    if (CHECK(parser->buffer, '!'))
-        return yaml_parser_fetch_tag(parser);
-
-    /* Is it a literal scalar? */
-
-    if (CHECK(parser->buffer, '|') && !parser->flow_level)
-        return yaml_parser_fetch_block_scalar(parser, 1);
-
-    /* Is it a folded scalar? */
-
-    if (CHECK(parser->buffer, '>') && !parser->flow_level)
-        return yaml_parser_fetch_block_scalar(parser, 0);
-
-    /* Is it a single-quoted scalar? */
-
-    if (CHECK(parser->buffer, '\''))
-        return yaml_parser_fetch_flow_scalar(parser, 1);
-
-    /* Is it a double-quoted scalar? */
-
-    if (CHECK(parser->buffer, '"'))
-        return yaml_parser_fetch_flow_scalar(parser, 0);
-
     /*
-     * Is it a plain scalar?
-     *
-     * A plain scalar may start with any non-blank characters except
-     *
-     *      '-', '?', ':', ',', '[', ']', '{', '}',
-     *      '#', '&', '*', '!', '|', '>', '\'', '\"',
-     *      '%', '@', '`'.
-     *
-     * In the block context (and, for the '-' indicator, in the flow context
-     * too), it may also start with the characters
-     *
-     *      '-', '?', ':'
-     *
-     * if it is followed by a non-space character.
-     *
-     * The last rule is more restrictive than the specification requires.
+     * Dispatch the next token based on the current character.
+     * Using a switch statement enables the compiler to generate a jump table
+     * for O(1) dispatch instead of sequential if-else comparisons.
      */
 
-    if (!(IS_BLANKZ(parser->buffer) || CHECK(parser->buffer, '-')
-                || CHECK(parser->buffer, '?') || CHECK(parser->buffer, ':')
-                || CHECK(parser->buffer, ',') || CHECK(parser->buffer, '[')
-                || CHECK(parser->buffer, ']') || CHECK(parser->buffer, '{')
-                || CHECK(parser->buffer, '}') || CHECK(parser->buffer, '#')
-                || CHECK(parser->buffer, '&') || CHECK(parser->buffer, '*')
-                || CHECK(parser->buffer, '!') || CHECK(parser->buffer, '|')
-                || CHECK(parser->buffer, '>') || CHECK(parser->buffer, '\'')
-                || CHECK(parser->buffer, '"') || CHECK(parser->buffer, '%')
-                || CHECK(parser->buffer, '@') || CHECK(parser->buffer, '`')) ||
-            (CHECK(parser->buffer, '-') && !IS_BLANK_AT(parser->buffer, 1)) ||
-            (!parser->flow_level &&
-             (CHECK(parser->buffer, '?') || CHECK(parser->buffer, ':'))
-             && !IS_BLANKZ_AT(parser->buffer, 1)))
-        return yaml_parser_fetch_plain_scalar(parser);
+    switch (parser->buffer.pointer[0])
+    {
+        case '\0':
+            return yaml_parser_fetch_stream_end(parser);
+
+        case '%':
+            if (parser->mark.column == 0)
+                return yaml_parser_fetch_directive(parser);
+            return yaml_parser_fetch_plain_scalar(parser);
+
+        case '-':
+            if (parser->mark.column == 0
+                    && CHECK_AT(parser->buffer, '-', 1)
+                    && CHECK_AT(parser->buffer, '-', 2)
+                    && IS_BLANKZ_AT(parser->buffer, 3))
+                return yaml_parser_fetch_document_indicator(parser,
+                        YAML_DOCUMENT_START_TOKEN);
+            if (IS_BLANKZ_AT(parser->buffer, 1))
+                return yaml_parser_fetch_block_entry(parser);
+            return yaml_parser_fetch_plain_scalar(parser);
+
+        case '.':
+            if (parser->mark.column == 0
+                    && CHECK_AT(parser->buffer, '.', 1)
+                    && CHECK_AT(parser->buffer, '.', 2)
+                    && IS_BLANKZ_AT(parser->buffer, 3))
+                return yaml_parser_fetch_document_indicator(parser,
+                        YAML_DOCUMENT_END_TOKEN);
+            return yaml_parser_fetch_plain_scalar(parser);
+
+        case '[':
+            return yaml_parser_fetch_flow_collection_start(parser,
+                    YAML_FLOW_SEQUENCE_START_TOKEN);
+
+        case '{':
+            return yaml_parser_fetch_flow_collection_start(parser,
+                    YAML_FLOW_MAPPING_START_TOKEN);
+
+        case ']':
+            return yaml_parser_fetch_flow_collection_end(parser,
+                    YAML_FLOW_SEQUENCE_END_TOKEN);
+
+        case '}':
+            return yaml_parser_fetch_flow_collection_end(parser,
+                    YAML_FLOW_MAPPING_END_TOKEN);
+
+        case ',':
+            return yaml_parser_fetch_flow_entry(parser);
+
+        case '?':
+            if (parser->flow_level || IS_BLANKZ_AT(parser->buffer, 1))
+                return yaml_parser_fetch_key(parser);
+            return yaml_parser_fetch_plain_scalar(parser);
+
+        case ':':
+            if (parser->flow_level || IS_BLANKZ_AT(parser->buffer, 1))
+                return yaml_parser_fetch_value(parser);
+            return yaml_parser_fetch_plain_scalar(parser);
+
+        case '*':
+            return yaml_parser_fetch_anchor(parser, YAML_ALIAS_TOKEN);
+
+        case '&':
+            return yaml_parser_fetch_anchor(parser, YAML_ANCHOR_TOKEN);
+
+        case '!':
+            return yaml_parser_fetch_tag(parser);
+
+        case '|':
+            if (!parser->flow_level)
+                return yaml_parser_fetch_block_scalar(parser, 1);
+            break;
+
+        case '>':
+            if (!parser->flow_level)
+                return yaml_parser_fetch_block_scalar(parser, 0);
+            break;
+
+        case '\'':
+            return yaml_parser_fetch_flow_scalar(parser, 1);
+
+        case '"':
+            return yaml_parser_fetch_flow_scalar(parser, 0);
+
+        /* Characters that cannot start any token or plain scalar. */
+        case '#': case '@': case '`':
+            break;
+
+        /* Line break characters never reach here (consumed by scan_to_next_token). */
+        case '\r': case '\n':
+        case '\t': case ' ':
+            break;
+
+        default:
+            /* Any other character starts a plain scalar. */
+            return yaml_parser_fetch_plain_scalar(parser);
+    }
 
     /*
      * If we don't determine the token type so far, it is an error.
@@ -1058,6 +1017,8 @@ static int
 yaml_parser_stale_simple_keys(yaml_parser_t *parser)
 {
     yaml_simple_key_t *simple_key;
+    size_t mark_line = parser->mark.line;
+    size_t mark_index = parser->mark.index;
 
     /* Check for a potential simple key for each flow level. */
 
@@ -1072,8 +1033,8 @@ yaml_parser_stale_simple_keys(yaml_parser_t *parser)
          */
 
         if (simple_key->possible
-                && (simple_key->mark.line < parser->mark.line
-                    || simple_key->mark.index+1024 < parser->mark.index)) {
+                && (simple_key->mark.line < mark_line
+                    || simple_key->mark.index+1024 < mark_index)) {
 
             /* Check if the potential simple key to be removed is required. */
 
@@ -1936,16 +1897,24 @@ yaml_parser_scan_to_next_token(yaml_parser_t *parser)
         }
 
         /*
-         * Eat whitespaces: batch-skip consecutive spaces in the buffer,
-         * then fall back to single-char for cross-buffer or tab handling.
+         * Eat whitespaces: batch-skip all leading spaces and tabs
+         * (where tabs are allowed). Repeat after buffer refills to
+         * handle whitespace runs that span multiple buffer loads.
          */
 
-        if (*parser->buffer.pointer == ' ') {
-            yaml_char_t *ptr = parser->buffer.pointer + 1;
-            yaml_char_t *limit = parser->buffer.pointer + parser->unread;
-            while (ptr < limit && *ptr == ' ') {
-                ptr++;
+        while (1) {
+            yaml_char_t *ptr = parser->buffer.pointer;
+            yaml_char_t *limit = ptr + parser->unread;
+            if (allow_tabs) {
+                while (ptr < limit && (*ptr == ' ' || *ptr == '\t')) {
+                    ptr++;
+                }
+            } else {
+                while (ptr < limit && *ptr == ' ') {
+                    ptr++;
+                }
             }
+            if (ptr == parser->buffer.pointer) break;
             size_t count = (size_t)(ptr - parser->buffer.pointer);
             parser->buffer.pointer = ptr;
             parser->mark.index += count;
@@ -1953,13 +1922,9 @@ yaml_parser_scan_to_next_token(yaml_parser_t *parser)
             parser->unread -= count;
             if (parser->unread == 0) {
                 if (!CACHE(parser, 1)) return 0;
+                continue; /* Buffer refilled, check for more whitespace */
             }
-        }
-
-        while (CHECK(parser->buffer,' ') ||
-                (allow_tabs && CHECK(parser->buffer, '\t'))) {
-            SKIP(parser);
-            if (!CACHE(parser, 1)) return 0;
+            break; /* Stopped within buffer, not all whitespace */
         }
 
         /* Eat a comment until a line break. */
@@ -3635,7 +3600,7 @@ yaml_parser_scan_plain_scalar(yaml_parser_t *parser, yaml_token_t *token)
              * a plain scalar. Only attempt when enough data is buffered
              * to amortize the setup cost.
              */
-            if (parser->unread >= 4) {
+            {
                 yaml_char_t *src = parser->buffer.pointer;
                 yaml_char_t *src_limit = src + parser->unread - 1;
                 yaml_char_t *src_start = src;
@@ -3680,7 +3645,7 @@ yaml_parser_scan_plain_scalar(yaml_parser_t *parser, yaml_token_t *token)
                 }
             }
 
-            /* Copy a single character. */
+            /* Copy a single character (non-ASCII or special). */
 
             if (!READ(parser, string)) goto error;
 

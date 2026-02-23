@@ -2,6 +2,39 @@
 #include "yaml_private.h"
 
 /*
+ * Pre-computed default tag sizes (including NUL terminator).
+ */
+
+#define DEFAULT_SCALAR_TAG_LEN      (sizeof(YAML_DEFAULT_SCALAR_TAG))
+#define DEFAULT_SEQUENCE_TAG_LEN    (sizeof(YAML_DEFAULT_SEQUENCE_TAG))
+#define DEFAULT_MAPPING_TAG_LEN     (sizeof(YAML_DEFAULT_MAPPING_TAG))
+
+/*
+ * Fast default tag duplication: use fixed-size memcpy instead of strdup+strlen.
+ */
+
+static yaml_char_t *
+yaml_dup_default_scalar_tag(void) {
+    yaml_char_t *tag = (yaml_char_t *)yaml_malloc(DEFAULT_SCALAR_TAG_LEN);
+    if (tag) memcpy(tag, YAML_DEFAULT_SCALAR_TAG, DEFAULT_SCALAR_TAG_LEN);
+    return tag;
+}
+
+static yaml_char_t *
+yaml_dup_default_sequence_tag(void) {
+    yaml_char_t *tag = (yaml_char_t *)yaml_malloc(DEFAULT_SEQUENCE_TAG_LEN);
+    if (tag) memcpy(tag, YAML_DEFAULT_SEQUENCE_TAG, DEFAULT_SEQUENCE_TAG_LEN);
+    return tag;
+}
+
+static yaml_char_t *
+yaml_dup_default_mapping_tag(void) {
+    yaml_char_t *tag = (yaml_char_t *)yaml_malloc(DEFAULT_MAPPING_TAG_LEN);
+    if (tag) memcpy(tag, YAML_DEFAULT_MAPPING_TAG, DEFAULT_MAPPING_TAG_LEN);
+    return tag;
+}
+
+/*
  * API functions.
  */
 
@@ -386,7 +419,7 @@ yaml_parser_load_scalar(yaml_parser_t *parser, yaml_event_t *event,
 
     if (!tag || strcmp((char *)tag, "!") == 0) {
         yaml_free(tag);
-        tag = yaml_strdup((yaml_char_t *)YAML_DEFAULT_SCALAR_TAG);
+        tag = yaml_dup_default_scalar_tag();
         if (!tag) goto error;
     }
 
@@ -431,7 +464,7 @@ yaml_parser_load_sequence(yaml_parser_t *parser, yaml_event_t *event,
 
     if (!tag || strcmp((char *)tag, "!") == 0) {
         yaml_free(tag);
-        tag = yaml_strdup((yaml_char_t *)YAML_DEFAULT_SEQUENCE_TAG);
+        tag = yaml_dup_default_sequence_tag();
         if (!tag) goto error;
     }
 
@@ -502,7 +535,7 @@ yaml_parser_load_mapping(yaml_parser_t *parser, yaml_event_t *event,
 
     if (!tag || strcmp((char *)tag, "!") == 0) {
         yaml_free(tag);
-        tag = yaml_strdup((yaml_char_t *)YAML_DEFAULT_MAPPING_TAG);
+        tag = yaml_dup_default_mapping_tag();
         if (!tag) goto error;
     }
 
