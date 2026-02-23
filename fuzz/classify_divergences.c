@@ -58,11 +58,12 @@ static int has_nondir_percent(const unsigned char *d, size_t s) {
 
 /* Divergence types */
 enum div_type { DIV_NONE=0, DIV_PERMISSIVE=1, DIV_RESTRICTIVE=2, DIV_TOKEN_TYPE=3,
-                DIV_SCALAR_VALUE=4, DIV_ANCHOR_VALUE=5, DIV_TAG_VALUE=6 };
+                DIV_SCALAR_VALUE=4, DIV_ANCHOR_VALUE=5, DIV_TAG_VALUE=6,
+                DIV_ERROR_DIVERGENCE=7 };
 
 static const char *div_names[] = {
     "NONE", "PERMISSIVE", "RESTRICTIVE", "TOKEN_TYPE",
-    "SCALAR_VALUE", "ANCHOR_VALUE", "TAG_VALUE"
+    "SCALAR_VALUE", "ANCHOR_VALUE", "TAG_VALUE", "ERROR_DIVERGENCE"
 };
 
 static enum div_type check_scan(const unsigned char *data, size_t size,
@@ -97,7 +98,25 @@ static enum div_type check_scan(const unsigned char *data, size_t size,
             ref_delete(&ref);
             return dt;
         }
-        if (!ook) break;
+        if (!ook) {
+            /* Both failed — compare error codes and descriptions */
+            const char *op = our.problem ? our.problem : "";
+            const char *rp = ref.problem ? ref.problem : "";
+            if (our.error != ref.error || strcmp(op, rp) != 0) {
+                snprintf(our_err, our_err_sz, "err=%d '%s' at %lu:%lu",
+                         our.error, op,
+                         (unsigned long)our.problem_mark.line,
+                         (unsigned long)our.problem_mark.column);
+                snprintf(ref_err, ref_err_sz, "err=%d '%s' at %lu:%lu",
+                         ref.error, rp,
+                         (unsigned long)ref.problem_mark.line,
+                         (unsigned long)ref.problem_mark.column);
+                yaml_parser_delete(&our);
+                ref_delete(&ref);
+                return DIV_ERROR_DIVERGENCE;
+            }
+            break;
+        }
 
         if (ot.type != rt.type) {
             snprintf(our_err, our_err_sz, "tok_type=%d", ot.type);
@@ -173,9 +192,11 @@ int main(int argc, char **argv) {
 
     int total_files = 0, total_divergent = 0;
     int scan_perm = 0, scan_rest = 0, scan_type = 0, scan_scalar = 0;
+    int scan_err_div = 0;
     int perm_bom = 0, perm_pct = 0, perm_other = 0;
     int rest_bom = 0, rest_pct = 0, rest_other = 0;
     int type_bom = 0, type_pct = 0, type_other = 0;
+    int errdiv_bom = 0, errdiv_pct = 0, errdiv_other = 0;
 
     while ((e = readdir(d)) != NULL) {
         if (e->d_name[0] == '.') continue;
@@ -225,6 +246,12 @@ int main(int argc, char **argv) {
             case DIV_SCALAR_VALUE:
                 scan_scalar++;
                 break;
+            case DIV_ERROR_DIVERGENCE:
+                scan_err_div++;
+                if (bom) errdiv_bom++;
+                else if (pct) errdiv_pct++;
+                else errdiv_other++;
+                break;
             default:
                 break;
             }
@@ -250,7 +277,6 @@ int main(int argc, char **argv) {
 
     /* Summary */
     printf("=== Divergence Classification Report ===\n");
-    printf("Commit: e3cc40f5\n");
     printf("Total files scanned: %d\n", total_files);
     printf("Total divergent:     %d\n\n", total_divergent);
 
@@ -271,6 +297,11 @@ int main(int argc, char **argv) {
     printf("  Other:          %d\n\n", type_other);
 
     printf("SCALAR_VALUE (different scalar content): %d\n\n", scan_scalar);
+
+    printf("ERROR_DIVERGENCE (both fail, different error info): %d\n", scan_err_div);
+    printf("  BOM-related:    %d\n", errdiv_bom);
+    printf("  %%-related:      %d\n", errdiv_pct);
+    printf("  Other:          %d\n\n", errdiv_other);
 
     /* Detailed "Other" divergences (not BOM, not %) */
     printf("=== DETAILED: Non-BOM, Non-%% Divergences ===\n\n");

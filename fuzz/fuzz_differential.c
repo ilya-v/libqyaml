@@ -3,6 +3,8 @@
  *
  * For each fuzzed input, feeds it to both libraries and compares outputs
  * at all three API levels (scanner tokens, parser events, loaded documents).
+ * Detects both output divergences (different results) and error divergences
+ * (both fail but with different error codes or descriptions).
  * Any divergence triggers an abort, which the fuzzer records as a crash.
  *
  * Build:
@@ -101,7 +103,20 @@ static int diff_scan(const unsigned char *data, size_t size) {
             ref_delete(&ref);
             return 1;
         }
-        if (!our_ok) break;
+        if (!our_ok) {
+            /* Both failed — compare error codes and descriptions */
+            const char *our_prob = our.problem ? our.problem : "";
+            const char *ref_prob = ref.problem ? ref.problem : "";
+            if (our.error != ref.error || strcmp(our_prob, ref_prob) != 0) {
+                fprintf(stderr, "DIFF: scan error divergence "
+                        "(ours=%d:'%s', ref=%d:'%s')\n",
+                        our.error, our_prob, ref.error, ref_prob);
+                yaml_parser_delete(&our);
+                ref_delete(&ref);
+                return 2; /* error divergence */
+            }
+            break;
+        }
 
         if (our_tok.type != ref_tok.type) {
             fprintf(stderr, "DIFF: token type divergence (ours=%d, ref=%d)\n",
@@ -200,7 +215,20 @@ static int diff_parse(const unsigned char *data, size_t size) {
             ref_delete(&ref);
             return 1;
         }
-        if (!our_ok) break;
+        if (!our_ok) {
+            /* Both failed — compare error codes and descriptions */
+            const char *our_prob = our.problem ? our.problem : "";
+            const char *ref_prob = ref.problem ? ref.problem : "";
+            if (our.error != ref.error || strcmp(our_prob, ref_prob) != 0) {
+                fprintf(stderr, "DIFF: parse error divergence "
+                        "(ours=%d:'%s', ref=%d:'%s')\n",
+                        our.error, our_prob, ref.error, ref_prob);
+                yaml_parser_delete(&our);
+                ref_delete(&ref);
+                return 2; /* error divergence */
+            }
+            break;
+        }
 
         if (our_evt.type != ref_evt.type) {
             fprintf(stderr, "DIFF: event type divergence (ours=%d, ref=%d)\n",
@@ -308,7 +336,8 @@ static int diff_node(int id, yaml_document_t *our_doc,
 }
 
 /*
- * Compare loaded documents. Returns 0 on match, 1 on divergence.
+ * Compare loaded documents. Returns 0 on match, 1 on divergence,
+ * 2 on error divergence (both fail with different error info).
  */
 static int diff_load(const unsigned char *data, size_t size) {
     yaml_parser_t our, ref;
@@ -333,7 +362,20 @@ static int diff_load(const unsigned char *data, size_t size) {
             ref_delete(&ref);
             return 1;
         }
-        if (!our_ok) break;
+        if (!our_ok) {
+            /* Both failed — compare error codes and descriptions */
+            const char *our_prob = our.problem ? our.problem : "";
+            const char *ref_prob = ref.problem ? ref.problem : "";
+            if (our.error != ref.error || strcmp(our_prob, ref_prob) != 0) {
+                fprintf(stderr, "DIFF: load error divergence "
+                        "(ours=%d:'%s', ref=%d:'%s')\n",
+                        our.error, our_prob, ref.error, ref_prob);
+                yaml_parser_delete(&our);
+                ref_delete(&ref);
+                return 2; /* error divergence */
+            }
+            break;
+        }
 
         yaml_node_t *or = yaml_document_get_root_node(&our_doc);
         yaml_node_t *rr = ref_get_root(&ref_doc);
@@ -379,15 +421,31 @@ int LLVMFuzzerTestOneInput(const unsigned char *data, size_t size)
     if (size > 65536)
         return 0;
 
-    if (diff_scan(data, size)) {
+    int rc;
+
+    rc = diff_scan(data, size);
+    if (rc == 2) {
+        fprintf(stderr, "ERROR_DIVERGENCE at scanner level, input size=%zu\n", size);
+        abort();
+    } else if (rc) {
         fprintf(stderr, "DIVERGENCE at scanner level, input size=%zu\n", size);
         abort();
     }
-    if (diff_parse(data, size)) {
+
+    rc = diff_parse(data, size);
+    if (rc == 2) {
+        fprintf(stderr, "ERROR_DIVERGENCE at parser level, input size=%zu\n", size);
+        abort();
+    } else if (rc) {
         fprintf(stderr, "DIVERGENCE at parser level, input size=%zu\n", size);
         abort();
     }
-    if (diff_load(data, size)) {
+
+    rc = diff_load(data, size);
+    if (rc == 2) {
+        fprintf(stderr, "ERROR_DIVERGENCE at loader level, input size=%zu\n", size);
+        abort();
+    } else if (rc) {
         fprintf(stderr, "DIVERGENCE at loader level, input size=%zu\n", size);
         abort();
     }

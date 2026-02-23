@@ -254,9 +254,10 @@ DIFF_CRASHES_DIR="$CAMPAIGN_DIR/crashes-fuzz_differential"
 DIFF_CRASH_COUNT=${H_CRASHES[fuzz_differential]:-0}
 CLASSIFY_OUTPUT=""
 TOTAL_DIVERGENT=0
-PERM_COUNT=0 REST_COUNT=0 TOKTYPE_COUNT=0 SCALAR_COUNT=0
+PERM_COUNT=0 REST_COUNT=0 TOKTYPE_COUNT=0 SCALAR_COUNT=0 ERRDIV_COUNT=0
 PERM_BOM=0 PERM_PCT=0 PERM_OTHER=0
 REST_BOM=0 REST_PCT=0 REST_OTHER=0
+ERRDIV_BOM=0 ERRDIV_PCT=0 ERRDIV_OTHER=0
 
 if [ "$DIFF_CRASH_COUNT" -gt 0 ] && [ -f "$BUILD_DIR/../../../.worktree/strategic-tester/build-noasan/classify" ] 2>/dev/null; then
     # Try to use the existing classifier
@@ -293,6 +294,7 @@ if [ "$DIFF_CRASH_COUNT" -gt 0 ] && [ -n "${CLASSIFY_BIN:-}" ] && [ -x "${CLASSI
     REST_COUNT=$(echo "$CLASSIFY_OUTPUT" | grep -A3 'RESTRICTIVE' | head -1 | grep -oP '\d+' | head -1 || echo "0")
     TOKTYPE_COUNT=$(echo "$CLASSIFY_OUTPUT" | grep -A3 'TOKEN_TYPE' | head -1 | grep -oP '\d+' | head -1 || echo "0")
     SCALAR_COUNT=$(echo "$CLASSIFY_OUTPUT" | grep -oP 'SCALAR_VALUE.*?: \K\d+' || echo "0")
+    ERRDIV_COUNT=$(echo "$CLASSIFY_OUTPUT" | grep -oP 'ERROR_DIVERGENCE.*?: \K\d+' || echo "0")
 fi
 
 # -------------------------------------------------------------------
@@ -329,7 +331,8 @@ cat > "$REPORT_FILE" << REPORT_EOF
 | Harnesses run | ${HARNESS_COUNT} |
 | Total inputs tested | $TOTAL_EXECS |
 | Total crash artifacts | $TOTAL_CRASHES |
-| Differential divergences | $TOTAL_DIVERGENT |
+| Differential divergences (output) | $TOTAL_DIVERGENT |
+| Differential divergences (error) | $ERRDIV_COUNT |
 | Campaign duration | ${CAMPAIGN_DURATION}s |
 | Build time | ${BUILD_TIME}s |
 
@@ -363,8 +366,11 @@ Total unique divergent inputs: $TOTAL_DIVERGENT
 | RESTRICTIVE | $REST_COUNT | libqyaml rejects, reference accepts |
 | TOKEN_TYPE | $TOKTYPE_COUNT | Both scan successfully but produce different token types |
 | SCALAR_VALUE | $SCALAR_COUNT | Both scan successfully but produce different scalar content |
+| ERROR_DIVERGENCE | $ERRDIV_COUNT | Both fail but with different error codes or descriptions |
 
-**Overlap note:** Each input is classified into exactly one category based on the first divergence detected at the scanner level. There is no double-counting — total = PERMISSIVE + RESTRICTIVE + TOKEN_TYPE + SCALAR_VALUE.
+**Overlap note:** Each input is classified into exactly one category based on the first divergence detected at the scanner level. There is no double-counting — total = PERMISSIVE + RESTRICTIVE + TOKEN_TYPE + SCALAR_VALUE + ERROR_DIVERGENCE.
+
+**Error divergence detail:** When both libraries reject an input, but they report different error codes or error messages, this is an error divergence — distinct from cosmetic differences (same error code and message, different position).
 
 REPORT_EOF
 
