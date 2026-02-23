@@ -1,9 +1,13 @@
 # Differential Fuzzing Verification — cfe98d4a
 
-**Date:** 2026-02-23T16:21Z
+**Date:** 2026-02-23T16:21Z (updated 2026-02-23T16:45Z with multi-level analysis)
 **Commit:** cfe98d4a (includes flow_level guard fix 99ca2cbf)
 **Purpose:** Verify worker claim of zero divergences after recent fixes
-**Result:** **8 TRUE DIVERGENCES REMAIN**
+**Result:** **3 TRUE DIVERGENCES at loader level; 5 both-fail cosmetic; 6 match**
+
+## CORRECTION NOTICE
+
+The original version of this report used a scanner-only classifier that over-reported divergences as "PERMISSIVE" or "RESTRICTIVE" based on token-count differences. A follow-up multi-level analysis (scan + parse + load) revealed that most scanner-level divergences are cosmetic (both libraries ultimately reject the input). The true divergences are at the **loader level** where our loader swallows parse errors.
 
 ## Campaign Parameters
 
@@ -17,51 +21,54 @@
 | Seed sources | yaml-test-suite, yaml-test-data, yaml-fuzz (706 seeds) |
 | Max input length | 8192 bytes |
 
-## Divergences Found
+## Multi-Level Analysis (14 crash files)
 
-| Category | Count |
-|----------|-------|
-| PERMISSIVE (libqyaml accepts, reference rejects) | 4 |
-| RESTRICTIVE (libqyaml rejects, reference accepts) | 4 |
-| TOKEN_TYPE | 0 |
-| SCALAR_VALUE | 0 |
-| ERROR_DIVERGENCE | 0 |
-| **Total** | **8** |
+| Verdict | Count | Description |
+|---------|-------|-------------|
+| TRUE DIVERGENCE | 3 | Our loader returns SUCCESS, reference returns ERROR |
+| BOTH-FAIL | 5 | Both libraries reject at all levels (cosmetic token-count differences) |
+| MATCH | 6 | Identical behavior or only internal cosmetic differences |
 
-## Detailed Divergences
+## 3 True Divergences (all at loader level)
 
-### PERMISSIVE #1: Tab in indentation (16 bytes)
-- **Input:** `foo: 1\n\t\nbar: 2\n`
-- **Token #6:** OUR produces SCALAR "1", REF rejects with SCANNER_ERROR "found a tab character that violates indentation" at 1:0
-- **Root cause:** libqyaml does not reject tab characters in indentation context
+All 3 share the same pattern: both libraries fail at the parser level with **identical** errors, but our loader returns SUCCESS (2 docs) while the reference loader correctly propagates the parse error.
 
-### PERMISSIVE #2: Tab in nested mapping (20 bytes)
-- **Input:** `foo:\n  a: 1\n  \tb: 2\n`
-- **Token #10:** OUR produces BLOCK_MAP_START, REF rejects with SCANNER_ERROR "found a tab character that violates indentation" at 2:2
-- **Root cause:** Same tab handling bug
+### Divergence #1 (30 bytes)
+- **Input:** `key: [ word1\n#  xxx\n  word2 ]\n`
+- **Scan:** BOTH SUCCESS (11 tokens each)
+- **Parse:** BOTH ERROR "did not find expected ',' or ']'" @2:2
+- **Load:** **OUR=SUCCESS (2 docs)** vs **REF=ERROR**
 
-### PERMISSIVE #3: Flow collection boundary (35 bytes)
-- **Input:** `- [ a, b ]\n- C a: b }\na"\n- 'b'\n- c\n`
-- **Token #15:** OUR produces BLOCK_END at 2:0, REF rejects with SCANNER_ERROR "could not find expected ':'" at 3:0
-- **Root cause:** After parsing mapping value `b }`, libqyaml doesn't enforce colon expectation on the next line `a"` which starts an implicit key
+### Divergence #2 (18 bytes) — simplest reproducer
+- **Input:** `---\n[ , a, b, c ]\n`
+- **Scan:** BOTH SUCCESS (11 tokens each)
+- **Parse:** BOTH ERROR "did not find expected node content" @1:2
+- **Load:** **OUR=SUCCESS (2 docs)** vs **REF=ERROR**
 
-### PERMISSIVE #4: Mapping indentation depth (30 bytes)
-- **Input:** `a:\n  b:\n   +#c: d\n  e>\n  h: i\n`
-- **Token #15:** OUR produces BLOCK_END at 3:2, REF rejects with SCANNER_ERROR "could not find expected ':'" at 4:2
-- **Root cause:** After nested mapping `+#c: d`, `e>` at reduced indentation triggers colon expectation in libyaml but not libqyaml
+### Divergence #3 (37 bytes)
+- **Input:** `{ &a [a, &b bb*: ], *a : [ ,c*b, d]}\n`
+- **Scan:** BOTH SUCCESS (23 tokens each)
+- **Parse:** BOTH ERROR "did not find expected node content" @0:27
+- **Load:** **OUR=SUCCESS (2 docs)** vs **REF=ERROR**
 
-### RESTRICTIVE #5-8: Colon expectation too strict (19-31 bytes)
-- **Inputs:** Various multi-line block structures followed by content at column 0
-- **Pattern:** `foo:\n  bar\ninvalid\n` — libqyaml rejects "could not find expected ':'" at 3:0, libyaml accepts
-- **Root cause:** libqyaml incorrectly requires a colon after what it treats as an implicit key, but the content at column 0 should end the block context, not trigger a colon expectation
+**Root cause hypothesis:** The loader catches the parse error during document loading but treats it as end-of-stream (returning an empty document) rather than propagating the error. The "2 docs" count means it loaded one document successfully before the error, then returned an empty document signaling stream end — instead of returning 0 (failure).
 
-## Bug Class Summary
+## 5 Both-Fail Cases (cosmetic, not true divergences)
 
-| Bug Class | Type | Count | Severity |
-|-----------|------|-------|----------|
-| Tab-in-indentation | PERMISSIVE | 2 | Medium (spec violation) |
-| Colon expectation too lenient | PERMISSIVE | 2 | Medium (accepts invalid YAML) |
-| Colon expectation too strict | RESTRICTIVE | 4 | High (rejects valid YAML) |
+These inputs are rejected by BOTH libraries at all API levels. The differences are:
+- Different token counts before the error (one library emits 1-2 more tokens)
+- Different error messages in 2 cases ("found character that cannot start any token" vs "found a tab character that violates indentation")
+- Same final outcome: ERROR at scan, parse, and load levels
+
+| Input | Our scan error | Ref scan error |
+|-------|---------------|----------------|
+| `foo: 1\n\t\nbar: 2\n` | "cannot start any token" @1:0 | "tab violates indentation" @1:0 |
+| `foo:\n  a: 1\n  \tb: 2\n` | "cannot start any token" @2:2 | "tab violates indentation" @2:2 |
+| `- [ a, b ]\n- C a: b }\na"...` | "could not find expected ':'" @3:0 | same @3:0 |
+| `a:\n  b:\n   +#c: d\n  e>...` | "could not find expected ':'" @4:2 | same @4:2 |
+| `foo:\n  bar\ninvalid\n` | "could not find expected ':'" @3:0 | same @3:0 |
+
+Note: The 2 tab cases have different error **messages** (error divergence) but the same error **outcome** (both reject). These are low-severity cosmetic differences, not user-visible behavior changes.
 
 ## Memory Safety
 
@@ -69,4 +76,4 @@ No ASAN errors in 154 executions. Single-library harnesses (fuzz_scan, fuzz_pars
 
 ## Conclusion
 
-The flow_level guard fix (99ca2cbf) did not eliminate all divergences. 8 true divergences remain, all related to tab handling and colon expectation logic. The RESTRICTIVE cases (rejecting valid YAML) are higher priority as they break compatibility with valid inputs that libyaml accepts. No data corruption (SCALAR_VALUE) or memory safety issues found.
+The true divergence count is **3**, not 8 as originally reported. All 3 are loader-level bugs where our loader swallows parse errors and returns success. The remaining 5 scanner-level differences are cosmetic (both libraries reject). The loader error-swallowing bug is the sole remaining correctness issue blocking the zero-divergence milestone.
