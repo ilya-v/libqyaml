@@ -946,11 +946,15 @@ yaml_parser_scan(yaml_parser_t *parser, yaml_token_t *token)
     /* Fetch the next token from the queue. */
 
     *token = DEQUEUE(parser, parser->tokens);
-    parser->token_available = 0;
     parser->tokens_parsed ++;
 
-    if (token->type == YAML_STREAM_END_TOKEN) {
+    if (__builtin_expect(token->type == YAML_STREAM_END_TOKEN, 0)) {
         parser->stream_end_produced = 1;
+        parser->token_available = 0;
+    } else {
+        parser->token_available =
+            (parser->tokens.head != parser->tokens.tail
+                && parser->possible_simple_key_count == 0);
     }
 
     return 1;
