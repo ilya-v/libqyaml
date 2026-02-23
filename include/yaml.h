@@ -1238,9 +1238,6 @@ typedef struct yaml_parser_s {
         yaml_simple_key_t *top;
     } simple_keys;
 
-    /** Number of simple keys with possible==1 (for fast path in fetch_more_tokens). */
-    int possible_simple_key_count;
-
     /**
      * @}
      */
@@ -1308,6 +1305,9 @@ typedef struct yaml_parser_s {
     /**
      * @}
      */
+
+    /** Number of simple keys with possible==1 (for fast path in fetch_more_tokens). */
+    int possible_simple_key_count;
 
 } yaml_parser_t;
 
