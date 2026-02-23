@@ -1,0 +1,19 @@
+Coverage Report: ea9b995
+========================
+
+Overall: 89.4% line, 100.0% function, 56.9% branch
+
+Per-file breakdown:
+  api.c      - 85.6% line (660 lines), 100% function (53), 60.6% branch (510)
+  dumper.c   - 93.2% line (148 lines), 100% function (11), 67.4% branch (89)
+  emitter.c  - 87.0% line (1094 lines), 100% function (47), 56.4% branch (2141)
+  loader.c   - 85.4% line (240 lines), 100% function (17), 68.1% branch (213)
+  parser.c   - 91.5% line (601 lines), 100% function (24), 73.1% branch (610)
+  reader.c   - 93.0% line (257 lines), 100% function (5), 88.2% branch (211)
+  scanner.c  - 92.0% line (1317 lines), 100% function (45), 50.0% branch (3082)
+  writer.c   - 85.2% line (54 lines), 100% function (2), 72.2% branch (36)
+
+Notes:
+- OOM test excluded from coverage run (gcov + --wrap malloc conflict causes segfault)
+- 32/33 tests ran under coverage (all except OOM)
+- Branch coverage is lower due to extensive error-handling branches in scanner/emitter

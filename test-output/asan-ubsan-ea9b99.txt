@@ -1,0 +1,15 @@
+ASAN+UBSAN Report: ea9b995
+===========================
+
+Compiler: clang with -fsanitize=address,undefined -fno-omit-frame-pointer
+Build type: Debug
+
+Results: 33/33 tests PASS (0 ASAN errors, 0 UBSAN errors)
+
+Note: conformance-test-reader run with ASAN_OPTIONS=detect_leaks=0 because
+libyaml's own test code has intentional non-cleanup (336 allocations, 3.5 MB).
+This is in libyaml's test harness code, not in our library.
+
+All library code is clean under ASAN and UBSAN.
+
+Total test time: 1.36 seconds
