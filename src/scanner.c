@@ -993,7 +993,7 @@ yaml_parser_fetch_more_tokens(yaml_parser_t *parser)
 
         need_more_tokens = 0;
 
-        if (parser->tokens.head == parser->tokens.tail)
+        if (__builtin_expect(parser->tokens.head == parser->tokens.tail, 1))
         {
             /* Queue is empty. */
 
@@ -1010,9 +1010,9 @@ yaml_parser_fetch_more_tokens(yaml_parser_t *parser)
 
             for (simple_key = parser->simple_keys.start;
                     simple_key != parser->simple_keys.top; simple_key++) {
-                if (!simple_key->possible) continue;
-                if (simple_key->mark.line < mark_line
-                        || simple_key->mark.index+1024 < mark_index) {
+                if (__builtin_expect(!simple_key->possible, 0)) continue;
+                if (__builtin_expect(simple_key->mark.line < mark_line
+                        || simple_key->mark.index+1024 < mark_index, 0)) {
                     if (simple_key->required) {
                         return yaml_parser_set_scanner_error(parser,
                                 "while scanning a simple key", simple_key->mark,
@@ -1030,7 +1030,7 @@ yaml_parser_fetch_more_tokens(yaml_parser_t *parser)
 
         /* We are finished. */
 
-        if (!need_more_tokens)
+        if (__builtin_expect(!need_more_tokens, 1))
             break;
 
         /* Fetch the next token. */
