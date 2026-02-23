@@ -4,7 +4,7 @@
 
 A setup for running three Claude Code agents with different roles and behavioral rules, where:
 
-- Each agent's rules are periodically injected into its inbox as messages from `process-administrator`
+- Each agent's rules are periodically injected into its inbox as messages from `team-lead` (for priority delivery)
 - Rules are re-injected every 10 minutes to survive context compaction
 - Each agent only sees its own rules, not the others'
 - All injection activity is logged to `logs/idle-inject.log`
@@ -17,7 +17,7 @@ Four Claude Code agents run in this setup:
 |---|---|---|
 | Main session | Thin launcher. Creates the team, spawns the other three agents, then stays idle. | User starts Claude Code in the project directory. |
 | Coordinator | Non-technical project owner. Manages priorities, pushes for quality, never makes technical decisions. | Spawned by main session with `subagent_type: "coordinator"`. |
-| Worker | Technical expert. Makes all implementation decisions, reports honestly to coordinator. Never runs tests. | Spawned by main session with `subagent_type: "worker"`. |
+| Worker | Technical lead. Makes all implementation decisions, delegates all coding to subagents, handles commits and communication. Never runs tests, never writes code directly. | Spawned by main session with `subagent_type: "worker"`. |
 | Tester | Testing expert. Owns all tests, fuzz harnesses, and benchmarks. Takes technical direction from worker, reports results to coordinator. | Spawned by main session with `subagent_type: "tester"`. |
 
 ## Files
@@ -52,7 +52,7 @@ Four Claude Code agents run in this setup:
 
 **`process/tester-rules.md`** — The tester's behavioral constraints.
 
-**`CLAUDE.md`** — Shared project instructions that all agents see. Includes the directive to treat `process-administrator` messages with highest priority.
+**`CLAUDE.md`** — Shared project instructions that all agents see. Includes the rule-injection directive and project-level instructions.
 
 **`.claude/agents/coordinator.md`** — Coordinator agent definition. **Self-contained:** includes the full contents of `process/coordinator-rules.md` embedded directly, so the agent has its rules from the moment it spawns (no inbox delivery needed).
 
@@ -91,7 +91,7 @@ The `TeammateIdle` hook fires on the main agent whenever a teammate (coordinator
 3. Checks the rate limit — skips if last injection was less than 10 minutes ago
 4. Reads the rules file from disk (always fresh, never cached)
 5. Acquires a `mkdir`-based lock on the agent's inbox file (compatible with `proper-lockfile`)
-6. Appends a message with `from: "process-administrator"` to the agent's inbox JSON
+6. Appends a message with `from: "team-lead"` to the agent's inbox JSON (team-lead messages are prioritized over peer messages in the agent's poll loop)
 7. Releases the lock
 
 The agent reads the message at the start of its next turn, processes the rules, and marks it as read.
@@ -120,6 +120,14 @@ Claude Code uses the `proper-lockfile` npm package for inbox file access. The pr
 4. `rm -rf` the lock directory
 
 The injection script follows this same protocol.
+
+### Worker delegation model
+
+The worker does not write code directly. It reads and analyzes the codebase, plans changes in detail, then spawns subagents (via the `Task` tool with `subagent_type: "general-purpose"`) to do the actual coding. After the subagent completes, the worker reviews the result, commits the work, and notifies the tester.
+
+This delegation model solves the worker responsiveness problem: spawning a subagent causes the worker to go idle, which triggers inbox polling. Without delegation, the worker runs long uninterrupted coding turns (30+ minutes) during which it cannot read any messages — missing coordinator instructions, tester results, and process reminders.
+
+The worker's role is: read code, plan, delegate, review, commit, communicate. The subagents' role is: write code, run builds.
 
 ### Git workflow
 
@@ -152,6 +160,6 @@ The worker and tester share the `master` branch but work in separate trees to av
 
 1. Copy `.claude/settings.json`, `process/inject-rules-idle.sh`, and the `process/*-rules.md` files
 2. Edit the rules files for your project's needs
-3. Add the `process-administrator` directive to your `CLAUDE.md`
+3. Add the rule-injection directive to your `CLAUDE.md`
 4. Add agent definitions under `.claude/agents/` if needed
 5. Ensure `jq` is installed and the script is executable

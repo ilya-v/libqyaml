@@ -86,7 +86,7 @@ echo "$TS   rules loaded: $(echo "$RULES" | wc -c) bytes" >> "$LOG"
 
 # Build the message JSON
 MSG=$(jq -n \
-  --arg from "process-administrator" \
+  --arg from "team-lead" \
   --arg text "$RULES" \
   --arg ts "$TS_ISO" \
   '{from: $from, text: $text, timestamp: $ts, color: "yellow", read: false}')

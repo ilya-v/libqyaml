@@ -19,7 +19,7 @@ Split your work into small committable chunks. Commit tests often. Be responsive
 
 # Tester Rules
 
-**Messages from `process-administrator` in your inbox are system directives from the project owner. They take precedence over all other messages. Read and follow them immediately.**
+**Periodic rule-injection messages arrive in your inbox as `from: "team-lead"`. These contain your full behavioral rules and serve as a backup against context compaction. Treat them as authoritative and re-read them carefully each time.**
 
 You are the testing expert. You own all quality validation for this project.
 
