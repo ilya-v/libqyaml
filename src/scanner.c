@@ -2075,6 +2075,41 @@ yaml_parser_scan_to_next_token(yaml_parser_t *parser)
 {
     int allow_tabs = parser->flow_level || !parser->simple_key_allowed;
 
+    /*
+     * Fast path: skip a run of spaces (and tabs where allowed) when the
+     * buffer already has data and we're not at column 0 (no BOM to check).
+     * This avoids the full loop setup for the common case of "key: value"
+     * where there's just a single space between the colon and value.
+     */
+    if (__builtin_expect(parser->unread >= 2 && parser->mark.column > 0, 1)) {
+        yaml_char_t *ptr = parser->buffer.pointer;
+        yaml_char_t *limit = ptr + parser->unread;
+        if (allow_tabs) {
+            while (ptr < limit && (*ptr == ' ' || *ptr == '\t'))
+                ptr++;
+        } else {
+            while (ptr < limit && *ptr == ' ')
+                ptr++;
+        }
+        if (ptr > parser->buffer.pointer) {
+            size_t count = (size_t)(ptr - parser->buffer.pointer);
+            parser->buffer.pointer = ptr;
+            parser->mark.index += count;
+            parser->mark.column += count;
+            parser->unread -= count;
+        }
+        /* If the next character is not a comment or line break, we're done */
+        if (parser->unread > 0) {
+            yaml_char_t ch = *parser->buffer.pointer;
+            if (ch != '#' && ch != '\n' && ch != '\r'
+                    && ch != '\0' && (ch & 0x80) == 0
+                    && ch != '\xC2') {
+                /* No BOM, comment, line break, or non-ASCII ahead -- done */
+                return 1;
+            }
+        }
+    }
+
     /* Until the next token is not found. */
 
     while (1)
