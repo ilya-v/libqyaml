@@ -675,6 +675,21 @@ static void test_diff_complex_keys(void) {
     DIFF_TEST("complex_keys", "? key\n: value\n");
 }
 
+/*
+ * Empty complex key regression tests.
+ * Bug found by differential fuzzing (5928c9f2): our loader rejects
+ * empty complex keys (? with no following content) while libyaml accepts them.
+ * These use individual DIFF_TEST calls so we can see which specific
+ * patterns pass/fail.
+ */
+static void test_diff_empty_complex_keys(void) {
+    DIFF_TEST("empty_complex_key_bare", "?\n");
+    DIFF_TEST("empty_complex_key_with_value", "?\n: value\n");
+    DIFF_TEST("empty_complex_key_empty_value", "?\n:\n");
+    DIFF_TEST("empty_complex_key_multiple", "?\n?\n");
+    DIFF_TEST("empty_complex_key_mixed", "?\n: v1\n? key2\n: v2\n");
+}
+
 static void test_diff_version_directive(void) {
     DIFF_TEST("version", "%YAML 1.1\n---\nhello\n");
 }
@@ -1115,6 +1130,7 @@ int main(void) {
     test_diff_unicode();
     test_diff_multiline_plain();
     test_diff_complex_keys();
+    test_diff_empty_complex_keys();
     test_diff_version_directive();
     test_diff_tag_directive();
     test_diff_comments();
