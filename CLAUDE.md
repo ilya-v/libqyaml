@@ -4,7 +4,7 @@
 Periodic rule-injection messages are delivered to agent inboxes via the `TeammateIdle` hook. These arrive as `from: "team-lead"` so they are prioritized over peer messages. They contain the agent's full behavioral rules and serve as a backup against context compaction. Treat them as authoritative.
 
 ## Project Structure
-This project is run by a **coordinator agent**, a **worker agent**, and a **tester agent**, spawned as subagents from a main session. See `PROCESS.md` for the full multi-agent setup, hooks, and how to start a session. Agent definitions in `.claude/agents/` are the single source of truth for all agent behavioral rules. The rule injection hook (`inject-rules-idle.sh`) reads from these files (stripping YAML frontmatter) and injects the rules into agent inboxes as a backup against context compaction. Injected rules arrive as `from: "team-lead"` for priority delivery.
+This project is run by a **coordinator**, **worker**, **tester**, **strategic-tester**, and **journalist** agent, spawned as subagents from a main session. See `PROCESS.md` for the full multi-agent setup, hooks, and how to start a session. Agent definitions in `.claude/agents/` are the single source of truth for all agent behavioral rules. The rule injection hook (`inject-rules-idle.sh`) reads from these files (stripping YAML frontmatter) and injects the rules into agent inboxes as a backup against context compaction. Injected rules arrive as `from: "team-lead"` for priority delivery.
 
 ## Continuous Improvement
 This project never stops. When targets are met, push past them. When all requirements are satisfied, find new ways to improve — faster throughput, broader coverage, fewer edge cases, cleaner code. There is no "done."
@@ -12,11 +12,8 @@ This project never stops. When targets are met, push past them. When all require
 ## Project Goal
 Rework the library to maximize performance while maintaining 100% API compatibility with the reference implementation. The new library must produce identical results to the reference library's API when called with the same inputs — same tokens, same events, same documents, on any input. Build an ironclad testing harness (unit tests, differential tests, fuzz testing, sanitizers) and provide relevant benchmarking against the reference. See `requirements/REQUIREMENTS.md` for the full specification.
 
-## Current Performance Target
-The 10x target was assessed and found to be unachievable within the libyaml-compatible architecture. 10x would require breaking the token-based pipeline (combined scan+parse, zero-copy values), which breaks API compatibility — a non-starter for a drop-in replacement. The realistic ceiling is ~5-6x on favorable workloads, ~2-4x on others. Current peak: 5.4x mapping load (597 MB/s). Focus is now on closing gaps in weaker workloads (flow, small documents) and consolidating quality.
-
 ## How to Start or Resume (main session only — coordinator, worker, and tester ignore this section)
 1. Read `PROCESS.md` for the multi-agent setup instructions
-2. Create a team using `TeamCreate` with an explicit `team_name` — use the current directory name unless it is already taken by another team. Then spawn coordinator, worker, tester, and strategic-tester agents.
+2. Create a team using `TeamCreate` with an explicit `team_name` — use the current directory name unless it is already taken by another team. Then spawn coordinator, worker, tester, strategic-tester, and journalist agents.
 3. Immediately after spawning, send each agent its rules from its agent definition file (`.claude/agents/{name}.md`). This creates their inbox files and ensures the injection hook has targets. Rules are already loaded as the agent's system prompt at spawn, so the inbox send is redundant but necessary for inbox file creation.
 4. Review git log and message logs for prior progress

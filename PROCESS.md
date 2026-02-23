@@ -12,15 +12,16 @@ A setup for running multiple Claude Code agents with different roles and behavio
 
 ## Agents
 
-Four Claude Code agents run in this setup:
+Six Claude Code agents run in this setup:
 
 | Agent | Role | How it starts |
 |---|---|---|
 | Main session | Thin launcher. Creates the team, spawns the other agents, then stays idle. | User starts Claude Code in the project directory. |
 | Coordinator | Non-technical project owner. Manages priorities, pushes for quality, never makes technical decisions. | Spawned by main session with `subagent_type: "coordinator"`. |
 | Worker | Technical lead. Makes all implementation decisions, delegates all coding to subagents, handles commits and communication. Never runs tests, never writes code directly. | Spawned by main session with `subagent_type: "worker"`. |
-| Tester | Per-commit validation specialist. Runs the mandatory validation pipeline on every worker commit. | Spawned by main session with `subagent_type: "tester"`. |
-| Strategic Tester | Deep testing expert. Sustained fuzzing, differential fuzzing, coverage analysis, safety audits. | Spawned by main session with `subagent_type: "tester"` using the `strategic-tester` agent definition. |
+| Tester | Per-commit validation specialist. Runs the mandatory 2-minute validation pipeline on every worker commit. Develops new unit tests when idle. | Spawned by main session with `subagent_type: "tester"`. |
+| Strategic Tester | Deep testing expert. Sustained fuzzing, differential fuzzing, coverage analysis, safety audits. Delegates all coding and long-running work to subagents. | Spawned by main session with `subagent_type: "tester"` using the `strategic-tester` agent definition. |
+| Journalist | Project observer. Produces a continuously updated feed of commits, test results, benchmarks, coverage, agent activity, and notable events every 15 minutes. Read-only — never modifies source code. | Spawned by main session with `subagent_type: "journalist"`. |
 
 ## Files
 
@@ -54,7 +55,9 @@ Four Claude Code agents run in this setup:
 
 **`.claude/agents/tester.md`** — Tester (per-commit validator) agent definition. Contains all behavioral rules.
 
-**`.claude/agents/strategic-tester.md`** — Strategic tester agent definition. Contains all behavioral rules.
+**`.claude/agents/strategic-tester.md`** — Strategic tester agent definition. Contains all behavioral rules including delegation model.
+
+**`.claude/agents/journalist.md`** — Journalist agent definition. Contains all behavioral rules for the project feed.
 
 **`CLAUDE.md`** — Shared project instructions that all agents see. Includes the rule-injection directive and project-level instructions.
 
@@ -70,7 +73,9 @@ Four Claude Code agents run in this setup:
 
 **`test-output/`** — Testing artifacts produced by the testers: crash dumps, stack traces, coverage reports, sanitizer logs, benchmark results.
 
-**`.worktree/`** — Git worktrees used by the testers for isolated builds and runs. Each tester uses a subdirectory (`.worktree/tester/`, `.worktree/strategic-tester/`).
+**`logs/project-feed.md`** — The journalist's continuously updated project feed: commits, test results, benchmarks, coverage, agent activity, news.
+
+**`.worktree/`** — Git worktrees used by the testers and journalist for isolated builds and runs. Each agent uses a subdirectory (`.worktree/tester/`, `.worktree/strategic-tester/`, `.worktree/journalist/`).
 
 ## How It Works
 
@@ -127,6 +132,14 @@ This delegation model solves the worker responsiveness problem: spawning a subag
 
 The worker's role is: read code, plan, delegate, review, commit, communicate. The subagents' role is: write code, run builds.
 
+### Strategic-tester delegation model
+
+Like the worker, the strategic-tester delegates all coding and long-running work to subagents (via `Task` tool with `subagent_type: "general-purpose"`). This includes writing fuzz harnesses, classifiers, campaign scripts, and tools, as well as running builds, fuzz campaigns, and coverage analysis. The strategic-tester's role is: analyze quality gaps, plan testing strategy, delegate execution, review results, commit reports, communicate findings. Delegation solves the same responsiveness problem as the worker — long uninterrupted turns prevent inbox reading.
+
+### Tester turn management and proactive development
+
+The per-commit tester stops and goes idle after each validation report to stay responsive to new worker commits. When no commits are waiting, it proactively develops new unit tests — regression tests for bugs found by fuzzing/long-runs, edge case tests, coverage gap tests, and conformance tests.
+
 ### Git workflow
 
 The worker and testers share the `master` branch but work in separate trees to avoid conflicts:
@@ -146,7 +159,7 @@ The worker and testers share the `master` branch but work in separate trees to a
 ## How to Start a Session
 
 1. Start Claude Code in the project directory
-2. Tell the main session: "Read PROCESS.md, create a team, spawn a coordinator, a worker, a tester, and a strategic-tester"
+2. Tell the main session: "Read PROCESS.md, create a team, spawn a coordinator, a worker, a tester, a strategic-tester, and a journalist"
 3. The main session spawns all agents via `Task` tool with appropriate `subagent_type` values
 4. Agents start with their full rules already loaded (embedded in `.claude/agents/*.md`)
 5. The main session sends each agent its rules via `SendMessage` — this creates the inbox files (needed for the injection hook) and provides a redundant copy
