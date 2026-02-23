@@ -51,6 +51,21 @@ if(CMAKE_SYSTEM_NAME STREQUAL "Linux")
         target_link_options(test-oom PRIVATE --coverage)
     endif()
     add_test(NAME oom COMMAND test-oom)
+
+    # Allocation-tracking allocator test (Requirement 4.6)
+    # Records every alloc/free and verifies at teardown that every allocation
+    # was freed exactly once -- catches leaks and double-frees precisely
+    add_executable(test-alloc-tracker test_alloc_tracker.c)
+    target_link_libraries(test-alloc-tracker qyaml)
+    target_compile_definitions(test-alloc-tracker PRIVATE YAML_DECLARE_STATIC)
+    target_compile_options(test-alloc-tracker PRIVATE -O0)
+    target_link_options(test-alloc-tracker PRIVATE
+        -Wl,--wrap=malloc -Wl,--wrap=realloc -Wl,--wrap=calloc
+        -Wl,--wrap=free -Wl,--wrap=strdup)
+    if(QYAML_COVERAGE)
+        target_link_options(test-alloc-tracker PRIVATE --coverage)
+    endif()
+    add_test(NAME alloc-tracker COMMAND test-alloc-tracker)
 endif()
 
 # True differential test: compare against system libyaml via dlopen
