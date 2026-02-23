@@ -91,7 +91,7 @@ The validation pipeline runs the following stages in order. All stages are manda
 | **Unit tests** | Run the full unit test suite (or a curated fast subset if the full suite exceeds the time budget) | Report pass/fail counts, continue |
 | **Differential** | Run the differential test suite: feed the same inputs to both libqyaml and the reference libyaml, compare outputs at all API levels (tokens, events, documents). Any divergence is a correctness bug. | Report any divergences immediately — divergences are critical bugs |
 | **ASAN+UBSAN** | Run the full unit test suite under AddressSanitizer and UndefinedBehaviorSanitizer | Report any errors immediately — ASAN failures are critical bugs |
-| **Quick fuzz** | Run all fuzz harnesses with ASAN enabled, dividing remaining time equally among harnesses (minimum 10 seconds per harness) | Report any crashes immediately — fuzz crashes are critical bugs |
+| **Quick fuzz** | Run the per-commit fuzz script (a single executable script with no arguments, located in `fuzz/`). The script runs a curated subset of fuzz harnesses (including differential fuzzing) with ASAN enabled. A test list file in `fuzz/` controls which harnesses are included. The script and test list are maintained separately from the validation pipeline and must be kept up to date as harnesses evolve. The script may use up to 3 cores and must fit within the time allocated by the validation pipeline. | Report any crashes or divergences immediately — fuzz crashes and differential divergences are critical bugs |
 | **Benchmarks** | Run the standard benchmark workloads against the reference library (libyaml). Run at least once; run multiple times for statistical confidence if time permits | Report throughput numbers (MB/s) and speedup ratios |
 
 #### 4.11.2 Time Budget
@@ -107,7 +107,7 @@ Each validation produces a report committed to `test-results/`, tagged with the 
 - Unit test results: pass/fail counts, assertion counts, total time
 - Differential test results: inputs tested, divergences found (with details if any)
 - ASAN+UBSAN results: pass/fail counts, any errors found (with details)
-- Quick fuzz results: harness names, run counts, execution rate, crashes found, time per harness
+- Quick fuzz results: harness names, run counts, execution rate, crashes found, divergences found, time per harness
 - Benchmark results: throughput (MB/s) and speedup ratio vs libyaml for each workload
 - Total validation time
 

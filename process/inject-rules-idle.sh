@@ -38,6 +38,7 @@ RULES_FILE=""
 case "$TEAMMATE" in
   coordinator)  RULES_FILE="$SCRIPT_DIR/coordinator-rules.md" ;;
   worker|worker-*)  RULES_FILE="$SCRIPT_DIR/worker-rules.md" ;;
+  strategic-tester|strategic-tester-*)  RULES_FILE="$SCRIPT_DIR/strategic-tester-rules.md" ;;
   tester|tester-*)  RULES_FILE="$SCRIPT_DIR/tester-rules.md" ;;
 esac
 
