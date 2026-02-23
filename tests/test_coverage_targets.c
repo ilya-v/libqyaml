@@ -9,22 +9,20 @@
 
 /* ========== Scanner dispatch coverage ========== */
 
-/* Line 1104: % not at column 0 -> plain scalar */
+/* Line 1104: % at value position -> scanner error (% is directive indicator) */
 static void test_percent_not_at_column_zero(void) {
     const char *input = "key: %value\n";
     yaml_parser_t parser;
     yaml_token_t token;
-    int found_scalar = 0;
+    int got_error = 0;
 
     yaml_parser_initialize(&parser);
     yaml_parser_set_input_string(&parser, (const unsigned char *)input, strlen(input));
 
     while (1) {
-        yaml_parser_scan(&parser, &token);
-        if (token.type == YAML_SCALAR_TOKEN) {
-            if (strcmp((const char *)token.data.scalar.value, "%value") == 0) {
-                found_scalar = 1;
-            }
+        if (!yaml_parser_scan(&parser, &token)) {
+            got_error = 1;
+            break;
         }
         if (token.type == YAML_STREAM_END_TOKEN) {
             yaml_token_delete(&token);
@@ -34,7 +32,7 @@ static void test_percent_not_at_column_zero(void) {
     }
     yaml_parser_delete(&parser);
 
-    ASSERT(found_scalar, "% not at column 0 should be treated as plain scalar");
+    ASSERT(got_error, "% as value should cause scanner error (directive indicator)");
 }
 
 /* Lines 1167, 1172: | and > inside flow context -> error or plain scalar */
